@@ -38,6 +38,7 @@ docs: package
 	rm -rf documentation/_build docs
 	python3 setup.py build_sphinx -a
 	mv documentation/_build/html docs
+	touch docs/.jekyll
 
 package: VERSION
 	pip install -r requirements.dev
