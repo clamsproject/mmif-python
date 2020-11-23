@@ -1,4 +1,4 @@
-import os
+from urllib import request
 
 from mmif import __specver__
 from string import Template
@@ -12,13 +12,12 @@ def substitute(example_dict: dict) -> dict:
     return dict((k, Template(v).substitute(specver=__specver__)) for k, v in example_dict.items())
 
 
-raw_path = os.path.join('..', 'specifications', 'samples', 'everything', 'raw.json')
-
-if os.getcwd().rsplit(os.path.sep)[-1] == 'tests':
-    raw_path = os.path.join('..', raw_path)
-
-with open(raw_path) as raw_json:
-    JSON_STR = raw_json.read().replace('0.2.0', '${specver}')
+everything_file_url = f"https://raw.githubusercontent.com/clamsproject/mmif/{__specver__}/specifications/samples/everything/raw.json"
+res = request.urlopen(everything_file_url)
+# TODO (krim @ 11/23/20): instead of hard-code version string in the example file in the `mmif` repository,
+# we can use a symbol for substitution that can be replaced with actual spec version
+# by a "builder" there
+JSON_STR = res.read().decode('utf-8').replace('0.2.0', '${specver}')
 
 example_templates = dict(
     mmif_example1=JSON_STR
