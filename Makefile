@@ -70,9 +70,9 @@ increase_dev = $(call macro,$(1)).$(call micro,$(1)).$(call patch,$(1)).dev$$(($
 devversion: VERSION.dev VERSION; cat VERSION
 version: VERSION; cat VERSION
 
-	# pyver = latest `py-` tag
+	# pyver = latest tag
 	# devver = max(latest-on-morbius-pypi, pyver + 0.0.1) (this comparison is IMPORTANT)
-	# specver = latest `spec-` tag
+	# specver = latest spec tag
 	# if devver == specver (in terms of major & minor): 
 	# 	if devver == *dev*:
 	# 		return devver + 0.0.0.dev1
@@ -80,16 +80,17 @@ version: VERSION; cat VERSION
 	# 		return concat(devver, ".dev1")
 	# else: 
 	# 	return concat(specver, ".dev1")
-VERSION.dev: pyver := $(shell git tag | grep py- | sed 's/py-//g' | sort | tail -n 1)
+VERSION.dev: pyver := $(shell git tag | sort | tail -n 1)
 VERSION.dev: devver := $(shell cat <(curl -s -X GET 'http://morbius.cs-i.brandeis.edu:8081/service/rest/v1/search?name=$(sdistname)' | jq '. | .items[].version' -r) <(echo $(call increase_patch,$(pyver))) | sort -V | tail -n 1)
-VERSION.dev: specver := $(shell git tag | grep spec- | sed 's/spec-//g' | sort | tail -n 1)
+VERSION.dev: specver := $(shell curl --silent "https://api.github.com/repos/clamsproject/mmif/git/refs/tags" | grep '"ref":' | grep -v 'py-' | sed -E 's/.+refs\/tags\/(spec-)?([0-9.]+)",/\2/g' | sort | tail -n 1)
 VERSION.dev:
+	echo $(specver)
 	@if [ $(call macro,$(devver)) = $(call macro,$(specver)) ] && [ $(call micro,$(devver)) = $(call micro,$(specver)) ] ; \
 	then if [[ $(devver) == *.dev* ]]; then echo $(call increase_dev,$(devver)) ; else echo $(call add_dev,$(devver)); fi ; \
 	else echo $(call add_dev,$(specver)) ; fi \
 	> VERSION.dev
 
-VERSION: version := $(shell git tag | grep py- | cut -d'-' -f 2 | sort -r | head -n 1)
+VERSION: version := $(shell git tag | sort -r | head -n 1)
 VERSION:
 	@if [ -e VERSION.dev ] ; \
 	then cp VERSION.dev VERSION; \

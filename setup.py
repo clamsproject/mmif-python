@@ -1,14 +1,14 @@
 #! /usr/bin/env python3
 import io
+import json
 import os
 import shutil
-import subprocess
 from os.path import join as pjoin
 from typing import Union
+from urllib import request
 
 import setuptools.command.build_py
 import setuptools.command.develop
-
 
 name = "mmif-python"
 version_fname = "VERSION"
@@ -106,15 +106,18 @@ def generate_vocabulary(spec_version, clams_types, source_path):
 
 def get_matching_gittag(version: str):
     vmaj, vmin, vpat = version.split('.')[0:3]
-    tags = subprocess.check_output(['git', 'tag']).decode().split('\n')
+    res = request.urlopen('https://api.github.com/repos/clamsproject/mmif/git/refs/tags')
+    body = json.loads(res.read())
+    tags = [os.path.basename(tag['ref']) for tag in body]
     # sort and return highest version
     return \
-        sorted([tag for tag in tags if f'spec-{vmaj}.{vmin}.' in tag],
+        sorted([tag for tag in tags if f'{vmaj}.{vmin}.' in tag and 'py-' not in tag],
                key=lambda x: int(x.split('.')[-1]))[-1]
 
 
-def get_file_contents_at_tag(tag, filepath: str) -> bytes:
-    return subprocess.check_output(['git', 'show', f'{tag}:{filepath}'])
+def get_spec_file_at_tag(tag, filepath: str) -> bytes:
+    file_url = f"https://raw.githubusercontent.com/clamsproject/mmif/{tag}/{filepath}"
+    return request.urlopen(file_url).read()
 
 
 def write_res_file(res_dir: str, res_name: str, res_data: Union[bytes, str]):
@@ -147,12 +150,12 @@ def prep_ext_files(setuptools_cmd):
         generate_subpack(mmif_name, mmif_ver_pkg, f'__version__ = "{version}"\n__specver__ = "{spec_version}"')
 
         # and write resource files
-        write_res_file(res_dir, mmif_schema_res_name, get_file_contents_at_tag(gittag, mmif_schema_res_oriname))
-        write_res_file(res_dir, mmif_vocab_res_name, get_file_contents_at_tag(gittag, mmif_vocab_res_oriname))
+        write_res_file(res_dir, mmif_schema_res_name, get_spec_file_at_tag(gittag, mmif_schema_res_oriname))
+        write_res_file(res_dir, mmif_vocab_res_name, get_spec_file_at_tag(gittag, mmif_vocab_res_oriname))
 
         # write vocabulary enum
         import yaml
-        yaml_file = io.BytesIO(get_file_contents_at_tag(gittag, mmif_vocab_res_oriname))
+        yaml_file = io.BytesIO(get_spec_file_at_tag(gittag, mmif_vocab_res_oriname))
         clams_types = [t['name'] for t in list(yaml.safe_load_all(yaml_file.read()))]
         generate_vocabulary(spec_version, clams_types, 'vocabulary_files')
 
