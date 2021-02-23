@@ -491,6 +491,22 @@ class TestView(unittest.TestCase):
         deserialized = ViewMetadata(serialized)
         self.assertEqual(vmeta, deserialized)
 
+    def test_view_parameters(self):
+        vmeta = ViewMetadata()
+        vmeta.add_parameter('pretty', False)
+        self.assertEqual(len(vmeta.parameters), 1)
+        print(vmeta.serialize(pretty=True))
+        self.assertEqual(vmeta.get_parameter('pretty'), False)
+        with pytest.raises(KeyError):
+            vmeta.get_parameter('not_exist')
+
+    def test_view_parameters_batch_adding(self):
+        vmeta = ViewMetadata()
+        vmeta.add_parameters(pretty=True, validate=False)
+        self.assertEqual(len(vmeta.parameters), 2)
+        vmeta = ViewMetadata()
+        vmeta.add_parameters({'pretty': True, 'validate': False})
+
     def test_props_preserved(self):
         view_serial = self.view_obj.serialize()
 
