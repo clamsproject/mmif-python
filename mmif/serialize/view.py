@@ -236,6 +236,13 @@ class ViewMetadata(FreezableMmifObject):
             self.contains[final_key] = new_contain
             return new_contain
 
+    def add_parameters(self, param_dict: dict = None, **param_kwargs):
+        if param_dict is None:
+            self.parameters = {}
+        else:
+            self.parameters = param_dict
+        self.parameters.update(dict(param_kwargs))
+
     def add_parameter(self, param_key, param_value):
         self.parameters[param_key] = param_value
 
