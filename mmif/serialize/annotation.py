@@ -7,6 +7,8 @@ of a view. For documentation on how views are represented, see
 :mod:`mmif.serialize.view`.
 """
 
+import pathlib
+import validators
 from typing import Union
 from pyrsistent import pmap, pvector
 from .model import FreezableMmifObject
@@ -104,7 +106,8 @@ class Document(Annotation):
 
     @location.setter
     def location(self, location: str) -> None:
-        self.properties.location = location
+        if not validators.url(location):
+            self.properties.location = pathlib.Path(location).as_uri()
 
 
 class AnnotationProperties(FreezableMmifObject):

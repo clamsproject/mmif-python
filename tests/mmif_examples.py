@@ -28,7 +28,7 @@ sub_example_templates = {'doc_example': """{
     "properties": {
       "id": "td999",
       "mime": "text/plain",
-      "location": "/var/archive/transcript-1000.txt" 
+      "location": "file:///var/archive/transcript-1000.txt" 
     }
 }"""}
 

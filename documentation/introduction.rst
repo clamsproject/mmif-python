@@ -48,7 +48,7 @@ MMIF Serialization
       "properties": {
         "id": "m1",
         "mime": "video/mp4",
-        "location": "/var/archive/video-0012.mp4"
+        "location": "file:///var/archive/video-0012.mp4"
       }
     },
     {
@@ -56,7 +56,7 @@ MMIF Serialization
       "properties": {
         "id": "m2",
         "mime": "text/plain",
-        "location": "/var/archive/video-0012-transcript.txt"
+        "location": "file:///var/archive/video-0012-transcript.txt"
       }
     }
   ],
