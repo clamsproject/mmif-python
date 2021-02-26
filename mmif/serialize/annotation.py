@@ -24,11 +24,10 @@ class Annotation(FreezableMmifObject):
 
     def __init__(self, anno_obj: Union[bytes, str, dict] = None) -> None:
         self._type: Union[str, ThingTypesBase] = ''
-        if 'properties' not in self.__dict__:  # don't overwrite DocumentProperties on super() call
+        if not hasattr(self, 'properties') :  # don't overwrite DocumentProperties on super() call
             self.properties: AnnotationProperties = AnnotationProperties()
-        self.disallow_additional_properties()
-        if 'properties' not in self._attribute_classes:
             self._attribute_classes = pmap({'properties': AnnotationProperties})
+        self.disallow_additional_properties()
         self._required_attributes = pvector(["_type", "properties"])
         super().__init__(anno_obj)
 
