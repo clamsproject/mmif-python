@@ -173,7 +173,7 @@ class TestMmif(unittest.TestCase):
           "properties": {
             "id": "m2",
             "mime": "video/mpeg",
-            "location": "/var/archive/video-003.mp4" }
+            "location": "file:///var/archive/video-003.mp4" }
         }""" % __specver__))
         self.assertEqual(len(mmif_obj.get_documents_by_property("mime", "video/mpeg")), 2)
         self.assertEqual(len(mmif_obj.get_documents_by_property("mime", "text")), 0)
@@ -199,11 +199,26 @@ class TestMmif(unittest.TestCase):
         self.assertEqual(len(mmif_obj.get_documents_by_type(DocumentTypes.VideoDocument)), 1)
         self.assertEqual(len(mmif_obj.get_documents_by_type(DocumentTypes.TextDocument)), 26)
 
+    def test_document_location_helpers(self):
+        new_doc = Document()
+        new_doc.id = "d1"
+        file_path = "/var/archive/video-003.mp4"
+        new_doc.properties.location = file_path
+        self.assertEqual(new_doc.properties.location_scheme(), 'file')
+        self.assertEqual(new_doc.properties.location_path(), file_path)
+        new_doc.location = "/var/archive/video-003.mp4"
+        self.assertEqual(new_doc.location_scheme(), 'file')
+        self.assertEqual(new_doc.location_path(), file_path)
+        new_doc.location = f"ftp://localhost{file_path}"
+        self.assertEqual(new_doc.location_scheme(), 'ftp')
+        self.assertEqual(new_doc.location_path(), file_path)
+        self.assertEqual(new_doc.location_address(), f'localhost{file_path}')
+        self.assertEqual(Document(new_doc.serialize()), new_doc)
 
     def test_get_documents_locations(self):
         mmif_obj = Mmif(MMIF_EXAMPLES['mmif_example1'])
         self.assertEqual(1, len(mmif_obj.get_documents_locations(f'http://mmif.clams.ai/{__specver__}/vocabulary/VideoDocument')))
-        self.assertEqual(mmif_obj.get_document_location(f'http://mmif.clams.ai/{__specver__}/vocabulary/VideoDocument'), "/var/archive/video-002.mp4")
+        self.assertEqual(mmif_obj.get_document_location(f'http://mmif.clams.ai/{__specver__}/vocabulary/VideoDocument'), "file:///var/archive/video-002.mp4")
         # TODO (angus-lherrou @ 9-23-2020): no text documents in documents list of raw.json,
         #  un-comment and fix if we add view searching to these methods
         # text document is there but no location is specified

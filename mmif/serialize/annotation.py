@@ -7,7 +7,9 @@ of a view. For documentation on how views are represented, see
 :mod:`mmif.serialize.view`.
 """
 
-from typing import Union
+import pathlib
+from urllib.parse import urlparse
+from typing import Union, Dict
 from pyrsistent import pmap, pvector
 from .model import FreezableMmifObject
 from mmif.vocabulary import ThingTypesBase, DocumentTypesBase
@@ -106,6 +108,15 @@ class Document(Annotation):
     def location(self, location: str) -> None:
         self.properties.location = location
 
+    def location_scheme(self) -> str:
+        return self.properties.location_scheme()
+
+    def location_address(self) -> str:
+        return self.properties.location_address()
+
+    def location_path(self) -> str:
+        return self.properties.location_path()
+
 
 class AnnotationProperties(FreezableMmifObject):
     """
@@ -131,10 +142,26 @@ class DocumentProperties(AnnotationProperties):
 
     def __init__(self, mmif_obj: Union[bytes, str, dict] = None) -> None:
         self.mime: str = ''
-        self.location: str = ''
+        # note the trailing underscore here. I wanted to use the name `location`
+        # for @property in this class and `Document` class, so had to use a diff
+        # name for the variable. See `_serialize()` and `_deserialize()` below
+        # to see how this exception is handled
+        self.location_: str = ''
         self.text: Text = Text()
         self._attribute_classes = pmap({'text': Text})
         super().__init__(mmif_obj)
+
+    def _deserialize(self, input_dict: dict) -> None:
+        if "location" in input_dict:
+            self.location = input_dict.pop("location")
+        super()._deserialize(input_dict)
+
+    def _serialize(self, alt_container: Dict = None) -> dict:
+        serialized = super()._serialize()
+        if "location_" in serialized:
+            serialized["location"] = serialized.pop("location_")
+        return serialized
+
 
     @property
     def text_language(self) -> str:
@@ -151,6 +178,31 @@ class DocumentProperties(AnnotationProperties):
     @text_value.setter
     def text_value(self, s: str) -> None:
         self.text.value = s
+
+    @property
+    def location(self) -> str:
+        return self.location_
+
+    @location.setter
+    def location(self, location: str) -> None:
+        parsed_location = urlparse(location)
+        if parsed_location.scheme is None or len(parsed_location.scheme) == 0:
+            self.location_ = pathlib.Path(location).as_uri()
+        else:
+            self.location_ = location
+
+    def location_scheme(self) -> str:
+        return urlparse(self.location).scheme
+
+    def location_address(self) -> str:
+        parsed_location = urlparse(self.location)
+        if len(parsed_location.netloc) == 0:
+            return parsed_location.path
+        else:
+            return "".join((parsed_location.netloc, parsed_location.path))
+
+    def location_path(self) -> str:
+        return urlparse(self.location).path
 
 
 class Text(FreezableMmifObject):
