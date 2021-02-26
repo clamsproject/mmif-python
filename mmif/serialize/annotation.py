@@ -9,13 +9,15 @@ of a view. For documentation on how views are represented, see
 
 import pathlib
 from urllib.parse import urlparse
-from typing import Union, Dict
+from typing import Union, Dict, List
 from pyrsistent import pmap, pvector
+
 from .model import FreezableMmifObject
 from mmif.vocabulary import ThingTypesBase, DocumentTypesBase
 
 __all__ = ['Annotation', 'AnnotationProperties', 'Document', 'DocumentProperties', 'Text']
 
+JSON_COMPATIBLE_PRIMITIVES = Union[str, int, float, bool, None]
 
 class Annotation(FreezableMmifObject):
     """
@@ -55,14 +57,22 @@ class Annotation(FreezableMmifObject):
     def id(self, aid: str) -> None:
         self.properties.id = aid
 
-    def add_property(self, name: str, value: str) -> None:
+    def add_property(self, name: str,
+                     value: Union[JSON_COMPATIBLE_PRIMITIVES,
+                                  List[JSON_COMPATIBLE_PRIMITIVES]]) -> None:
         """
         Adds a property to the annotation's properties.
         :param name: the name of the property
         :param value: the property's desired value
         :return: None
         """
-        self.properties[name] = value
+        if isinstance(value, JSON_COMPATIBLE_PRIMITIVES.__args__) or \
+            (isinstance(value,list) and all(lambda x: isinstance(x, JSON_COMPATIBLE_PRIMITIVES.__args__))):
+            self.properties[name] = value
+        else:
+            raise ValueError("Property values cannot be a complex object. It must be "
+                             "either string, number, boolean, None, or a list of them."
+                             f"(\"{name}\": \"{str(value)}\"")
 
     def is_document(self):
         return self.at_type.endswith("Document")
