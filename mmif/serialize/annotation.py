@@ -9,7 +9,7 @@ of a view. For documentation on how views are represented, see
 
 import pathlib
 from urllib.parse import urlparse
-from typing import Union, Dict, List
+from typing import Union, Dict, List, Type
 from pyrsistent import pmap, pvector
 
 from .model import FreezableMmifObject
@@ -17,7 +17,8 @@ from mmif.vocabulary import ThingTypesBase, DocumentTypesBase
 
 __all__ = ['Annotation', 'AnnotationProperties', 'Document', 'DocumentProperties', 'Text']
 
-JSON_COMPATIBLE_PRIMITIVES = Union[str, int, float, bool, None]
+JSON_COMPATIBLE_PRIMITIVES: Type = Union[str, int, float, bool, None]
+
 
 class Annotation(FreezableMmifObject):
     """
@@ -26,7 +27,7 @@ class Annotation(FreezableMmifObject):
 
     def __init__(self, anno_obj: Union[bytes, str, dict] = None) -> None:
         self._type: Union[str, ThingTypesBase] = ''
-        if not hasattr(self, 'properties') :  # don't overwrite DocumentProperties on super() call
+        if not hasattr(self, 'properties'):  # don't overwrite DocumentProperties on super() call
             self.properties: AnnotationProperties = AnnotationProperties()
             self._attribute_classes = pmap({'properties': AnnotationProperties})
         self.disallow_additional_properties()
@@ -67,7 +68,8 @@ class Annotation(FreezableMmifObject):
         :return: None
         """
         if isinstance(value, JSON_COMPATIBLE_PRIMITIVES.__args__) or \
-            (isinstance(value,list) and all(lambda x: isinstance(x, JSON_COMPATIBLE_PRIMITIVES.__args__))):
+                isinstance(value,list) and \
+                all(map(lambda elem: isinstance(elem, JSON_COMPATIBLE_PRIMITIVES.__args__), value)):
             self.properties[name] = value
         else:
             raise ValueError("Property values cannot be a complex object. It must be "
@@ -108,6 +110,32 @@ class Document(Annotation):
         # I want to make this to accept `View` object as an input too,
         # but import `View` will break the code due to circular imports
         self._parent_view_id = parent_view_id
+
+    def add_property(self, name: str,
+                     value: Union[JSON_COMPATIBLE_PRIMITIVES,
+                                  List[JSON_COMPATIBLE_PRIMITIVES]]) -> None:
+        if name == "text":
+            self.properties.text = Text(value)
+        elif name == "location":
+            self.location = value
+        else:
+            super().add_property(name, value)
+
+    @property
+    def text_lang(self) -> str:
+        return self.properties.text_lang
+
+    @text_lang.setter
+    def text_lang(self, text_lang: str) -> None:
+        self.properties.text_lang = text_lang
+
+    @property
+    def text_value(self) -> str:
+        return self.properties.text_value
+
+    @text_value.setter
+    def text_value(self, text_value: str) -> None:
+        self.properties.text_value = text_value
 
     @property
     def location(self) -> str:
