@@ -60,16 +60,23 @@ class Annotation(FreezableMmifObject):
 
     def add_property(self, name: str,
                      value: Union[JSON_COMPATIBLE_PRIMITIVES,
-                                  List[JSON_COMPATIBLE_PRIMITIVES]]) -> None:
+                                  List[JSON_COMPATIBLE_PRIMITIVES],
+                                  List[List[JSON_COMPATIBLE_PRIMITIVES]]
+                    ]) -> None:
         """
         Adds a property to the annotation's properties.
         :param name: the name of the property
         :param value: the property's desired value
         :return: None
         """
-        if isinstance(value, JSON_COMPATIBLE_PRIMITIVES.__args__) or \
-                isinstance(value,list) and \
-                all(map(lambda elem: isinstance(elem, JSON_COMPATIBLE_PRIMITIVES.__args__), value)):
+        json_primitives = lambda x:isinstance(x, JSON_COMPATIBLE_PRIMITIVES.__args__)
+        if json_primitives(value) or (
+                isinstance(value,list)
+                and all(map(json_primitives, value)) or (
+                        all(map(lambda elem: isinstance(elem, list), value))
+                        and map(json_primitives, [subelem for elem in value for subelem in elem])
+                )
+        ):
             self.properties[name] = value
         else:
             raise ValueError("Property values cannot be a complex object. It must be "
