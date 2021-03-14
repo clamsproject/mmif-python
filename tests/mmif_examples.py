@@ -17,7 +17,7 @@ res = request.urlopen(everything_file_url)
 # TODO (krim @ 11/23/20): instead of hard-code version string in the example file in the `mmif` repository,
 # we can use a symbol for substitution that can be replaced with actual spec version
 # by a "builder" there
-JSON_STR = res.read().decode('utf-8').replace('0.2.0', '${specver}')
+JSON_STR = res.read().decode('utf-8').replace('0.3.0', '${specver}')
 
 example_templates = dict(
     mmif_example1=JSON_STR
@@ -28,7 +28,7 @@ sub_example_templates = {'doc_example': """{
     "properties": {
       "id": "td999",
       "mime": "text/plain",
-      "location": "/var/archive/transcript-1000.txt" 
+      "location": "file:///var/archive/transcript-1000.txt" 
     }
 }"""}
 

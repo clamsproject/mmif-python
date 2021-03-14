@@ -69,7 +69,7 @@ class MmifObject(object):
     And also, a subclass that has one or more *named* attributes, it must
     set those attributes in the __init__() before calling super method. When
     serializing a MmifObject, all *empty* attributes will be ignored, so for
-    optional named attributes, you must leave leave the values empty, but
+    optional named attributes, you must leave the values empty (len == 0), but
     NOT None. Any None-valued named attributes will cause issues with current
     implementation.
 

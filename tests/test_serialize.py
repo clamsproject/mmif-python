@@ -106,10 +106,14 @@ class TestMmif(unittest.TestCase):
         document.at_type = "text"
         document.properties.text_value = text
         self.assertEqual(document.properties.text_value, text)
+        document.text_value = text
+        self.assertEqual(document.text_value, text)
         document.properties.text_language = en
         serialized = document.serialize()
         plain_json = json.loads(serialized)
         deserialized = Document(serialized)
+        self.assertEqual(deserialized.text_value, text)
+        self.assertEqual(deserialized.text_language, en)
         self.assertEqual(deserialized.properties.text_value, text)
         self.assertEqual(deserialized.properties.text_language, en)
         self.assertEqual({'@value', '@language'}, plain_json['properties']['text'].keys())
@@ -173,7 +177,7 @@ class TestMmif(unittest.TestCase):
           "properties": {
             "id": "m2",
             "mime": "video/mpeg",
-            "location": "/var/archive/video-003.mp4" }
+            "location": "file:///var/archive/video-003.mp4" }
         }""" % __specver__))
         self.assertEqual(len(mmif_obj.get_documents_by_property("mime", "video/mpeg")), 2)
         self.assertEqual(len(mmif_obj.get_documents_by_property("mime", "text")), 0)
@@ -199,11 +203,26 @@ class TestMmif(unittest.TestCase):
         self.assertEqual(len(mmif_obj.get_documents_by_type(DocumentTypes.VideoDocument)), 1)
         self.assertEqual(len(mmif_obj.get_documents_by_type(DocumentTypes.TextDocument)), 26)
 
+    def test_document_location_helpers(self):
+        new_doc = Document()
+        new_doc.id = "d1"
+        file_path = "/var/archive/video-003.mp4"
+        new_doc.properties.location = file_path
+        self.assertEqual(new_doc.properties.location_scheme(), 'file')
+        self.assertEqual(new_doc.properties.location_path(), file_path)
+        new_doc.location = "/var/archive/video-003.mp4"
+        self.assertEqual(new_doc.location_scheme(), 'file')
+        self.assertEqual(new_doc.location_path(), file_path)
+        new_doc.location = f"ftp://localhost{file_path}"
+        self.assertEqual(new_doc.location_scheme(), 'ftp')
+        self.assertEqual(new_doc.location_path(), file_path)
+        self.assertEqual(new_doc.location_address(), f'localhost{file_path}')
+        self.assertEqual(Document(new_doc.serialize()), new_doc)
 
     def test_get_documents_locations(self):
         mmif_obj = Mmif(MMIF_EXAMPLES['mmif_example1'])
         self.assertEqual(1, len(mmif_obj.get_documents_locations(f'http://mmif.clams.ai/{__specver__}/vocabulary/VideoDocument')))
-        self.assertEqual(mmif_obj.get_document_location(f'http://mmif.clams.ai/{__specver__}/vocabulary/VideoDocument'), "/var/archive/video-002.mp4")
+        self.assertEqual(mmif_obj.get_document_location(f'http://mmif.clams.ai/{__specver__}/vocabulary/VideoDocument'), "file:///var/archive/video-002.mp4")
         # TODO (angus-lherrou @ 9-23-2020): no text documents in documents list of raw.json,
         #  un-comment and fix if we add view searching to these methods
         # text document is there but no location is specified
@@ -491,6 +510,22 @@ class TestView(unittest.TestCase):
         deserialized = ViewMetadata(serialized)
         self.assertEqual(vmeta, deserialized)
 
+    def test_view_parameters(self):
+        vmeta = ViewMetadata()
+        vmeta.add_parameter('pretty', False)
+        self.assertEqual(len(vmeta.parameters), 1)
+        print(vmeta.serialize(pretty=True))
+        self.assertEqual(vmeta.get_parameter('pretty'), False)
+        with pytest.raises(KeyError):
+            vmeta.get_parameter('not_exist')
+
+    def test_view_parameters_batch_adding(self):
+        vmeta = ViewMetadata()
+        vmeta.add_parameters(pretty=True, validate=False)
+        self.assertEqual(len(vmeta.parameters), 2)
+        vmeta = ViewMetadata()
+        vmeta.add_parameters({'pretty': True, 'validate': False})
+
     def test_props_preserved(self):
         view_serial = self.view_obj.serialize()
 
@@ -553,6 +588,15 @@ class TestAnnotation(unittest.TestCase):
         props_json = self.data['mmif_example1']['annotations'][0]['properties']
         props_obj = AnnotationProperties(props_json)
         self.assertEqual(props_json, json.loads(props_obj.serialize()))
+
+    def test_property_types(self):
+        ann = Annotation()
+        ann.id = 'a1'
+        for a_type, a_value in zip([str, int, float, bool, type(None)],
+                                         ['str', '1', '1.1', False, None]):
+            ann.add_property(a_type.__name__, a_value)
+        with self.assertRaises(ValueError):
+            ann.add_property("dict", {"k1": "v1"})
 
     def test_add_property(self):
         for i, datum in self.data.items():

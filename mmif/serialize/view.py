@@ -179,6 +179,7 @@ class ViewMetadata(FreezableMmifObject):
         self.timestamp: Optional[datetime] = None
         self.app: str = ''
         self.contains: ContainsDict = ContainsDict()
+        self.parameters: dict = {}
         self._required_attributes = pvector(["app", "contains"])
         super().__init__(viewmetadata_obj)
 
@@ -234,6 +235,22 @@ class ViewMetadata(FreezableMmifObject):
             new_contain = Contain(contain_dict)
             self.contains[final_key] = new_contain
             return new_contain
+
+    def add_parameters(self, param_dict: dict = None, **param_kwargs):
+        if param_dict is None:
+            self.parameters = {}
+        else:
+            self.parameters = param_dict
+        self.parameters.update(dict(param_kwargs))
+
+    def add_parameter(self, param_key, param_value):
+        self.parameters[param_key] = param_value
+
+    def get_parameter(self, param_key):
+        try:
+            return self.parameters[param_key]
+        except KeyError:
+            raise KeyError(f"parameter \"{param_key}\" is not set in the view: {self.serialize()}")
 
 
 class Contain(FreezableMmifObject):
