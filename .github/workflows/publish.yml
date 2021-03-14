@@ -45,7 +45,7 @@ jobs:
         uses: ad-m/github-push-action@master
         with:
           github_token: ${{ secrets.GH_CLAMSBOT_TOKEN }}
-          branch: master
+          branch: main
       - name: upload to the official pypi
         run: |
           twine upload -u __token__ -p ${{ secrets.PYPITOKEN }} dist/mmif-python-${{ env.VERSION }}.tar.gz
