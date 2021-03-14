@@ -129,12 +129,12 @@ class Document(Annotation):
             super().add_property(name, value)
 
     @property
-    def text_lang(self) -> str:
-        return self.properties.text_lang
+    def text_language(self) -> str:
+        return self.properties.text_language
 
-    @text_lang.setter
-    def text_lang(self, text_lang: str) -> None:
-        self.properties.text_lang = text_lang
+    @text_language.setter
+    def text_language(self, lang_code: str) -> None:
+        self.properties.text_language = lang_code
 
     @property
     def text_value(self) -> str:

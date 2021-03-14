@@ -106,10 +106,14 @@ class TestMmif(unittest.TestCase):
         document.at_type = "text"
         document.properties.text_value = text
         self.assertEqual(document.properties.text_value, text)
+        document.text_value = text
+        self.assertEqual(document.text_value, text)
         document.properties.text_language = en
         serialized = document.serialize()
         plain_json = json.loads(serialized)
         deserialized = Document(serialized)
+        self.assertEqual(deserialized.text_value, text)
+        self.assertEqual(deserialized.text_language, en)
         self.assertEqual(deserialized.properties.text_value, text)
         self.assertEqual(deserialized.properties.text_language, en)
         self.assertEqual({'@value', '@language'}, plain_json['properties']['text'].keys())
