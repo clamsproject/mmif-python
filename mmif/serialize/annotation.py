@@ -9,12 +9,15 @@ of a view. For documentation on how views are represented, see
 
 import pathlib
 from urllib.parse import urlparse
-from typing import Union, Dict
+from typing import Union, Dict, List, Type
 from pyrsistent import pmap, pvector
+
 from .model import FreezableMmifObject
 from mmif.vocabulary import ThingTypesBase, DocumentTypesBase
 
 __all__ = ['Annotation', 'AnnotationProperties', 'Document', 'DocumentProperties', 'Text']
+
+JSON_COMPATIBLE_PRIMITIVES: Type = Union[str, int, float, bool, None]
 
 
 class Annotation(FreezableMmifObject):
@@ -24,11 +27,10 @@ class Annotation(FreezableMmifObject):
 
     def __init__(self, anno_obj: Union[bytes, str, dict] = None) -> None:
         self._type: Union[str, ThingTypesBase] = ''
-        if 'properties' not in self.__dict__:  # don't overwrite DocumentProperties on super() call
+        if not hasattr(self, 'properties'):  # don't overwrite DocumentProperties on super() call
             self.properties: AnnotationProperties = AnnotationProperties()
-        self.disallow_additional_properties()
-        if 'properties' not in self._attribute_classes:
             self._attribute_classes = pmap({'properties': AnnotationProperties})
+        self.disallow_additional_properties()
         self._required_attributes = pvector(["_type", "properties"])
         super().__init__(anno_obj)
 
@@ -56,14 +58,30 @@ class Annotation(FreezableMmifObject):
     def id(self, aid: str) -> None:
         self.properties.id = aid
 
-    def add_property(self, name: str, value: str) -> None:
+    def add_property(self, name: str,
+                     value: Union[JSON_COMPATIBLE_PRIMITIVES,
+                                  List[JSON_COMPATIBLE_PRIMITIVES],
+                                  List[List[JSON_COMPATIBLE_PRIMITIVES]]
+                    ]) -> None:
         """
         Adds a property to the annotation's properties.
         :param name: the name of the property
         :param value: the property's desired value
         :return: None
         """
-        self.properties[name] = value
+        json_primitives = lambda x:isinstance(x, JSON_COMPATIBLE_PRIMITIVES.__args__)
+        if json_primitives(value) or (
+                isinstance(value,list)
+                and all(map(json_primitives, value)) or (
+                        all(map(lambda elem: isinstance(elem, list), value))
+                        and map(json_primitives, [subelem for elem in value for subelem in elem])
+                )
+        ):
+            self.properties[name] = value
+        else:
+            raise ValueError("Property values cannot be a complex object. It must be "
+                             "either string, number, boolean, None, or a list of them."
+                             f"(\"{name}\": \"{str(value)}\"")
 
     def is_document(self):
         return self.at_type.endswith("Document")
@@ -99,6 +117,32 @@ class Document(Annotation):
         # I want to make this to accept `View` object as an input too,
         # but import `View` will break the code due to circular imports
         self._parent_view_id = parent_view_id
+
+    def add_property(self, name: str,
+                     value: Union[JSON_COMPATIBLE_PRIMITIVES,
+                                  List[JSON_COMPATIBLE_PRIMITIVES]]) -> None:
+        if name == "text":
+            self.properties.text = Text(value)
+        elif name == "location":
+            self.location = value
+        else:
+            super().add_property(name, value)
+
+    @property
+    def text_lang(self) -> str:
+        return self.properties.text_lang
+
+    @text_lang.setter
+    def text_lang(self, text_lang: str) -> None:
+        self.properties.text_lang = text_lang
+
+    @property
+    def text_value(self) -> str:
+        return self.properties.text_value
+
+    @text_value.setter
+    def text_value(self, text_value: str) -> None:
+        self.properties.text_value = text_value
 
     @property
     def location(self) -> str:
