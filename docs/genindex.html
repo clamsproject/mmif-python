@@ -3,9 +3,9 @@
 <!DOCTYPE html>
 <html class="writer-html5" lang="en" >
 <head>
-  <meta charset="utf-8">
+  <meta charset="utf-8" />
   
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   
   <title>Index &mdash; mmif-python  documentation</title>
   
@@ -16,7 +16,10 @@
 
   
   
+
   
+  
+
   
 
   
@@ -29,7 +32,6 @@
         <script src="_static/jquery.js"></script>
         <script src="_static/underscore.js"></script>
         <script src="_static/doctools.js"></script>
-        <script src="_static/language_data.js"></script>
     
     <script type="text/javascript" src="_static/js/theme.js"></script>
 
@@ -49,7 +51,7 @@
           
 
           
-            <a href="index.html" class="icon icon-home" alt="Documentation Home"> mmif-python
+            <a href="index.html" class="icon icon-home"> mmif-python
           
 
           
@@ -59,7 +61,7 @@
             
             
               <div class="version">
-                0.2.2
+                0.3.0
               </div>
             
           
@@ -132,6 +134,8 @@
 
 
 
+
+
 <div role="navigation" aria-label="breadcrumbs navigation">
 
   <ul class="wy-breadcrumbs">
@@ -143,7 +147,7 @@
     
       <li class="wy-breadcrumbs-aside">
         
-            
+          
         
       </li>
     
@@ -189,14 +193,22 @@
         <li><a href="autodoc/mmif.serialize.html#mmif.serialize.view.View.add_document">(mmif.serialize.view.View method)</a>
 </li>
       </ul></li>
+      <li><a href="autodoc/mmif.serialize.html#mmif.serialize.view.ViewMetadata.add_parameter">add_parameter() (mmif.serialize.view.ViewMetadata method)</a>
+</li>
+      <li><a href="autodoc/mmif.serialize.html#mmif.serialize.view.ViewMetadata.add_parameters">add_parameters() (mmif.serialize.view.ViewMetadata method)</a>
+</li>
       <li><a href="autodoc/mmif.serialize.html#mmif.serialize.annotation.Annotation.add_property">add_property() (mmif.serialize.annotation.Annotation method)</a>
+
+      <ul>
+        <li><a href="autodoc/mmif.serialize.html#mmif.serialize.annotation.Document.add_property">(mmif.serialize.annotation.Document method)</a>
 </li>
+      </ul></li>
       <li><a href="autodoc/mmif.serialize.html#mmif.serialize.mmif.Mmif.add_view">add_view() (mmif.serialize.mmif.Mmif method)</a>
-</li>
-      <li><a href="autodoc/mmif.vocabulary.html#mmif.vocabulary.annotation_types.AnnotationTypes.Alignment">Alignment (mmif.vocabulary.annotation_types.AnnotationTypes attribute)</a>
 </li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="autodoc/mmif.vocabulary.html#mmif.vocabulary.annotation_types.AnnotationTypes.Alignment">Alignment (mmif.vocabulary.annotation_types.AnnotationTypes attribute)</a>
+</li>
       <li><a href="autodoc/mmif.serialize.html#mmif.serialize.annotation.Annotation">Annotation (class in mmif.serialize.annotation)</a>
 
       <ul>
@@ -327,6 +339,8 @@
 </li>
       <li><a href="autodoc/mmif.serialize.html#mmif.serialize.mmif.Mmif.get_documents_locations">get_documents_locations() (mmif.serialize.mmif.Mmif method)</a>
 </li>
+      <li><a href="autodoc/mmif.serialize.html#mmif.serialize.view.ViewMetadata.get_parameter">get_parameter() (mmif.serialize.view.ViewMetadata method)</a>
+</li>
       <li><a href="autodoc/mmif.serialize.html#mmif.serialize.mmif.Mmif.get_view_by_id">get_view_by_id() (mmif.serialize.mmif.Mmif method)</a>
 </li>
       <li><a href="autodoc/mmif.serialize.html#mmif.serialize.mmif.Mmif.get_view_contains">get_view_contains() (mmif.serialize.mmif.Mmif method)</a>
@@ -373,10 +387,32 @@
   <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="autodoc/mmif.serialize.html#mmif.serialize.annotation.Text.lang">lang() (mmif.serialize.annotation.Text property)</a>
 </li>
+      <li><a href="autodoc/mmif.serialize.html#mmif.serialize.annotation.Document.location">location() (mmif.serialize.annotation.Document property)</a>
+
+      <ul>
+        <li><a href="autodoc/mmif.serialize.html#mmif.serialize.annotation.DocumentProperties.location">(mmif.serialize.annotation.DocumentProperties property)</a>
+</li>
+      </ul></li>
+      <li><a href="autodoc/mmif.serialize.html#mmif.serialize.annotation.Document.location_address">location_address() (mmif.serialize.annotation.Document method)</a>
+
+      <ul>
+        <li><a href="autodoc/mmif.serialize.html#mmif.serialize.annotation.DocumentProperties.location_address">(mmif.serialize.annotation.DocumentProperties method)</a>
+</li>
+      </ul></li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
-      <li><a href="autodoc/mmif.serialize.html#mmif.serialize.annotation.Document.location">location() (mmif.serialize.annotation.Document property)</a>
+      <li><a href="autodoc/mmif.serialize.html#mmif.serialize.annotation.Document.location_path">location_path() (mmif.serialize.annotation.Document method)</a>
+
+      <ul>
+        <li><a href="autodoc/mmif.serialize.html#mmif.serialize.annotation.DocumentProperties.location_path">(mmif.serialize.annotation.DocumentProperties method)</a>
 </li>
+      </ul></li>
+      <li><a href="autodoc/mmif.serialize.html#mmif.serialize.annotation.Document.location_scheme">location_scheme() (mmif.serialize.annotation.Document method)</a>
+
+      <ul>
+        <li><a href="autodoc/mmif.serialize.html#mmif.serialize.annotation.DocumentProperties.location_scheme">(mmif.serialize.annotation.DocumentProperties method)</a>
+</li>
+      </ul></li>
   </ul></td>
 </tr></table>
 
@@ -509,12 +545,20 @@
   <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="autodoc/mmif.serialize.html#mmif.serialize.annotation.Text">Text (class in mmif.serialize.annotation)</a>
 </li>
-      <li><a href="autodoc/mmif.serialize.html#mmif.serialize.annotation.DocumentProperties.text_language">text_language() (mmif.serialize.annotation.DocumentProperties property)</a>
+      <li><a href="autodoc/mmif.serialize.html#mmif.serialize.annotation.Document.text_language">text_language() (mmif.serialize.annotation.Document property)</a>
+
+      <ul>
+        <li><a href="autodoc/mmif.serialize.html#mmif.serialize.annotation.DocumentProperties.text_language">(mmif.serialize.annotation.DocumentProperties property)</a>
 </li>
+      </ul></li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
-      <li><a href="autodoc/mmif.serialize.html#mmif.serialize.annotation.DocumentProperties.text_value">text_value() (mmif.serialize.annotation.DocumentProperties property)</a>
+      <li><a href="autodoc/mmif.serialize.html#mmif.serialize.annotation.Document.text_value">text_value() (mmif.serialize.annotation.Document property)</a>
+
+      <ul>
+        <li><a href="autodoc/mmif.serialize.html#mmif.serialize.annotation.DocumentProperties.text_value">(mmif.serialize.annotation.DocumentProperties property)</a>
 </li>
+      </ul></li>
       <li><a href="autodoc/mmif.vocabulary.html#mmif.vocabulary.annotation_types.AnnotationTypes.TimeFrame">TimeFrame (mmif.vocabulary.annotation_types.AnnotationTypes attribute)</a>
 </li>
       <li><a href="autodoc/mmif.vocabulary.html#mmif.vocabulary.annotation_types.AnnotationTypes.TimePoint">TimePoint (mmif.vocabulary.annotation_types.AnnotationTypes attribute)</a>
@@ -558,28 +602,25 @@
            
           </div>
           <footer>
-  
 
   <hr/>
 
   <div role="contentinfo">
     <p>
-        
-        &copy; Copyright 2020, Brandeis LLC
+        &#169; Copyright 2020, Brandeis LLC.
 
     </p>
   </div>
     
     
     
-    Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a
+    Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
     
-    <a href="https://github.com/rtfd/sphinx_rtd_theme">theme</a>
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
     
     provided by <a href="https://readthedocs.org">Read the Docs</a>. 
 
 </footer>
-
         </div>
       </div>
 
