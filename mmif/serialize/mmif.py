@@ -205,7 +205,7 @@ class Mmif(MmifObject):
         docs.extend([document for document in self.documents if document.properties[prop_key] == prop_value])
         return docs
 
-    def get_documents_locations(self, m_type: Union[DocumentTypes, str]) -> List[str]:
+    def get_documents_locations(self, m_type: Union[DocumentTypes, str], path_only=False) -> List[str]:
         """
         This method returns the file paths of documents of given type.
         Only top-level documents have locations, so we only check them.
@@ -213,9 +213,13 @@ class Mmif(MmifObject):
         :param m_type: the type to search for
         :return: a list of the values of the location fields in the corresponding documents
         """
-        return [document.location for document in self.documents if document.is_type(m_type) and len(document.location) > 0]
+        docs = [document for document in self.documents if document.is_type(m_type) and len(document.location) > 0]
+        if path_only:
+            return [doc.location_path() for doc in docs]
+        else:
+            return [doc.location for doc in docs]
 
-    def get_document_location(self, m_type: Union[DocumentTypes, str]) -> str:
+    def get_document_location(self, m_type: Union[DocumentTypes, str], path_only=False) -> str:
         """
         Method to get the location of *first* document of given type.
 
@@ -223,7 +227,7 @@ class Mmif(MmifObject):
         :return: the value of the location field in the corresponding document
         """
         # TODO (krim @ 8/10/20): Is returning the first location desirable?
-        locations = self.get_documents_locations(m_type)
+        locations = self.get_documents_locations(m_type, path_only=path_only)
         return locations[0] if len(locations) > 0 else None
 
     def get_document_by_id(self, doc_id: str) -> Document:

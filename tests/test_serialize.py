@@ -223,6 +223,7 @@ class TestMmif(unittest.TestCase):
         mmif_obj = Mmif(MMIF_EXAMPLES['mmif_example1'])
         self.assertEqual(1, len(mmif_obj.get_documents_locations(f'http://mmif.clams.ai/{__specver__}/vocabulary/VideoDocument')))
         self.assertEqual(mmif_obj.get_document_location(f'http://mmif.clams.ai/{__specver__}/vocabulary/VideoDocument'), "file:///var/archive/video-002.mp4")
+        self.assertEqual(mmif_obj.get_document_location(f'http://mmif.clams.ai/{__specver__}/vocabulary/VideoDocument', path_only=True), "/var/archive/video-002.mp4")
         # TODO (angus-lherrou @ 9-23-2020): no text documents in documents list of raw.json,
         #  un-comment and fix if we add view searching to these methods
         # text document is there but no location is specified
