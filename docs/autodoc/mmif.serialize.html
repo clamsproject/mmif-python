@@ -62,7 +62,7 @@
             
             
               <div class="version">
-                0.3.0
+                0.3.1
               </div>
             
           
@@ -436,7 +436,7 @@ additional check.</p>
 
 <dl class="py attribute">
 <dt id="mmif.serialize.model.MmifObject.reserved_names">
-<code class="sig-name descname"><span class="pre">reserved_names</span></code><em class="property"><span class="pre">:</span> <span class="pre">pyrsistent._pset.PSet</span></em><em class="property"> <span class="pre">=</span> <span class="pre">pset(['_required_attributes',</span> <span class="pre">'_frozen',</span> <span class="pre">'_unnamed_attributes',</span> <span class="pre">'_parent_view_id',</span> <span class="pre">'_attribute_classes',</span> <span class="pre">'reserved_names'])</span></em><a class="reference external" href="https://github.com/clamsproject/mmif-python/tree/master/mmif/serialize/model.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mmif.serialize.model.MmifObject.reserved_names" title="Permalink to this definition">¶</a></dt>
+<code class="sig-name descname"><span class="pre">reserved_names</span></code><em class="property"><span class="pre">:</span> <span class="pre">pyrsistent._pset.PSet</span></em><em class="property"> <span class="pre">=</span> <span class="pre">pset(['_attribute_classes',</span> <span class="pre">'reserved_names',</span> <span class="pre">'_required_attributes',</span> <span class="pre">'_unnamed_attributes',</span> <span class="pre">'_parent_view_id',</span> <span class="pre">'_frozen'])</span></em><a class="reference external" href="https://github.com/clamsproject/mmif-python/tree/master/mmif/serialize/model.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mmif.serialize.model.MmifObject.reserved_names" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="py method">
@@ -607,7 +607,7 @@ are present in that view’s ‘contains’ metadata.</p>
 
 <dl class="py method">
 <dt id="mmif.serialize.mmif.Mmif.get_document_location">
-<code class="sig-name descname"><span class="pre">get_document_location</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">m_type</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">Union</span><span class="p"><span class="pre">[</span></span><span class="pre">mmif.vocabulary.document_types.DocumentTypes</span><span class="p"><span class="pre">,</span> </span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span> &#x2192; <span class="pre">str</span><a class="reference external" href="https://github.com/clamsproject/mmif-python/tree/master/mmif/serialize/mmif.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mmif.serialize.mmif.Mmif.get_document_location" title="Permalink to this definition">¶</a></dt>
+<code class="sig-name descname"><span class="pre">get_document_location</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">m_type</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">Union</span><span class="p"><span class="pre">[</span></span><span class="pre">mmif.vocabulary.document_types.DocumentTypes</span><span class="p"><span class="pre">,</span> </span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">path_only</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span> &#x2192; <span class="pre">Optional</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span><a class="reference external" href="https://github.com/clamsproject/mmif-python/tree/master/mmif/serialize/mmif.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mmif.serialize.mmif.Mmif.get_document_location" title="Permalink to this definition">¶</a></dt>
 <dd><p>Method to get the location of <em>first</em> document of given type.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
@@ -680,7 +680,7 @@ are present in that view’s ‘contains’ metadata.</p>
 
 <dl class="py method">
 <dt id="mmif.serialize.mmif.Mmif.get_documents_locations">
-<code class="sig-name descname"><span class="pre">get_documents_locations</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">m_type</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">Union</span><span class="p"><span class="pre">[</span></span><span class="pre">mmif.vocabulary.document_types.DocumentTypes</span><span class="p"><span class="pre">,</span> </span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span> &#x2192; <span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span><a class="reference external" href="https://github.com/clamsproject/mmif-python/tree/master/mmif/serialize/mmif.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mmif.serialize.mmif.Mmif.get_documents_locations" title="Permalink to this definition">¶</a></dt>
+<code class="sig-name descname"><span class="pre">get_documents_locations</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">m_type</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">Union</span><span class="p"><span class="pre">[</span></span><span class="pre">mmif.vocabulary.document_types.DocumentTypes</span><span class="p"><span class="pre">,</span> </span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">path_only</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span> &#x2192; <span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span><a class="reference external" href="https://github.com/clamsproject/mmif-python/tree/master/mmif/serialize/mmif.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mmif.serialize.mmif.Mmif.get_documents_locations" title="Permalink to this definition">¶</a></dt>
 <dd><p>This method returns the file paths of documents of given type.
 Only top-level documents have locations, so we only check them.</p>
 <dl class="field-list simple">
@@ -887,7 +887,7 @@ an existing view with the same ID</p></li>
 
 <dl class="py method">
 <dt id="mmif.serialize.view.View.get_documents">
-<code class="sig-name descname"><span class="pre">get_documents</span></code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference external" href="https://github.com/clamsproject/mmif-python/tree/master/mmif/serialize/view.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mmif.serialize.view.View.get_documents" title="Permalink to this definition">¶</a></dt>
+<code class="sig-name descname"><span class="pre">get_documents</span></code><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; <span class="pre">List</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="#mmif.serialize.annotation.Document" title="mmif.serialize.annotation.Document"><span class="pre">mmif.serialize.annotation.Document</span></a><span class="p"><span class="pre">]</span></span><a class="reference external" href="https://github.com/clamsproject/mmif-python/tree/master/mmif/serialize/view.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mmif.serialize.view.View.get_documents" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="py method">
@@ -1174,7 +1174,7 @@ subdocuments grouped together logically.</p>
 
   <div role="contentinfo">
     <p>
-        &#169; Copyright 2020, Brandeis LLC.
+        &#169; Copyright 2021, Brandeis LLC.
 
     </p>
   </div>
