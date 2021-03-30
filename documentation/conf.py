@@ -4,6 +4,7 @@
 # list see the documentation:
 # https://www.sphinx-doc.org/en/master/usage/configuration.html
 
+import datetime
 import sphinx_rtd_theme
 
 # -- Path setup --------------------------------------------------------------
@@ -20,7 +21,7 @@ sys.path.insert(0, os.path.abspath(os.path.join('.', 'documentation')))
 # -- Project information -----------------------------------------------------
 
 project = 'mmif-python'
-copyright = '2020, Brandeis LLC'
+copyright = f'{datetime.date.today().year}, Brandeis LLC'
 author = 'Brandeis LLC'
 
 # The full version, including alpha/beta/rc tags
