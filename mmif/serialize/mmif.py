@@ -7,20 +7,18 @@ See the specification docs and the JSON Schema file for more information.
 
 import json
 from datetime import datetime
-from typing import List, Union, Optional, Dict, ClassVar
+from typing import List, Union, Optional, Dict, ClassVar, cast
 
 import jsonschema.validators
-from mmif import DocumentTypes
 from pkg_resources import resource_stream
-
-import mmif
-from mmif import ThingTypesBase, DocumentTypes
 from pyrsistent import pmap, pvector
 
-from .view import View
+import mmif
+from mmif import ThingTypesBase
+from mmif.vocabulary import AnnotationTypes, DocumentTypes
 from .annotation import Annotation, Document
 from .model import MmifObject, DataList, FreezableDataList
-from mmif.vocabulary import AnnotationTypes, DocumentTypes
+from .view import View
 
 __all__ = ['Mmif']
 
@@ -73,7 +71,7 @@ class Mmif(MmifObject):
         schema_res.close()
         if isinstance(json_str, str):
             json_str = json.loads(json_str)
-        jsonschema.validate(json_str, schema)
+        jsonschema.validators.validate(json_str, schema)
 
     def new_view_id(self) -> str:
         """
@@ -205,7 +203,7 @@ class Mmif(MmifObject):
         docs.extend([document for document in self.documents if document.properties[prop_key] == prop_value])
         return docs
 
-    def get_documents_locations(self, m_type: Union[DocumentTypes, str]) -> List[str]:
+    def get_documents_locations(self, m_type: Union[DocumentTypes, str], path_only=False) -> List[str]:
         """
         This method returns the file paths of documents of given type.
         Only top-level documents have locations, so we only check them.
@@ -213,9 +211,13 @@ class Mmif(MmifObject):
         :param m_type: the type to search for
         :return: a list of the values of the location fields in the corresponding documents
         """
-        return [document.location for document in self.documents if document.is_type(m_type) and len(document.location) > 0]
+        docs = [document for document in self.documents if document.is_type(m_type) and len(document.location) > 0]
+        if path_only:
+            return [doc.location_path() for doc in docs]
+        else:
+            return [doc.location for doc in docs]
 
-    def get_document_location(self, m_type: Union[DocumentTypes, str]) -> str:
+    def get_document_location(self, m_type: Union[DocumentTypes, str], path_only=False) -> Optional[str]:
         """
         Method to get the location of *first* document of given type.
 
@@ -223,7 +225,7 @@ class Mmif(MmifObject):
         :return: the value of the location field in the corresponding document
         """
         # TODO (krim @ 8/10/20): Is returning the first location desirable?
-        locations = self.get_documents_locations(m_type)
+        locations = self.get_documents_locations(m_type, path_only=path_only)
         return locations[0] if len(locations) > 0 else None
 
     def get_document_by_id(self, doc_id: str) -> Document:
@@ -241,7 +243,7 @@ class Mmif(MmifObject):
             doc_found = self.documents.get(doc_id)
         if doc_found is None:
             raise KeyError("{} document not found".format(doc_id))
-        return doc_found
+        return cast(Document, doc_found)
 
     def get_view_by_id(self, req_view_id: str) -> View:
         """
@@ -269,11 +271,12 @@ class Mmif(MmifObject):
             for alignment in alignment_view.get_annotations(AnnotationTypes.Alignment):
                 aligned_types = set()
                 for ann_id in [alignment.properties['target'], alignment.properties['source']]:
+                    ann_id = cast(str, ann_id)
                     if ':' in ann_id:
                         view_id, ann_id = ann_id.split(':')
-                        aligned_types.add(str(self[view_id][ann_id].at_type))
+                        aligned_types.add(str(cast(Annotation, self[view_id][ann_id]).at_type))
                     else:
-                        aligned_types.add(str(alignment_view[ann_id].at_type))
+                        aligned_types.add(str(cast(Annotation, alignment_view[ann_id]).at_type))
                 if str(at_type1) in aligned_types and str(at_type2) in aligned_types:
                     alignments.append(alignment)
             if len(alignments) > 0:
@@ -306,7 +309,6 @@ class Mmif(MmifObject):
                             pass
         return views
 
-
     def get_all_views_contain(self, at_types: Union[ThingTypesBase, str, List[Union[str, ThingTypesBase]]]) -> List[View]:
         """
         Returns the list of all views in the MMIF if given types
@@ -315,11 +317,11 @@ class Mmif(MmifObject):
         :param at_types: a list of types or just a type to check for. When given more than one types, all types must be found.
         :return: the list of views that contain the type
         """
-        if isinstance(at_types, str) or isinstance(at_types, ThingTypesBase):
-            return [view for view in self.views if str(at_types) in view.metadata.contains]
-        else:
+        if isinstance(at_types, list):
             return [view for view in self.views
                     if all(map(lambda x: str(x) in view.metadata.contains, at_types))]
+        else:
+            return [view for view in self.views if str(at_types) in view.metadata.contains]
 
     def get_views_contain(self, at_types: Union[ThingTypesBase, str, List[Union[str, ThingTypesBase]]]) -> List[View]:
         """
@@ -346,9 +348,11 @@ class Mmif(MmifObject):
                     return view
         return None
 
+    # pytype: disable=bad-return-type
     def __getitem__(self, item: str) -> Union[Document, View, Annotation]:
         """
-        getitem implementation for Mmif.
+        getitem implementation for Mmif. When nothing is found, this will raise an error
+        rather than returning a None (although pytype doesn't think so...)
 
         :raises KeyError: if the item is not found or if the search results are ambiguous
         :param item: the search string, a document ID, a view ID, or a view-scoped annotation ID
@@ -373,6 +377,7 @@ class Mmif(MmifObject):
         if not (view_result or document_result):
             raise KeyError("ID not found: %s" % item)
         return anno_result or view_result or document_result
+    # pytype: enable=bad-return-type
 
 
 class MmifMetadata(MmifObject):
