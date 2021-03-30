@@ -5,9 +5,8 @@ as a live Python object.
 In MMIF, views are created by apps in a pipeline that are annotating
 data that was previously present in the MMIF file.
 """
-
 from datetime import datetime
-from typing import Dict, Union, Optional, Generator
+from typing import Dict, Union, Optional, Generator, List, cast
 import dateutil.parser
 from pyrsistent import pmap, pvector
 
@@ -133,8 +132,8 @@ class View(FreezableMmifObject):
                 if all(map(lambda kv: prop_check(kv[0], kv[1], annotation.properties, at_type_metadata), properties.items())):
                     yield annotation
 
-    def get_documents(self):
-        return [annotation for annotation in self.annotations if annotation.is_document()]
+    def get_documents(self) -> List[Document]:
+        return [cast(Document, annotation) for annotation in self.annotations if annotation.is_document()]
 
     def get_document_by_id(self, doc_id) -> Document:
         doc_found = self.annotations.get(doc_id)
