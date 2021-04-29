@@ -7,7 +7,7 @@ See the specification docs and the JSON Schema file for more information.
 
 import json
 from datetime import datetime
-from typing import List, Union, Optional, Dict, ClassVar, cast, Generator
+from typing import List, Union, Optional, Dict, ClassVar, cast
 
 import jsonschema.validators
 from pkg_resources import resource_stream
@@ -282,10 +282,6 @@ class Mmif(MmifObject):
             if len(alignments) > 0:
                 v_and_a[alignment_view.id] = alignments
         return v_and_a
-    
-    def get_latest_views(self) -> Generator[View, None, None]:
-        for view in sorted(self.views, key=lambda x: x.metadata.timestamp, reverse=True):
-            yield view
 
     def get_views_for_document(self, doc_id: str):
         """
