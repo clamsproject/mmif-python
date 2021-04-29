@@ -164,6 +164,10 @@ class View(FreezableMmifObject):
         if not anno_result:
             raise KeyError("Annotation ID not found: %s" % key)
         return anno_result
+    
+    def set_error(self, err_message: str, err_trace: str) -> None:
+        self.metadata.set_error(err_message, err_trace)
+        self.annotations.empty()
 
 
 class ViewMetadata(FreezableMmifObject):
@@ -179,7 +183,12 @@ class ViewMetadata(FreezableMmifObject):
         self.app: str = ''
         self.contains: ContainsDict = ContainsDict()
         self.parameters: dict = {}
-        self._required_attributes = pvector(["app", "contains"])
+        self.error: dict = {}
+        self._required_attributes = pvector(["app"])
+        # in theory, either `contains` or `error` should appear in a `view`
+        # but with current implementation, there's no easy way to set a condition 
+        # for `oneOf` requirement 
+        # see MmifObject::_required_attributes in model.py 
         super().__init__(viewmetadata_obj)
 
     def _deserialize(self, input_dict: dict) -> None:
@@ -250,7 +259,21 @@ class ViewMetadata(FreezableMmifObject):
             return self.parameters[param_key]
         except KeyError:
             raise KeyError(f"parameter \"{param_key}\" is not set in the view: {self.serialize()}")
+    
+    def set_error(self, message: str, stack_trace: str):
+        self.error = ErrorDict({"message": message, "stackTrace": stack_trace})
+        self.contains = {}
 
+
+class ErrorDict(FreezableMmifObject):
+    """
+    Error object that stores information about error occurred during processing. 
+    """
+    def __init__(self, error_obj: Union[bytes, str, dict] = None) -> None:
+        self.message: str = ''
+        self.stackTrace: str = ''
+        super().__init__(error_obj)
+        
 
 class Contain(FreezableMmifObject):
     """
@@ -315,6 +338,9 @@ class AnnotationsList(FreezableDataList[Union[Annotation, Document]]):
         :return: None
         """
         super()._append_with_key(value.id, value, overwrite)
+    
+    def empty(self):
+        self._items = {}
 
 
 class ContainsDict(FreezableDataDict[Contain]):
