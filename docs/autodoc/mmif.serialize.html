@@ -65,7 +65,7 @@
             
             
               <div class="version">
-                0.3.2
+                0.3.3
               </div>
             
           
@@ -192,8 +192,13 @@ for the different components of MMIF is added in the subclasses.</p>
 <em class="property"><span class="pre">class</span> </em><span class="sig-prename descclassname"><span class="pre">mmif.serialize.model.</span></span><span class="sig-name descname"><span class="pre">DataDict</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">mmif_obj</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">Optional</span><span class="p"><span class="pre">[</span></span><span class="pre">Union</span><span class="p"><span class="pre">[</span></span><span class="pre">bytes</span><span class="p"><span class="pre">,</span> </span><span class="pre">str</span><span class="p"><span class="pre">,</span> </span><span class="pre">dict</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span> <span class="o"><span class="pre">=</span></span> <span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/clamsproject/mmif-python/tree/master/mmif/serialize/model.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mmif.serialize.model.DataDict" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <a class="reference internal" href="#mmif.serialize.model.MmifObject" title="mmif.serialize.model.MmifObject"><code class="xref py py-class docutils literal notranslate"><span class="pre">mmif.serialize.model.MmifObject</span></code></a>, <code class="xref py py-class docutils literal notranslate"><span class="pre">Generic</span></code>[<code class="xref py py-obj docutils literal notranslate"><span class="pre">T</span></code>]</p>
 <dl class="py method">
+<dt class="sig sig-object py" id="mmif.serialize.model.DataDict.empty">
+<span class="sig-name descname"><span class="pre">empty</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference external" href="https://github.com/clamsproject/mmif-python/tree/master/mmif/serialize/model.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mmif.serialize.model.DataDict.empty" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
 <dt class="sig sig-object py" id="mmif.serialize.model.DataDict.get">
-<span class="sig-name descname"><span class="pre">get</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">key</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span> &#x2192; <span class="pre">Optional</span><span class="p"><span class="pre">[</span></span><span class="pre">T</span><span class="p"><span class="pre">]</span></span><a class="reference external" href="https://github.com/clamsproject/mmif-python/tree/master/mmif/serialize/model.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mmif.serialize.model.DataDict.get" title="Permalink to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">get</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">key</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">default</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> &#x2192; <span class="pre">Optional</span><span class="p"><span class="pre">[</span></span><span class="pre">T</span><span class="p"><span class="pre">]</span></span><a class="reference external" href="https://github.com/clamsproject/mmif-python/tree/master/mmif/serialize/model.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mmif.serialize.model.DataDict.get" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="py method">
@@ -240,6 +245,11 @@ views, and annotations.</p>
 <span class="sig-name descname"><span class="pre">deserialize</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">mmif_json</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">Union</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span> </span><span class="pre">list</span><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span> &#x2192; <span class="pre">None</span><a class="reference external" href="https://github.com/clamsproject/mmif-python/tree/master/mmif/serialize/model.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mmif.serialize.model.DataList.deserialize" title="Permalink to this definition">¶</a></dt>
 <dd><p>Passes the input data into the internal deserializer.</p>
 </dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="mmif.serialize.model.DataList.empty">
+<span class="sig-name descname"><span class="pre">empty</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference external" href="https://github.com/clamsproject/mmif-python/tree/master/mmif/serialize/model.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mmif.serialize.model.DataList.empty" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="mmif.serialize.model.DataList.get">
@@ -439,7 +449,7 @@ additional check.</p>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="mmif.serialize.model.MmifObject.reserved_names">
-<span class="sig-name descname"><span class="pre">reserved_names</span></span><em class="property"><span class="pre">:</span> <span class="pre">pyrsistent._pset.PSet</span></em><em class="property"> <span class="pre">=</span> <span class="pre">pset(['_attribute_classes',</span> <span class="pre">'_frozen',</span> <span class="pre">'_required_attributes',</span> <span class="pre">'_parent_view_id',</span> <span class="pre">'reserved_names',</span> <span class="pre">'_unnamed_attributes'])</span></em><a class="reference external" href="https://github.com/clamsproject/mmif-python/tree/master/mmif/serialize/model.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mmif.serialize.model.MmifObject.reserved_names" title="Permalink to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">reserved_names</span></span><em class="property"><span class="pre">:</span> <span class="pre">pyrsistent._pset.PSet</span></em><em class="property"> <span class="pre">=</span> <span class="pre">pset(['_frozen',</span> <span class="pre">'_required_attributes',</span> <span class="pre">'reserved_names',</span> <span class="pre">'_unnamed_attributes',</span> <span class="pre">'_parent_view_id',</span> <span class="pre">'_attribute_classes'])</span></em><a class="reference external" href="https://github.com/clamsproject/mmif-python/tree/master/mmif/serialize/model.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mmif.serialize.model.MmifObject.reserved_names" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="py method">
@@ -877,10 +887,12 @@ an existing view with the same ID</p></li>
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>at_type</strong> – &#64;type of the annotations to look for. When this is None, any &#64;type will match.</p></li>
-<li><p><strong>properties</strong> – properties of the annotations to look for. When given more than one property, all properties must match. Note that some annotation properties (annotation type medata) are specified in the <cite>contains</cite> view metadata</p></li>
+<li><p><strong>properties</strong> – properties of the annotations to look for. When given more than one property, all properties</p></li>
 </ul>
 </dd>
 </dl>
+<p>must match. Note that annotation type metadata are specified in the <cite>contains</cite> view metadata, not in individual
+annotation objects.</p>
 </dd></dl>
 
 <dl class="py method">
