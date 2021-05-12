@@ -14,11 +14,13 @@ for the different components of MMIF is added in the subclasses.
 
 import logging
 import json
+from abc import ABC
+
 from pyrsistent import pvector, m, pmap, s, PVector, PMap, PSet, thaw
 from datetime import datetime
 
 from deepdiff import DeepDiff
-from typing import Union, Any, Dict, Optional, TypeVar, Generic, Type, Generator, Iterator, List
+from typing import Union, Any, Dict, Optional, TypeVar, Generic, Generator, Iterator
 
 T = TypeVar('T')
 
@@ -118,7 +120,7 @@ class MmifObject(object):
         """
         if self._unnamed_attributes is None:
             raise AttributeError(f"Additional properties are disallowed by {self.__class__}")
-        self._unnamed_attributes[key] = value # pytype: disable=unsupported-operands
+        self._unnamed_attributes[key] = value  # pytype: disable=unsupported-operands
 
     def _named_attributes(self) -> Generator[str, None, None]:
         """
@@ -529,8 +531,11 @@ class DataList(MmifObject, Generic[T]):
     def __contains__(self, item) -> bool:
         return item in self._items
 
+    def empty(self):
+        self._items = {}
 
-class FreezableDataList(FreezableMmifObject, DataList[T]):
+
+class FreezableDataList(FreezableMmifObject, DataList[T], ABC):
     def _deserialize(self, input_dict: dict) -> None:
         raise NotImplementedError()
 
@@ -553,8 +558,8 @@ class DataDict(MmifObject, Generic[T]):
     def _deserialize(self, input_dict: dict) -> None:
         raise NotImplementedError()
 
-    def get(self, key: str) -> Optional[T]:
-        return self._items.get(key)
+    def get(self, key: str, default=None) -> Optional[T]:
+        return self._items.get(key, default)
 
     def _append_with_key(self, key: str, value: T, overwrite=False) -> None:
         if not overwrite and key in self._items:
@@ -594,9 +599,12 @@ class DataDict(MmifObject, Generic[T]):
 
     def __contains__(self, item):
         return item in self._items
+    
+    def empty(self):
+        self._items = {}
 
 
-class FreezableDataDict(FreezableMmifObject, DataDict[T]):
+class FreezableDataDict(FreezableMmifObject, DataDict[T], ABC):
     def _deserialize(self, input_dict: dict) -> None:
         raise NotImplementedError()
 

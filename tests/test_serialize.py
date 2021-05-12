@@ -558,6 +558,9 @@ class TestView(unittest.TestCase):
         # simple search by at_type
         annotations = list(mmif_obj['v3'].get_annotations(AnnotationTypes.TimeFrame))
         self.assertEqual(len(annotations), 2)
+        # simple search fail by at_type
+        annotations = list(mmif_obj['v3'].get_annotations('non-existing-annotation-type'))
+        self.assertEqual(len(annotations), 0)
         # at_type + property
         annotations = list(mmif_obj['v3'].get_annotations(AnnotationTypes.TimeFrame, frameType='speech'))
         self.assertEqual(len(annotations), 1)

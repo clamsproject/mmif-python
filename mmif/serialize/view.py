@@ -117,18 +117,16 @@ class View(FreezableMmifObject):
         Look for certain annotations in this view, specified by parameters
 
         :param at_type: @type of the annotations to look for. When this is None, any @type will match.
-        :param properties: properties of the annotations to look for. When given more than one property, all properties must match. Note that some annotation properties (annotation type medata) are specified in the `contains` view metadata
+        :param properties: properties of the annotations to look for. When given more than one property, all properties 
+        must match. Note that annotation type metadata are specified in the `contains` view metadata, not in individual
+        annotation objects.
         """
         def prop_check(k, v, *props):
             return any(k in prop and prop[k] == v for prop in props)
 
-        if at_type:
-            at_type_metadata = self.metadata.contains[str(at_type)]
         for annotation in self.annotations:
-            if not at_type:
-                if all(map(lambda kv: prop_check(kv[0], kv[1], annotation.properties, self.metadata.contains[str(annotation.at_type)]), properties.items())):
-                    yield annotation
-            if at_type and str(annotation.at_type) == str(at_type):
+            at_type_metadata = self.metadata.contains.get(str(annotation.at_type), {})
+            if not at_type or (at_type and str(annotation.at_type) == str(at_type)):
                 if all(map(lambda kv: prop_check(kv[0], kv[1], annotation.properties, at_type_metadata), properties.items())):
                     yield annotation
 
@@ -262,7 +260,7 @@ class ViewMetadata(FreezableMmifObject):
     
     def set_error(self, message: str, stack_trace: str):
         self.error = ErrorDict({"message": message, "stackTrace": stack_trace})
-        self.contains = {}
+        self.contains.empty()
 
 
 class ErrorDict(FreezableMmifObject):
@@ -338,9 +336,6 @@ class AnnotationsList(FreezableDataList[Union[Annotation, Document]]):
         :return: None
         """
         super()._append_with_key(value.id, value, overwrite)
-    
-    def empty(self):
-        self._items = {}
 
 
 class ContainsDict(FreezableDataDict[Contain]):
