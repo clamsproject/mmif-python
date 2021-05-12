@@ -14,7 +14,6 @@ for the different components of MMIF is added in the subclasses.
 
 import logging
 import json
-from abc import ABC
 
 from pyrsistent import pvector, m, pmap, s, PVector, PMap, PSet, thaw
 from datetime import datetime
@@ -535,7 +534,8 @@ class DataList(MmifObject, Generic[T]):
         self._items = {}
 
 
-class FreezableDataList(FreezableMmifObject, DataList[T], ABC):
+# TODO (krim @ 5/11/21): this technically needs to be a ABC, but making it so fails pytype test (https://github.com/google/pytype/issues/535)
+class FreezableDataList(FreezableMmifObject, DataList[T]):
     def _deserialize(self, input_dict: dict) -> None:
         raise NotImplementedError()
 
@@ -604,7 +604,8 @@ class DataDict(MmifObject, Generic[T]):
         self._items = {}
 
 
-class FreezableDataDict(FreezableMmifObject, DataDict[T], ABC):
+# TODO (krim @ 5/11/21): this technically needs to be a ABC, but making it so fails pytype test (https://github.com/google/pytype/issues/535)
+class FreezableDataDict(FreezableMmifObject, DataDict[T]):
     def _deserialize(self, input_dict: dict) -> None:
         raise NotImplementedError()
 
