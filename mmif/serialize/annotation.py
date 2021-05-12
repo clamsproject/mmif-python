@@ -193,6 +193,10 @@ class DocumentProperties(AnnotationProperties):
         self.location_: str = ''
         self.text: Text = Text()
         self._attribute_classes = pmap({'text': Text})
+        # in theory, either `location` or `text` should appear in a `document`
+        # but with current implementation, there's no easy way to set a condition 
+        # for `oneOf` requirement 
+        # see MmifObject::_required_attributes in model.py 
         super().__init__(mmif_obj)
 
     def _deserialize(self, input_dict: dict) -> None:
