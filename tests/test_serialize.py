@@ -581,15 +581,31 @@ class TestView(unittest.TestCase):
         mmif_obj = Mmif(MMIF_EXAMPLES['mmif_example1'])
         aview = mmif_obj.new_view()
         ann = Annotation()
+        ann.at_type = AnnotationTypes.VideoObject
         ann.id = 'a1'
         aview.add_annotation(ann)
+        
+        # before error is set
+        self.assertTrue("contains" in aview.metadata)
+        self.assertEqual(len(aview.metadata.contains), 1)
         self.assertEqual(len(aview.annotations), 1)
+        self.assertFalse("error" in aview.metadata)
+        
+        # after error is set
         aview.set_error("some message", "some trace")
         self.assertEqual(len(aview.annotations), 0)
         self.assertEqual(len(aview.metadata.contains), 0)
+        self.assertFalse("contains" in aview.metadata)
+        self.assertTrue("error" in aview.metadata)
+        self.assertEqual(aview.metadata.error.message, "some message")
+        
+        # serialize trip
         aview_json = json.loads(aview.serialize())
         self.assertTrue("error" in aview_json['metadata'])
         self.assertFalse("contains" in aview_json['metadata'])
+        roundtrip = View(aview_json)
+        self.assertTrue("error" in roundtrip.metadata)
+        self.assertFalse("contains" in roundtrip.metadata)
 
 
 class TestAnnotation(unittest.TestCase):

@@ -198,7 +198,7 @@ class Mmif(MmifObject):
         docs = []
         for view in self.views:
             for doc in view.get_documents():
-                if doc.properties[prop_key] == prop_value:
+                if prop_key in doc and doc.properties[prop_key] == prop_value:
                     docs.append(doc)
         docs.extend([document for document in self.documents if document.properties[prop_key] == prop_value])
         return docs

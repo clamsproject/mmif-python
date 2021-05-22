@@ -11,7 +11,7 @@ import dateutil.parser
 from pyrsistent import pmap, pvector
 
 from .annotation import Annotation, Document
-from .model import FreezableMmifObject, FreezableDataList, FreezableDataDict
+from .model import FreezableMmifObject, FreezableDataList, FreezableDataDict, MmifObject
 from mmif.vocabulary import ThingTypesBase
 
 
@@ -54,7 +54,10 @@ class View(FreezableMmifObject):
         :param contain_dict: any metadata associated with the annotation type
         :return: the generated :class:`Contain` object
         """
-        return self.metadata.new_contain(at_type, contain_dict)
+        if MmifObject.is_empty(at_type):
+            raise ValueError("@type must not be empty.")
+        else:
+            return self.metadata.new_contain(at_type, contain_dict)
 
     def new_annotation(self, aid: str, at_type: Union[str, ThingTypesBase], overwrite=False) -> 'Annotation':
         """
@@ -181,28 +184,17 @@ class ViewMetadata(FreezableMmifObject):
         self.app: str = ''
         self.contains: ContainsDict = ContainsDict()
         self.parameters: dict = {}
-        self.error: dict = {}
+        self.error: Union[dict, ErrorDict] = {}
         self._required_attributes = pvector(["app"])
+        self._attribute_classes = pmap(
+            {'error': ErrorDict, 
+             'contains': ContainsDict}
+        )
         # in theory, either `contains` or `error` should appear in a `view`
         # but with current implementation, there's no easy way to set a condition 
         # for `oneOf` requirement 
         # see MmifObject::_required_attributes in model.py 
         super().__init__(viewmetadata_obj)
-
-    def _deserialize(self, input_dict: dict) -> None:
-        """
-        Extends base ``_deserialize`` method to initialize
-        ``contains`` as a dict of Contain objects.
-
-        :param input_dict: the JSON data that defines the metadata
-        :return: None
-        """
-        try:
-            self.contains = ContainsDict(input_dict.pop('contains'))
-        except KeyError:
-            # means input_dict don't have `contains`, so we'll leave it empty
-            pass
-        super()._deserialize(input_dict)
 
     def _find_match_hotfix(self, key: str) -> bool:
         """
