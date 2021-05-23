@@ -36,8 +36,8 @@ publish: distclean version package test
 
 docs: package
 	rm -rf documentation/_build docs
-	python3 setup.py build_sphinx -a
-	mv documentation/_build/html docs
+	sphinx-build documentation documentation/_build -b html -A version=`cat VERSION` -a
+	mv documentation/_build docs
 	touch docs/.nojekyll
 
 package: VERSION

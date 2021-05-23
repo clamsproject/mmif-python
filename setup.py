@@ -26,12 +26,6 @@ mmif_schema_res_name = 'mmif.json'
 mmif_vocab_res_oriname = 'vocabulary/clams.vocabulary.yaml'
 mmif_vocab_res_name = 'clams.vocabulary.yaml'
 
-try:
-    from sphinx.setup_command import BuildDoc
-    cmdclass['build_sphinx'] = BuildDoc
-except ImportError:
-    print('WARNING: sphinx not available, not building docs')
-
 
 def do_not_edit_warning(dirname):
     with open(pjoin(dirname, 'do-not-edit.txt'), 'w') as warning:
@@ -216,15 +210,5 @@ setuptools.setup(
         'Intended Audience :: Developers ',
         'License :: OSI Approved :: Apache Software License',
         'Programming Language :: Python :: 3 :: Only',
-    ],
-    command_options={
-        'build_sphinx': {
-            'source_dir': ('setup.py', 'documentation'), 
-            'project': ('setup.py', name),
-            'version': ('setup.py', version),
-            #  'release': ('setup.py', release),
-            'build_dir': ('setup.py', 'documentation/_build'),
-            'builder': ('setup.py', 'html'),
-            }
-        }
+    ]
 )
