@@ -1,23 +1,21 @@
-import unittest
 import json
+import unittest
 from io import StringIO
 from unittest.mock import patch
 
-import mmif
-from hypothesis import given, settings, HealthCheck  # pip install hypothesis
 import hypothesis_jsonschema  # pip install hypothesis-jsonschema
-
 import pytest
+from hypothesis import given, settings, HealthCheck  # pip install hypothesis
 from jsonschema import ValidationError
+from pkg_resources import resource_stream
+
+import mmif as mmifpkg
 from mmif import __specver__
 from mmif.serialize import *
-from mmif.vocabulary import DocumentTypes
 from mmif.serialize.model import *
 from mmif.serialize.view import ContainsDict, ErrorDict
 from mmif.vocabulary import AnnotationTypes, DocumentTypes
-from pkg_resources import resource_stream
 from tests.mmif_examples import *
-
 
 # Flags for skipping tests
 DEBUG = False
@@ -329,7 +327,7 @@ class TestMmif(unittest.TestCase):
             mmif_obj.add_document(med_obj)
             self.fail("didn't raise exception on duplicate ID add")
         except KeyError:
-            ...
+            pass
         try:
             mmif_obj.add_document(med_obj, overwrite=True)
         except KeyError:
@@ -350,11 +348,33 @@ class TestMmif(unittest.TestCase):
             mmif_obj.add_view(view_obj)
             self.fail("didn't raise exception on duplicate ID add")
         except KeyError:
-            ...
+            pass
         try:
             mmif_obj.add_view(view_obj, overwrite=True)
         except KeyError:
             self.fail("raised exception on duplicate ID add when overwrite was set to True")
+    
+    def test_eq_checking_order(self):
+        mmif1 = Mmif(JSON_STR)
+        mmif2 = Mmif(JSON_STR)
+        view1 = View()
+        view1.id = 'v99'
+        view2 = View()
+        view2.id = 'v98'
+        mmif1.add_view(view1)
+        mmif1.add_view(view2)
+        mmif2.add_view(view2)
+        mmif2.add_view(view1)
+        self.assertFalse(mmif1 == mmif2)
+
+        mmif3 = Mmif(JSON_STR)
+        mmif4 = Mmif(JSON_STR)
+        mmif3.add_view(view1)
+        mmif3.add_view(view2)
+        mmif4.add_view(view1)
+        mmif4.add_view(view2)
+        self.assertTrue(mmif3 == mmif4)
+
 
     def test___getitem__(self):
         mmif_obj = Mmif(MMIF_EXAMPLES['mmif_example1'])
@@ -930,7 +950,7 @@ class TestDataStructure(unittest.TestCase):
 @unittest.skipIf(*SKIP_SCHEMA)
 class TestSchema(unittest.TestCase):
 
-    schema_res = resource_stream(f'{mmif.__name__}.{mmif._res_pkg}', mmif._schema_res_name)
+    schema_res = resource_stream(f'{mmifpkg.__name__}.{mmifpkg._res_pkg}', mmifpkg._schema_res_name)
     schema = json.load(schema_res)
     schema_res.close()
 

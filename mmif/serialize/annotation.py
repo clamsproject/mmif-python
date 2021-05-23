@@ -8,12 +8,13 @@ of a view. For documentation on how views are represented, see
 """
 
 import pathlib
-from urllib.parse import urlparse
 from typing import Union, Dict, List, Type
+from urllib.parse import urlparse
+
 from pyrsistent import pmap, pvector
 
-from .model import FreezableMmifObject
 from mmif.vocabulary import ThingTypesBase, DocumentTypesBase
+from .model import FreezableMmifObject
 
 __all__ = ['Annotation', 'AnnotationProperties', 'Document', 'DocumentProperties', 'Text']
 

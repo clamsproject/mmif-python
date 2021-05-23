@@ -12,14 +12,13 @@ and serializing live objects into MMIF JSON data. Specialized behavior
 for the different components of MMIF is added in the subclasses.
 """
 
-import logging
 import json
-
-from pyrsistent import pvector, m, pmap, s, PVector, PMap, PSet, thaw
+import logging
 from datetime import datetime
+from typing import Union, Any, Dict, Optional, TypeVar, Generic, Generator, Iterator
 
 from deepdiff import DeepDiff
-from typing import Union, Any, Dict, Optional, TypeVar, Generic, Generator, Iterator
+from pyrsistent import pvector, m, pmap, s, PVector, PMap, PSet, thaw
 
 T = TypeVar('T')
 
@@ -260,7 +259,7 @@ class MmifObject(object):
 
     def __eq__(self, other) -> bool:
         return isinstance(other, type(self)) and \
-               len(DeepDiff(self, other, ignore_order=True, report_repetition=True, exclude_types=[datetime])) == 0
+               len(DeepDiff(self, other, report_repetition=True, exclude_types=[datetime])) == 0
 
     def __len__(self) -> int:
         """
