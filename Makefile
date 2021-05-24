@@ -47,7 +47,7 @@ doc: package # for single version sphinx - only use when developing
 	sphinx-build documentation documentation/_build -b html -A version=$(cat VERSION) -a
 
 package: VERSION
-	pip install -r requirements.dev
+	pip install --upgrade -r requirements.dev
 	python3 setup.py sdist
 
 build: $(artifact)
@@ -56,7 +56,7 @@ $(artifact):
 
 # invoking `test` without a VERSION file will generated a dev version - this ensures `make test` runs unmanned
 test: devversion package
-	pip install -r requirements.dev
+	pip install --upgrade -r requirements.dev
 	pip install -r requirements.txt
 	pytype $(packagename)
 	python3 -m pytest --doctest-modules --cov=$(packagename)
