@@ -23,15 +23,11 @@ jobs:
           pip install -r requirements.dev
           pip install -r requirements.txt
           echo ${{ env.VERSION }} > VERSION
-          python setup.py sdist
-          python -m pytest --doctest-modules --cov=mmif/ --cov-report=xml
+          make package
+          make test
       - name: build HTML documentation
         run: |
-          pip install -r requirements.dev
-          python setup.py build_sphinx -a
-          rm -rf docs
-          mv documentation/_build/html docs
-          touch docs/.nojekyll
+          make docs
       - name: configure clamsbot git user
         run: |
           git config --local user.email "admin@clams.ai"
