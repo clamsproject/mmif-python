@@ -346,11 +346,11 @@ class FreezableMmifObject(MmifObject):
             nonlocal fully_frozen
 
             if isinstance(element, (list, PVector)):
-                return pvector(_pyrsist(item) for item in element)
+                return pvector(_pyrsist(item) for item in element)  # pytype: disable=attribute-error
             elif isinstance(element, (dict, PMap)):
-                return pmap({key: _pyrsist(value) for key, value in element.items()})
+                return pmap({key: _pyrsist(value) for key, value in element.items()})  # pytype: disable=attribute-error
             elif isinstance(element, FreezableMmifObject):
-                fully_frozen &= element.deep_freeze()
+                fully_frozen &= element.deep_freeze()  # pytype: disable=attribute-error
                 return element
             elif element is not None and (not hasattr(element, '__hash__')
                                           or element.__class__.__hash__ in {object.__hash__, None}):

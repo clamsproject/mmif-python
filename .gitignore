@@ -74,10 +74,10 @@ tags
 mmif/ver
 mmif/res
 mmif/vocabulary
-VERSION*
+./VERSION*
 .hypothesis
 
 
 # sphinx/autodoc files
-/documentation/_build/
+documentation/_build/
 
