@@ -15,7 +15,8 @@ import sphinx_rtd_theme
 #
 import os
 import sys
-sys.path.insert(0, os.path.abspath(os.path.join('.', 'documentation')))
+rootdir = os.getenv("SPHINX_MULTIVERSION_SOURCEDIR", default=os.path.dirname(__file__))
+sys.path.insert(0, os.path.dirname(rootdir))
 
 
 # -- Project information -----------------------------------------------------
@@ -33,7 +34,13 @@ author = 'Brandeis LLC'
 # Add any Sphinx extension module names here, as strings. They can be
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
-extensions = ['sphinx.ext.autodoc', 'sphinx_rtd_theme', 'sphinx.ext.linkcode', 'm2r2']
+extensions = [
+        'sphinx.ext.autodoc',
+        'sphinx_rtd_theme',
+        'sphinx.ext.linkcode',
+        'm2r2',
+        "sphinx_multiversion"
+]
 source_suffix = ['.rst', '.md']
 
 # Add any paths that contain templates here, relative to this directory.
@@ -72,5 +79,19 @@ def linkcode_resolve(domain, info):
         return None
     filename = info['module'].replace('.', '/')
     # TODO (krim): it's not trivial to recover the file path from a module name
-    return f"https://github.com/clamsproject/mmif-python/tree/master/{filename}.py"
+    return f"https://github.com/clamsproject/mmif-python/tree/{version}/{filename}.py"
 
+
+# configuration for multiversion extension
+# Whitelist pattern for tags (set to None to ignore all tags)
+smv_tag_whitelist = r'^[0-9]+\.[0-9]+\.[0-9]+.*$'
+# Whitelist pattern for branches (set to None to ignore all branches)
+smv_branch_whitelist = None
+# Whitelist pattern for remotes (set to None to use local branches only)
+smv_remote_whitelist = None
+# Pattern for released versions
+smv_released_pattern = r'^tags/[0-9]+\.[0-9]+\.[0-9]+.*$'
+# Format for versioned output directories inside the build directory
+smv_outputdir_format = '{ref.name}'
+# Determines whether remote or local git branches/tags are preferred if their output dirs conflict
+smv_prefer_remote_refs = False

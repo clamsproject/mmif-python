@@ -34,11 +34,17 @@ publish: distclean version package test
 	twine upload --repository-url http://morbius.cs-i.brandeis.edu:8081/repository/pypi-develop/ \
 		-u clamsuploader -p $$CLAMSUPLOADERPASSWORD dist/$(sdistname)-`cat VERSION`.tar.gz
 
-docs: package
+docs: latest := $(shell git tag | sort -r | head -n 1)
+docs: package 
 	rm -rf documentation/_build docs
-	python3 setup.py build_sphinx -a
-	mv documentation/_build/html docs
+	sphinx-multiversion documentation documentation/_build -b html -a
+	mv documentation/_build docs
 	touch docs/.nojekyll
+	echo "<!DOCTYPE html> <html> <head> <title>Redirect to latest version</title> <meta charset=\"utf-8\"> <meta http-equiv=\"refresh\" content=\"0; url=./$(latest)/index.html\"> </head> </html>" > docs/index.html
+
+doc: package # for single version sphinx - only use when developing
+	rm -rf documentation/_build docs
+	sphinx-build documentation documentation/_build -b html -A version=$(cat VERSION) -a
 
 package: VERSION
 	pip install -r requirements.dev

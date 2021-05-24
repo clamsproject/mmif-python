@@ -9,5 +9,6 @@ lxml
 sphinx
 autodoc
 sphinx-rtd-theme
+git+git://github.com/clamsproject/sphinx-multiversion@master
 twine
 m2r2
