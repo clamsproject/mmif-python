@@ -88,10 +88,10 @@ smv_tag_whitelist = r'^[0-9]+\.[0-9]+\.[0-9]+.*$'
 # Whitelist pattern for branches (set to None to ignore all branches)
 smv_branch_whitelist = None
 # Whitelist pattern for remotes (set to None to use local branches only)
-smv_remote_whitelist = None
+smv_remote_whitelist = 'origin'
 # Pattern for released versions
 smv_released_pattern = r'^tags/[0-9]+\.[0-9]+\.[0-9]+.*$'
 # Format for versioned output directories inside the build directory
 smv_outputdir_format = '{ref.name}'
 # Determines whether remote or local git branches/tags are preferred if their output dirs conflict
-smv_prefer_remote_refs = False
+smv_prefer_remote_refs = True

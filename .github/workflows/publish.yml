@@ -11,6 +11,8 @@ jobs:
     steps:
       - name: checkout the repo
         uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
       - name: setup python
         uses: actions/setup-python@v2
         with:

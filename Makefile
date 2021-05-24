@@ -44,7 +44,7 @@ docs: package
 
 doc: package # for single version sphinx - only use when developing
 	rm -rf documentation/_build docs
-	sphinx-build documentation documentation/_build -b html -A version=$(cat VERSION) -a
+	sphinx-build documentation documentation/_build -b html -D version=`cat VERSION` -a
 
 package: VERSION
 	pip install --upgrade -r requirements.dev
