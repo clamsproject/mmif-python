@@ -265,6 +265,8 @@ class Mmif(MmifObject):
         :return: a dict that keyed by view IDs (str) and has lists of alignment Annotation objects as values.
         """
         v_and_a = {}
+        # at_type1 = ThingTypesBase.from_str(at_type1) if isinstance(at_type1, str) else at_type1
+        # at_type2 = ThingTypesBase.from_str(at_type2) if isinstance(at_type2, str) else at_type2
         for alignment_view in self.get_all_views_contain(AnnotationTypes.Alignment):
             alignments = []
             # TODO (krim @ 11/7/20): maybe Alignment can have metadata on what types are aligned?
@@ -274,10 +276,12 @@ class Mmif(MmifObject):
                     ann_id = cast(str, ann_id)
                     if ':' in ann_id:
                         view_id, ann_id = ann_id.split(':')
-                        aligned_types.add(str(cast(Annotation, self[view_id][ann_id]).at_type))
+                        aligned_type = cast(Annotation, self[view_id][ann_id]).at_type
                     else:
-                        aligned_types.add(str(cast(Annotation, alignment_view[ann_id]).at_type))
-                if str(at_type1) in aligned_types and str(at_type2) in aligned_types:
+                        aligned_type = cast(Annotation, alignment_view[ann_id]).at_type
+                    aligned_types.add(aligned_type)
+                aligned_types = list(aligned_types)  # because membership check for sets also checks hash() values
+                if at_type1 in aligned_types and at_type2 in aligned_types:
                     alignments.append(alignment)
             if len(alignments) > 0:
                 v_and_a[alignment_view.id] = alignments
@@ -319,9 +323,9 @@ class Mmif(MmifObject):
         """
         if isinstance(at_types, list):
             return [view for view in self.views
-                    if all(map(lambda x: str(x) in view.metadata.contains, at_types))]
+                    if all(map(lambda x: x in view.metadata.contains, at_types))]
         else:
-            return [view for view in self.views if str(at_types) in view.metadata.contains]
+            return [view for view in self.views if at_types in view.metadata.contains]
 
     def get_views_contain(self, at_types: Union[ThingTypesBase, str, List[Union[str, ThingTypesBase]]]) -> List[View]:
         """
@@ -340,11 +344,11 @@ class Mmif(MmifObject):
         # will return the *latest* view
         # works as of python 3.6+ (checked by setup.py) because dicts are deterministically ordered by insertion order
         for view in reversed(self.views):
-            if isinstance(at_types, str) or isinstance(at_types, ThingTypesBase):
-                if str(at_types) in view.metadata.contains:
+            if isinstance(at_types, list):
+                if all(map(lambda x: x in view.metadata.contains, at_types)):
                     return view
             else:
-                if all(map(lambda x: str(x) in view.metadata.contains, at_types)):
+                if at_types in view.metadata.contains:
                     return view
         return None
 

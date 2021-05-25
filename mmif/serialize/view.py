@@ -128,8 +128,8 @@ class View(FreezableMmifObject):
             return any(k in prop and prop[k] == v for prop in props)
 
         for annotation in self.annotations:
-            at_type_metadata = self.metadata.contains.get(str(annotation.at_type), {})
-            if not at_type or (at_type and str(annotation.at_type) == str(at_type)):
+            at_type_metadata = self.metadata.contains.get(annotation.at_type, {})
+            if not at_type or (at_type and annotation.at_type == at_type):
                 if all(map(lambda kv: prop_check(kv[0], kv[1], annotation.properties, at_type_metadata), properties.items())):
                     yield annotation
 
@@ -196,24 +196,6 @@ class ViewMetadata(FreezableMmifObject):
         # see MmifObject::_required_attributes in model.py 
         super().__init__(viewmetadata_obj)
 
-    def _find_match_hotfix(self, key: str) -> bool:
-        """
-        Checks the existing types in the contains dict to see if
-        the type passed in as ``key`` has the same shortname.
-
-        FIXME: this will produce undesired results if there is a
-         shortname conflict in the view.
-
-        :param key: the type (shortname or IRI) to check
-        :return: whether ``key`` already has a match in the ``contains`` dict
-        """
-        exists = False
-        for existing_type in self.contains.keys():
-            if key.split('/')[-1] == existing_type.split('/')[-1]:
-                exists = True
-                break
-        return exists
-
     def new_contain(self, at_type: Union[str, ThingTypesBase], contain_dict: dict = None) -> Optional['Contain']:
         """
         Adds a new element to the ``contains`` dictionary.
@@ -222,16 +204,12 @@ class ViewMetadata(FreezableMmifObject):
         :param contain_dict: any metadata associated with the annotation type
         :return: the generated :class:`Contain` object
         """
-        if isinstance(at_type, ThingTypesBase):
-            exists = self._find_match_hotfix(at_type.name) or self._find_match_hotfix(at_type.value)
-            final_key = at_type.value
-        else:
-            exists = self._find_match_hotfix(at_type)
-            final_key = at_type
-
-        if not exists:
+        if isinstance(at_type, str):
+            at_type = ThingTypesBase.from_str(at_type)
+            
+        if at_type not in self.contains:
             new_contain = Contain(contain_dict)
-            self.contains[final_key] = new_contain
+            self.contains[at_type] = new_contain
             return new_contain
 
     def add_parameters(self, param_dict: dict = None, **param_kwargs):
@@ -331,11 +309,21 @@ class AnnotationsList(FreezableDataList[Union[Annotation, Document]]):
 
 
 class ContainsDict(FreezableDataDict[Contain]):
-    _items: Dict[str, Contain]
+    _items: Dict[ThingTypesBase, Contain]
 
     def _deserialize(self, input_dict: dict) -> None:
         self._items = {key: Contain(value) for key, value in input_dict.items()}
 
     def update(self, other: Union[dict, 'ContainsDict'], overwrite=False):
         for k, v in other.items():
+            if isinstance(k, str):
+                k = ThingTypesBase.from_str(k)
             self._append_with_key(k, v, overwrite=overwrite)
+            
+    def get(self, key: Union[str, ThingTypesBase], default=None):
+        if isinstance(key, str):
+            key = ThingTypesBase.from_str(key)
+        return self._items.get(key, default)
+    
+    def __contains__(self, item):
+        return item in list(self._items.keys())
