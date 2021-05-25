@@ -320,7 +320,7 @@ class ContainsDict(FreezableDataDict[Contain]):
                 k = ThingTypesBase.from_str(k)
             self._append_with_key(k, v, overwrite=overwrite)
             
-    def get(self, key: Union[str, ThingTypesBase], default=None) -> Optional[Contain]:
+    def get(self, key: Union[str, ThingTypesBase], default=None):
         if isinstance(key, str):
             key = ThingTypesBase.from_str(key)
         return self._items.get(key, default)

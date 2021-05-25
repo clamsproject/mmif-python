@@ -12,7 +12,7 @@ import setuptools.command.develop
 
 name = "mmif-python"
 version_fname = "VERSION"
-vocabulary_templates_path = 'vocabulary_files'
+vocabulary_templates_path = 'templates/code/vocabulary'
 cmdclass = {}
 
 # Used to have `import mmif` that imported `mmif` directory as a sibling, not `mmif` site-package,
@@ -76,7 +76,7 @@ def generate_vocabulary(spec_version, clams_types):
     :return:
     """
     types = {
-        'thing_types': ['ThingTypesBase', 'ThingType', 'ClamsTypesBase', 'AnnotationTypesBase', 'DocumentTypesBase'],
+        'base_types': ['ThingTypesBase', 'ThingType', 'ClamsTypesBase', 'AnnotationTypesBase', 'DocumentTypesBase'],
         'annotation_types': ['AnnotationTypes'],
         'document_types': ['DocumentTypes']
     }
@@ -97,7 +97,7 @@ def generate_vocabulary(spec_version, clams_types):
         'annotation_types': [t for t in clams_types if 'Document' not in t and t != 'Thing'],
 
         # extract thing type
-        'thing_types': clams_types[:1]
+        'base_types': clams_types[:1]
     }
 
     for mod_name, type_list in type_lists.items():
