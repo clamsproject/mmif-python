@@ -12,7 +12,7 @@ import setuptools.command.develop
 
 name = "mmif-python"
 version_fname = "VERSION"
-vocabulary_templates_path = 'templates/code/vocabulary'
+vocabulary_templates_path = 'templates/python/vocabulary'
 cmdclass = {}
 
 # Used to have `import mmif` that imported `mmif` directory as a sibling, not `mmif` site-package,
