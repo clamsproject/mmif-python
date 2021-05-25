@@ -253,8 +253,8 @@ class TestMmif(unittest.TestCase):
         self.assertEqual(1, len(views))
         views = mmif_obj.get_views_contain([
             AnnotationTypes.TimeFrame,
-            DocumentTypes.TextDocument.value,
-            AnnotationTypes.Alignment.value
+            DocumentTypes.TextDocument,
+            AnnotationTypes.Alignment,
         ])
         self.assertEqual(1, len(views))
         views = mmif_obj.get_all_views_contain('not_a_type')
@@ -267,8 +267,8 @@ class TestMmif(unittest.TestCase):
         self.assertEqual('v8', view.id)
         view = mmif_obj.get_view_contains([
             AnnotationTypes.TimeFrame,
-            DocumentTypes.TextDocument.value,
-            AnnotationTypes.Alignment.value
+            DocumentTypes.TextDocument,
+            AnnotationTypes.Alignment,
         ])
         self.assertIsNotNone(view)
         self.assertEqual('v4', view.id)
