@@ -14,6 +14,10 @@ name = "mmif-python"
 version_fname = "VERSION"
 vocabulary_templates_path = 'templates/python/vocabulary'
 cmdclass = {}
+LOCALMMIF = None
+if 'LOCALMMIF' in os.environ:
+    LOCALMMIF = os.environ['LOCALMMIF']
+    print(f"==== using local MMIF files at '{LOCALMMIF}' ====")
 
 # Used to have `import mmif` that imported `mmif` directory as a sibling, not `mmif` site-package,
 # but that created a circular dependency (importing `mmif` requires packages in "requirements.txt")
@@ -119,6 +123,12 @@ def get_matching_gittag(version: str):
 
 
 def get_spec_file_at_tag(tag, filepath: str) -> bytes:
+    if LOCALMMIF is not None:
+        file_path = os.path.join(LOCALMMIF, filepath)
+        spec_file = open(file_path, 'br')
+        contents = spec_file.read()
+        spec_file.close()
+        return contents
     file_url = f"https://raw.githubusercontent.com/clamsproject/mmif/{tag}/{filepath}"
     return request.urlopen(file_url).read()
 
