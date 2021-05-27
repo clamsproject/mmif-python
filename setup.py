@@ -12,7 +12,12 @@ import setuptools.command.develop
 
 name = "mmif-python"
 version_fname = "VERSION"
+vocabulary_templates_path = 'templates/python/vocabulary'
 cmdclass = {}
+LOCALMMIF = None
+if 'LOCALMMIF' in os.environ:
+    LOCALMMIF = os.environ['LOCALMMIF']
+    print(f"==== using local MMIF files at '{LOCALMMIF}' ====")
 
 # Used to have `import mmif` that imported `mmif` directory as a sibling, not `mmif` site-package,
 # but that created a circular dependency (importing `mmif` requires packages in "requirements.txt")
@@ -44,32 +49,40 @@ def generate_subpack(parpack_name, subpack_name, init_contents=""):
     return subpack_dir
 
 
-def generate_vocab_enum(spec_version, clams_types, source_path) -> str:
+def generate_vocab_enum(spec_version, clams_types, mod_name) -> str:
     vocab_url = 'http://mmif.clams.ai/%s/vocabulary' % spec_version
+    
+    template_file = os.path.join(vocabulary_templates_path, mod_name + '.txt')
+    if mod_name.startswith('annotation'):
+        base_class_name = 'AnnotationTypesBase'
+    elif mod_name.startswith('document'):
+        base_class_name = 'DocumentTypesBase'
+    else: 
+        base_class_name = 'ClamsTypesBase'
 
     file_out = io.StringIO()
-    with open(source_path, 'r') as file_in:
+    with open(template_file, 'r') as file_in:
         for line in file_in.readlines():
             file_out.write(line.replace('<VERSION>', spec_version))
         for type_name in clams_types:
-            file_out.write(f"    {type_name} = '{vocab_url}/{type_name}'\n")
+            file_out.write(f"    {type_name} = {base_class_name}('{vocab_url}/{type_name}')\n")
 
     string_out = file_out.getvalue()
     file_out.close()
     return string_out
 
 
-def generate_vocabulary(spec_version, clams_types, source_path):
+def generate_vocabulary(spec_version, clams_types):
     """
     :param spec_version:
     :param clams_types: the tree
-    :param source_path: the directory of source txt files
+    :param template_path: the directory of source txt files
     :return:
     """
     types = {
-        'thing_types': ['ThingTypesBase', 'ThingType'],
-        'annotation_types': ['AnnotationTypesBase', 'AnnotationTypes'],
-        'document_types': ['DocumentTypesBase', 'DocumentTypes']
+        'base_types': ['ThingTypesBase', 'ThingType', 'ClamsTypesBase', 'AnnotationTypesBase', 'DocumentTypesBase'],
+        'annotation_types': ['AnnotationTypes'],
+        'document_types': ['DocumentTypes']
     }
     vocabulary_dir = generate_subpack(
         mmif_name, mmif_vocabulary_pkg,
@@ -88,11 +101,11 @@ def generate_vocabulary(spec_version, clams_types, source_path):
         'annotation_types': [t for t in clams_types if 'Document' not in t and t != 'Thing'],
 
         # extract thing type
-        'thing_types': clams_types[:1]
+        'base_types': clams_types[:1]
     }
 
     for mod_name, type_list in type_lists.items():
-        enum_contents = generate_vocab_enum(spec_version, type_list, os.path.join(source_path, mod_name+'.txt'))
+        enum_contents = generate_vocab_enum(spec_version, type_list, mod_name)
         write_res_file(vocabulary_dir, mod_name+'.py', enum_contents)
 
     return vocabulary_dir
@@ -110,6 +123,12 @@ def get_matching_gittag(version: str):
 
 
 def get_spec_file_at_tag(tag, filepath: str) -> bytes:
+    if LOCALMMIF is not None:
+        file_path = os.path.join(LOCALMMIF, filepath)
+        spec_file = open(file_path, 'br')
+        contents = spec_file.read()
+        spec_file.close()
+        return contents
     file_url = f"https://raw.githubusercontent.com/clamsproject/mmif/{tag}/{filepath}"
     return request.urlopen(file_url).read()
 
@@ -151,7 +170,7 @@ def prep_ext_files(setuptools_cmd):
         import yaml
         yaml_file = io.BytesIO(get_spec_file_at_tag(gittag, mmif_vocab_res_oriname))
         clams_types = [t['name'] for t in list(yaml.safe_load_all(yaml_file.read()))]
-        generate_vocabulary(spec_version, clams_types, 'vocabulary_files')
+        generate_vocabulary(spec_version, clams_types)
 
         ori_run(self)
 

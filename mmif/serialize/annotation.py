@@ -27,29 +27,36 @@ class Annotation(FreezableMmifObject):
     """
 
     def __init__(self, anno_obj: Union[bytes, str, dict] = None) -> None:
-        self._type: Union[str, ThingTypesBase] = ''
+        self._type: ThingTypesBase = ThingTypesBase('')
         if not hasattr(self, 'properties'):  # don't overwrite DocumentProperties on super() call
             self.properties: AnnotationProperties = AnnotationProperties()
             self._attribute_classes = pmap({'properties': AnnotationProperties})
         self.disallow_additional_properties()
         self._required_attributes = pvector(["_type", "properties"])
         super().__init__(anno_obj)
-
-    def is_type(self, type: Union[str, ThingTypesBase]) -> bool:
+    
+    def _deserialize(self, input_dict: dict) -> None:
+        self.at_type = input_dict.pop('_type')
+        super()._deserialize(input_dict)
+        
+    def is_type(self, at_type: Union[str, ThingTypesBase]) -> bool:
         """
         Check if the @type of this object matches.
         """
-        return str(self.at_type) == str(type)
+        return self.at_type == at_type
 
     @property
-    def at_type(self) -> Union[str, ThingTypesBase]:
+    def at_type(self) -> ThingTypesBase:
         # TODO (krim @ 8/19/20): should we always return string? leaving this to return
         #  different types can be confusing for sdk users.
         return self._type
 
     @at_type.setter
     def at_type(self, at_type: Union[str, ThingTypesBase]) -> None:
-        self._type = at_type
+        if isinstance(at_type, str):
+            self._type = ThingTypesBase.from_str(at_type)
+        else:
+            self._type = at_type
 
     @property
     def id(self) -> str:
@@ -85,7 +92,7 @@ class Annotation(FreezableMmifObject):
                              f"(\"{name}\": \"{str(value)}\"")
 
     def is_document(self):
-        return self.at_type.endswith("Document")
+        return isinstance(self.at_type, DocumentTypesBase)
 
 
 class Document(Annotation):

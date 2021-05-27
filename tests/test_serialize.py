@@ -7,7 +7,6 @@ import hypothesis_jsonschema  # pip install hypothesis-jsonschema
 import pytest
 from hypothesis import given, settings, HealthCheck  # pip install hypothesis
 from jsonschema import ValidationError
-from pkg_resources import resource_stream
 
 import mmif as mmifpkg
 from mmif import __specver__
@@ -253,8 +252,8 @@ class TestMmif(unittest.TestCase):
         self.assertEqual(1, len(views))
         views = mmif_obj.get_views_contain([
             AnnotationTypes.TimeFrame,
-            DocumentTypes.TextDocument.value,
-            AnnotationTypes.Alignment.value
+            DocumentTypes.TextDocument,
+            AnnotationTypes.Alignment,
         ])
         self.assertEqual(1, len(views))
         views = mmif_obj.get_all_views_contain('not_a_type')
@@ -267,8 +266,8 @@ class TestMmif(unittest.TestCase):
         self.assertEqual('v8', view.id)
         view = mmif_obj.get_view_contains([
             AnnotationTypes.TimeFrame,
-            DocumentTypes.TextDocument.value,
-            AnnotationTypes.Alignment.value
+            DocumentTypes.TextDocument,
+            AnnotationTypes.Alignment,
         ])
         self.assertIsNotNone(view)
         self.assertEqual('v4', view.id)
@@ -950,9 +949,7 @@ class TestDataStructure(unittest.TestCase):
 @unittest.skipIf(*SKIP_SCHEMA)
 class TestSchema(unittest.TestCase):
 
-    schema_res = resource_stream(f'{mmifpkg.__name__}.{mmifpkg._res_pkg}', mmifpkg._schema_res_name)
-    schema = json.load(schema_res)
-    schema_res.close()
+    schema = json.loads(mmifpkg.get_mmif_json_schema())
 
     def setUp(self) -> None:
         if DEBUG:
