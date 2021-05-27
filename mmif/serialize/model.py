@@ -21,6 +21,7 @@ from deepdiff import DeepDiff
 from pyrsistent import pvector, m, pmap, s, PVector, PMap, PSet, thaw
 
 T = TypeVar('T')
+S = TypeVar('S')
 
 __all__ = [
     'MmifObject',
@@ -550,10 +551,10 @@ class FreezableDataList(FreezableMmifObject, DataList[T]):
         return super().deep_freeze('_items')
 
 
-class DataDict(MmifObject, Generic[T]):
+class DataDict(MmifObject, Generic[T, S]):
     def __init__(self, mmif_obj: Union[bytes, str, dict] = None):
         self.reserved_names = self.reserved_names.add('_items')
-        self._items: Dict[str, T] = dict()
+        self._items: Dict[T, S] = dict()
         self.disallow_additional_properties()
         if mmif_obj is None:
             mmif_obj = {}
@@ -565,10 +566,10 @@ class DataDict(MmifObject, Generic[T]):
     def _deserialize(self, input_dict: dict) -> None:
         raise NotImplementedError()
 
-    def get(self, key: str, default=None) -> Optional[T]:
+    def get(self, key: T, default=None) -> Optional[S]:
         return self._items.get(key, default)
 
-    def _append_with_key(self, key: str, value: T, overwrite=False) -> None:
+    def _append_with_key(self, key: T, value: S, overwrite=False) -> None:
         if not overwrite and key in self._items:
             raise KeyError(f"Key {key} already exists")
         else:
@@ -586,14 +587,14 @@ class DataDict(MmifObject, Generic[T]):
     def values(self):
         return self._items.values()
 
-    def __getitem__(self, key: str) -> T:
+    def __getitem__(self, key: T) -> S:
         if key not in self.reserved_names:
             return self._items.__getitem__(key)
         else:
             raise KeyError("Don't use __getitem__ to access a reserved name")
 
-    def __setitem__(self, key: str, value: T):
-        if key not in self.reserved_names:
+    def __setitem__(self, key: T, value: S):
+        if not isinstance(key, str) or key not in self.reserved_names:
             self._items.__setitem__(key, value)
         else:
             super().__setitem__(key, value)
@@ -612,7 +613,10 @@ class DataDict(MmifObject, Generic[T]):
 
 
 # TODO (krim @ 5/11/21): this technically needs to be a ABC, but making it so fails pytype test (https://github.com/google/pytype/issues/535)
-class FreezableDataDict(FreezableMmifObject, DataDict[T]):
+class FreezableDataDict(FreezableMmifObject, DataDict[T, S]):
+    def update(self, other, overwrite):
+        raise NotImplementedError()
+
     def _deserialize(self, input_dict: dict) -> None:
         raise NotImplementedError()
 

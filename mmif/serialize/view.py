@@ -308,11 +308,10 @@ class AnnotationsList(FreezableDataList[Union[Annotation, Document]]):
         super()._append_with_key(value.id, value, overwrite)
 
 
-class ContainsDict(FreezableDataDict[Contain]):
-    _items: Dict[ThingTypesBase, Contain]
+class ContainsDict(FreezableDataDict[ThingTypesBase, Contain]):
 
     def _deserialize(self, input_dict: dict) -> None:
-        self._items = {key: Contain(value) for key, value in input_dict.items()}
+        self._items = {ThingTypesBase.from_str(key): Contain(value) for key, value in input_dict.items()}
 
     def update(self, other: Union[dict, 'ContainsDict'], overwrite=False):
         for k, v in other.items():
