@@ -10,7 +10,6 @@ from datetime import datetime
 from typing import List, Union, Optional, Dict, ClassVar, cast
 
 import jsonschema.validators
-from pkg_resources import resource_stream
 from pyrsistent import pmap, pvector
 
 import mmif
@@ -66,9 +65,7 @@ class Mmif(MmifObject):
 
         if isinstance(json_str, bytes):
             json_str = json_str.decode('utf8')
-        schema_res = resource_stream(f'{mmif.__name__}.{mmif._res_pkg}', mmif._schema_res_name)
-        schema = json.load(schema_res)
-        schema_res.close()
+        schema = json.loads(mmif.get_mmif_json_schema())
         if isinstance(json_str, str):
             json_str = json.loads(json_str)
         jsonschema.validators.validate(json_str, schema)

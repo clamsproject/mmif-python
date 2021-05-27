@@ -7,7 +7,6 @@ import hypothesis_jsonschema  # pip install hypothesis-jsonschema
 import pytest
 from hypothesis import given, settings, HealthCheck  # pip install hypothesis
 from jsonschema import ValidationError
-from pkg_resources import resource_stream
 
 import mmif as mmifpkg
 from mmif import __specver__
@@ -950,9 +949,7 @@ class TestDataStructure(unittest.TestCase):
 @unittest.skipIf(*SKIP_SCHEMA)
 class TestSchema(unittest.TestCase):
 
-    schema_res = resource_stream(f'{mmifpkg.__name__}.{mmifpkg._res_pkg}', mmifpkg._schema_res_name)
-    schema = json.load(schema_res)
-    schema_res.close()
+    schema = json.loads(mmifpkg.get_mmif_json_schema())
 
     def setUp(self) -> None:
         if DEBUG:
