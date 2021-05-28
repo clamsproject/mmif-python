@@ -86,7 +86,10 @@ class MmifObject(object):
                              # used in freezable subclasses
                              '_frozen',
                              # used in Document class to store parent view id
-                             '_parent_view_id')
+                             '_parent_view_id', 
+                             # used in View class to autogenerate annotation ids
+                             '_id_counts'
+                             )
     _unnamed_attributes: Optional[dict]
     _attribute_classes: PMap = m()  # Mapping: str -> Type
     _required_attributes: PVector
@@ -157,6 +160,7 @@ class MmifObject(object):
                     continue
                 if isinstance(v, (PSet, PVector, PMap)):
                     v = thaw(v)
+                k = str(k)
                 if k.startswith('_'):   # _ as a placeholder ``@`` in json-ld
                     k = f'@{k[1:]}'
                 serializing_obj[k] = v

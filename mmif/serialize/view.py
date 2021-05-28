@@ -32,6 +32,7 @@ class View(FreezableMmifObject):
     """
 
     def __init__(self, view_obj: Union[bytes, str, dict] = None) -> None:
+        self._id_counts = {}
         self.id: str = ''
         self.metadata: ViewMetadata = ViewMetadata()
         self.annotations: AnnotationsList = AnnotationsList()
@@ -59,7 +60,7 @@ class View(FreezableMmifObject):
         else:
             return self.metadata.new_contain(at_type, contain_dict)
 
-    def new_annotation(self, aid: str, at_type: Union[str, ThingTypesBase], overwrite=False) -> 'Annotation':
+    def new_annotation(self, at_type: Union[str, ThingTypesBase], aid: Optional[str] = None, overwrite=False) -> 'Annotation':
         """
         Generates a new :class:`mmif.serialize.annotation.Annotation`
         object and adds it to the current view.
@@ -78,7 +79,14 @@ class View(FreezableMmifObject):
         """
         new_annotation = Annotation()
         new_annotation.at_type = at_type
-        new_annotation.id = aid
+        if aid is not None:
+            new_annotation.id = aid
+        else:
+            prefix = new_annotation.at_type.get_prefix()
+            new_num = self._id_counts.get(prefix, 0) + 1
+            new_id = f'{prefix}_{new_num}'
+            self._id_counts[prefix] = new_num
+            new_annotation.id = new_id
         return self.add_annotation(new_annotation, overwrite)
 
     def add_annotation(self, annotation: 'Annotation', overwrite=False) -> 'Annotation':

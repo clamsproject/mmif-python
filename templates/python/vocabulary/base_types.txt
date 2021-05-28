@@ -6,6 +6,7 @@ class TypesBase(object):
     This class provides bisic initializer, comparators, 
     and (de-)serialization methods. 
     """
+    _prefixes = {}
     
     def __init__(self, type_uri: str):
         if '/' in type_uri:
@@ -13,6 +14,40 @@ class TypesBase(object):
         else:
             self.base_uri = ""
             self.shortname = type_uri
+        if self.shortname not in self.__class__._prefixes:
+            self.__class__._prefixes[self.shortname] \
+                = self.__class__._create_prefix(self.shortname,
+                                               self.__class__._prefixes.values()
+                                               )
+    
+    @classmethod
+    def _create_prefix(cls, shortname, existing_prefixes):
+        
+        def extract_chars(string, indices):
+            return "".join(string[i].lower() for i in sorted(set(indices)) if i < len(string))
+        
+        if shortname.isalnum():
+            
+            cap_letters = [i for i, c in enumerate(shortname) if c.isupper()] + [len(shortname)]
+            if len(cap_letters) > 1:
+                max_diff = max(cap_letters[i] - cap_letters[i-1] for i in range(1, len(cap_letters)))
+            else:
+                max_diff = len(shortname)
+            more_letters = []
+            prefix = extract_chars(shortname, cap_letters)
+            if prefix in existing_prefixes:
+                for i in range(1, max_diff):
+                    for j in cap_letters:
+                        more_letters.append(j + i)
+                        prefix = extract_chars(shortname, cap_letters + more_letters)
+                        if prefix not in existing_prefixes:
+                            break
+                    else:
+                        continue
+                    break
+        else:
+            prefix = None
+        return prefix
 
     @classmethod
     def from_str(cls, string: str):
@@ -45,22 +80,27 @@ class TypesBase(object):
     def _serialize(self):
         return self.__repr__()
 
+    def get_prefix(self):
+        return self.__class__._prefixes[self.shortname]
+
+    def set_prefix(self, prefix):
+        self.__class__._prefixes[self.shortname] = prefix
 
 ThingTypesBase = TypesBase
 
 
-class ClamsTypesBase(ThingTypesBase):
+class ClamsTypesBase(TypesBase):
     """
     Base class for CLAMS vocabulary types. Main 
-    This class adds handling of MMIF specificaiton versions 
+    This class adds handling of MMIF specification versions 
     in initializer and comparators. 
     """
     
     def __init__(self, type_uri: str):
-        if 'mmif.clams.ai' in type_uri:
-            self.base_uri, self.version, _, self.shortname = type_uri.rsplit('/', 3)
-        else:
+        if 'mmif.clams.ai' not in type_uri:
             raise ValueError(f'{type_uri} is not a CLAMS vocabulary URI')
+        super().__init__(type_uri)
+        self.base_uri, self.version, _, self.shortname = type_uri.rsplit('/', 3)
 
     def __hash__(self):
         return hash(str(self))

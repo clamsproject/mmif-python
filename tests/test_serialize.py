@@ -566,8 +566,13 @@ class TestView(unittest.TestCase):
         _ = self.view_obj.serialize()  # raise exception if this fails
     
     def test_new_annotation(self):
-        self.view_obj.new_annotation('relation1', 'Relation')  # raise exception if this fails
+        self.view_obj.new_annotation('Relation', 'relation1')
         self.assertIn('Relation', self.view_obj.metadata.contains)
+        a1 = self.view_obj.new_annotation('TimeFrame')
+        a2 = self.view_obj.new_annotation('TimeFrame')
+        self.assertNotEqual(a1.id, a2.id)
+        self.assertEqual(a1.id.rsplit('_', 1)[0], a2.id.rsplit('_', 1)[0])
+        self.assertEqual(a1.id.rsplit('_', 1)[0], 'tf')
 
     def test_parent(self):
         mmif_obj = Mmif(self.mmif_examples_json['mmif_example1'])
