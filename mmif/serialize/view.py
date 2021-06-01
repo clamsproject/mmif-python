@@ -97,6 +97,8 @@ class View(FreezableMmifObject):
                           in the view
         :return: the same Annotation object passed in as ``annotation``
         """
+        if self.is_frozen():
+            raise TypeError("MMIF object is frozen")
         self.annotations.append(annotation, overwrite)
         self.new_contain(annotation.at_type)
         return annotation
@@ -247,27 +249,7 @@ class Contain(FreezableMmifObject):
     """
     Contain object that represents the metadata of a single
     annotation type in the ``contains`` metadata of a MMIF view.
-
-    :param contain_obj: the metadata that defines this object
     """
-
-    def __init__(self, contain_obj: Union[bytes, str, dict] = None) -> None:
-        # TODO (krim @ 8/19/20): rename `producer` to `app` maybe?
-        self.producer: str = ''
-        self.gen_time: Optional[datetime] = None
-        super().__init__(contain_obj)
-
-    def _deserialize(self, input_dict: dict) -> None:
-        """
-        Extends base ``_deserialize`` method to initialize the
-        ``gen_time`` metadata as a :class:`datetime.datetime` object.
-
-        :param input_dict: the metadata that defines this object
-        :return: None
-        """
-        super()._deserialize(input_dict)
-        if 'gen_time' in self.__dict__ and isinstance(self.gen_time, str):
-            self.gen_time = dateutil.parser.isoparse(self.gen_time)
 
 
 class AnnotationsList(FreezableDataList[Union[Annotation, Document]]):
