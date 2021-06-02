@@ -7,19 +7,24 @@ class TypesBase(object):
     and (de-)serialization methods. 
     """
     _prefixes = {}
+    base_url: str
+    shortname: str
     
     def __init__(self, type_uri: str):
+        self.parse_names(type_uri)
+        if self.__repr__() not in self.__class__._prefixes:
+            self.__class__._prefixes[self.__repr__()] \
+                = self.__class__._create_prefix(self.shortname,
+                                               self.__class__._prefixes.values()
+                                               )
+    
+    def parse_names(self, type_uri:str):
         if '/' in type_uri:
             self.base_uri, self.shortname = type_uri.rsplit('/', 1)
         else:
             self.base_uri = ""
             self.shortname = type_uri
-        if self.shortname not in self.__class__._prefixes:
-            self.__class__._prefixes[self.shortname] \
-                = self.__class__._create_prefix(self.shortname,
-                                               self.__class__._prefixes.values()
-                                               )
-    
+
     @classmethod
     def _create_prefix(cls, shortname, existing_prefixes):
         
@@ -81,10 +86,10 @@ class TypesBase(object):
         return self.__repr__()
 
     def get_prefix(self):
-        return self.__class__._prefixes[self.shortname]
+        return self.__class__._prefixes[self.__repr__()]
 
     def set_prefix(self, prefix):
-        self.__class__._prefixes[self.shortname] = prefix
+        self.__class__._prefixes[self.__repr__()] = prefix
 
 ThingTypesBase = TypesBase
 
@@ -95,11 +100,11 @@ class ClamsTypesBase(TypesBase):
     This class adds handling of MMIF specification versions 
     in initializer and comparators. 
     """
+    version: str
     
-    def __init__(self, type_uri: str):
+    def parse_names(self, type_uri:str):
         if 'mmif.clams.ai' not in type_uri:
             raise ValueError(f'{type_uri} is not a CLAMS vocabulary URI')
-        super().__init__(type_uri)
         self.base_uri, self.version, _, self.shortname = type_uri.rsplit('/', 3)
 
     def __hash__(self):

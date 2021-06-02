@@ -572,7 +572,6 @@ class TestView(unittest.TestCase):
         a2 = self.view_obj.new_annotation('TimeFrame')
         self.assertNotEqual(a1.id, a2.id)
         self.assertEqual(a1.id.rsplit('_', 1)[0], a2.id.rsplit('_', 1)[0])
-        self.assertEqual(a1.id.rsplit('_', 1)[0], 'tf')
 
     def test_parent(self):
         mmif_obj = Mmif(self.mmif_examples_json['mmif_example1'])

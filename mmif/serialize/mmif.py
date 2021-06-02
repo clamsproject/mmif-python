@@ -238,7 +238,11 @@ class Mmif(MmifObject):
         """
         if ":" in doc_id:
             vid, did = doc_id.split(":")
-            doc_found = self[vid][did]
+            view = self[vid]
+            if isinstance(view, View):
+                return view.get_document_by_id(did) 
+            else:
+                raise KeyError("{} view not found".format(vid))
         else:
             doc_found = self.documents.get(doc_id)
         if doc_found is None:
