@@ -14,9 +14,9 @@ def substitute(example_dict: dict) -> dict:
 
 everything_file_url = f"https://raw.githubusercontent.com/clamsproject/mmif/{__specver__}/specifications/samples/everything/raw.json"
 res = request.urlopen(everything_file_url)
-# TODO (krim @ 11/23/20): instead of hard-code version string in the example file in the `mmif` repository,
-# we can use a symbol for substitution that can be replaced with actual spec version
-# by a "builder" there
+# TODO (krim @ 5/26/21): when https://github.com/clamsproject/mmif/pull/173 is merged, 
+# everything file retrieved from github will have proper version number encoded. 
+# so the following line and "substitute" calls might be necessary later
 JSON_STR = res.read().decode('utf-8').replace('0.3.0', '${specver}')
 
 example_templates = dict(
