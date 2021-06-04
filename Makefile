@@ -5,7 +5,7 @@ check_deps := $(foreach dep,$(deps), $(if $(shell which $(dep)),some string,$(er
 
 # constants
 packagename = mmif
-supplements = $(packagename)/res $(packagename)/ver $(packagename)/vocabulary 
+generatedcode = $(packagename)/res $(packagename)/ver $(packagename)/vocabulary 
 sdistname = $(packagename)-python
 bdistname = $(packagename)_python
 artifact = build/lib/$(packagename)
@@ -34,15 +34,18 @@ publish: distclean version package test
 	twine upload --repository-url http://morbius.cs-i.brandeis.edu:8081/repository/pypi-develop/ \
 		-u clamsuploader -p $$CLAMSUPLOADERPASSWORD dist/$(sdistname)-`cat VERSION`.tar.gz
 
+$(generatedcode): VERSION
+	python3 setup.py donothing
+
 docs: latest := $(shell git tag | sort -r | head -n 1)
-docs: package 
+docs: VERSION $(generatedcode)
 	rm -rf documentation/_build docs
 	sphinx-multiversion documentation documentation/_build -b html -a
 	mv documentation/_build docs
 	touch docs/.nojekyll
 	echo "<!DOCTYPE html> <html> <head> <title>Redirect to latest version</title> <meta charset=\"utf-8\"> <meta http-equiv=\"refresh\" content=\"0; url=./$(latest)/index.html\"> </head> </html>" > docs/index.html
 
-doc: package # for single version sphinx - only use when developing
+doc: VERSION $(generatedcode) # for single version sphinx - only use when developing
 	rm -rf documentation/_build docs
 	sphinx-build documentation documentation/_build -b html -D version=`cat VERSION` -a
 
@@ -55,11 +58,11 @@ $(artifact):
 	python3 setup.py build
 
 # invoking `test` without a VERSION file will generated a dev version - this ensures `make test` runs unmanned
-test: devversion package
+test: devversion $(generatedcode)
 	pip install --upgrade -r requirements.dev
 	pip install -r requirements.txt
 	pytype $(packagename)
-	python3 -m pytest --doctest-modules --cov=$(packagename)
+	python3 -m pytest --doctest-modules --cov=$(packagename) --cov-report=xml
 
 # helper functions
 e :=
@@ -77,23 +80,14 @@ increase_dev = $(call macro,$(1)).$(call micro,$(1)).$(call patch,$(1)).dev$$(($
 devversion: VERSION.dev VERSION; cat VERSION
 version: VERSION; cat VERSION
 
-	# pyver = latest tag
-	# devver = max(latest-on-morbius-pypi, pyver + 0.0.1) (this comparison is IMPORTANT)
-	# specver = latest spec tag
-	# if devver == specver (in terms of major & minor): 
-	# 	if devver == *dev*:
-	# 		return devver + 0.0.0.dev1
-	# 	else
-	# 		return concat(devver, ".dev1")
-	# else: 
-	# 	return concat(specver, ".dev1")
-VERSION.dev: pyver := $(shell git tag | sort | tail -n 1)
-VERSION.dev: devver := $(shell cat <(curl -s -X GET 'http://morbius.cs-i.brandeis.edu:8081/service/rest/v1/search?name=$(sdistname)' | jq '. | .items[].version' -r) <(echo $(call increase_patch,$(pyver))) | sort -V | tail -n 1)
+VERSION.dev: devver := $(shell curl -s -X GET 'http://morbius.cs-i.brandeis.edu:8081/service/rest/v1/search?name=$(sdistname)' | jq '. | .items[].version' -r | sort -V | tail -n 1)
 VERSION.dev: specver := $(shell curl --silent "https://api.github.com/repos/clamsproject/mmif/git/refs/tags" | grep '"ref":' | grep -v 'py-' | sed -E 's/.+refs\/tags\/(spec-)?([0-9.]+)",/\2/g' | sort | tail -n 1)
 VERSION.dev:
-	echo $(specver)
+	@echo DEVVER: $(devver)
+	@echo SPECVER: $(specver)
 	@if [ $(call macro,$(devver)) = $(call macro,$(specver)) ] && [ $(call micro,$(devver)) = $(call micro,$(specver)) ] ; \
-	then if [[ $(devver) == *.dev* ]]; then echo $(call increase_dev,$(devver)) ; else echo $(call add_dev,$(devver)); fi ; \
+	then \
+	if [[ $(devver) == *.dev* ]]; then echo $(call increase_dev,$(devver)) ; else echo $(call add_dev,$(call increase_patch, $(devver))); fi \
 	else echo $(call add_dev,$(specver)) ; fi \
 	> VERSION.dev
 
@@ -108,4 +102,4 @@ VERSION:
 distclean:
 	@rm -rf dist $(artifact) build/bdist*
 clean: distclean
-	@rm -rf VERSION VERSION.dev $(supplements) $(testcaches) $(buildcaches)
+	@rm -rf VERSION VERSION.dev $(testcaches) $(buildcaches) $(generatedcode)
