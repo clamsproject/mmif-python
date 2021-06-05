@@ -32,6 +32,7 @@ class View(FreezableMmifObject):
     """
 
     def __init__(self, view_obj: Union[bytes, str, dict] = None) -> None:
+        self._id_counts = {}
         self.id: str = ''
         self.metadata: ViewMetadata = ViewMetadata()
         self.annotations: AnnotationsList = AnnotationsList()
@@ -59,7 +60,7 @@ class View(FreezableMmifObject):
         else:
             return self.metadata.new_contain(at_type, contain_dict)
 
-    def new_annotation(self, aid: str, at_type: Union[str, ThingTypesBase], overwrite=False) -> 'Annotation':
+    def new_annotation(self, at_type: Union[str, ThingTypesBase], aid: Optional[str] = None, overwrite=False) -> 'Annotation':
         """
         Generates a new :class:`mmif.serialize.annotation.Annotation`
         object and adds it to the current view.
@@ -78,7 +79,14 @@ class View(FreezableMmifObject):
         """
         new_annotation = Annotation()
         new_annotation.at_type = at_type
-        new_annotation.id = aid
+        if aid is not None:
+            new_annotation.id = aid
+        else:
+            prefix = new_annotation.at_type.get_prefix()
+            new_num = self._id_counts.get(prefix, 0) + 1
+            new_id = f'{prefix}_{new_num}'
+            self._id_counts[prefix] = new_num
+            new_annotation.id = new_id
         return self.add_annotation(new_annotation, overwrite)
 
     def add_annotation(self, annotation: 'Annotation', overwrite=False) -> 'Annotation':
@@ -97,6 +105,8 @@ class View(FreezableMmifObject):
                           in the view
         :return: the same Annotation object passed in as ``annotation``
         """
+        if self.is_frozen():
+            raise TypeError("MMIF object is frozen")
         self.annotations.append(annotation, overwrite)
         self.new_contain(annotation.at_type)
         return annotation
@@ -247,27 +257,7 @@ class Contain(FreezableMmifObject):
     """
     Contain object that represents the metadata of a single
     annotation type in the ``contains`` metadata of a MMIF view.
-
-    :param contain_obj: the metadata that defines this object
     """
-
-    def __init__(self, contain_obj: Union[bytes, str, dict] = None) -> None:
-        # TODO (krim @ 8/19/20): rename `producer` to `app` maybe?
-        self.producer: str = ''
-        self.gen_time: Optional[datetime] = None
-        super().__init__(contain_obj)
-
-    def _deserialize(self, input_dict: dict) -> None:
-        """
-        Extends base ``_deserialize`` method to initialize the
-        ``gen_time`` metadata as a :class:`datetime.datetime` object.
-
-        :param input_dict: the metadata that defines this object
-        :return: None
-        """
-        super()._deserialize(input_dict)
-        if 'gen_time' in self.__dict__ and isinstance(self.gen_time, str):
-            self.gen_time = dateutil.parser.isoparse(self.gen_time)
 
 
 class AnnotationsList(FreezableDataList[Union[Annotation, Document]]):
@@ -308,11 +298,10 @@ class AnnotationsList(FreezableDataList[Union[Annotation, Document]]):
         super()._append_with_key(value.id, value, overwrite)
 
 
-class ContainsDict(FreezableDataDict[Contain]):
-    _items: Dict[ThingTypesBase, Contain]
+class ContainsDict(FreezableDataDict[ThingTypesBase, Contain]):
 
     def _deserialize(self, input_dict: dict) -> None:
-        self._items = {key: Contain(value) for key, value in input_dict.items()}
+        self._items = {ThingTypesBase.from_str(key): Contain(value) for key, value in input_dict.items()}
 
     def update(self, other: Union[dict, 'ContainsDict'], overwrite=False):
         for k, v in other.items():

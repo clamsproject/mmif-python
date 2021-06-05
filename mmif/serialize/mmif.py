@@ -124,6 +124,14 @@ class Mmif(MmifObject):
         else:
             raise TypeError("MMIF object is frozen")
 
+    def freeze(self):
+        """
+        Deeply freezes all elements. Returns True only when everything if frozen.
+        """
+        doc_frozen = self.freeze_documents()
+        view_frozen = self.freeze_views()
+        return view_frozen and doc_frozen
+        
     def freeze_documents(self) -> bool:
         """
         Deeply freezes the list of documents. Returns the result of
@@ -235,7 +243,11 @@ class Mmif(MmifObject):
         """
         if ":" in doc_id:
             vid, did = doc_id.split(":")
-            doc_found = self[vid][did]
+            view = self[vid]
+            if isinstance(view, View):
+                return view.get_document_by_id(did) 
+            else:
+                raise KeyError("{} view not found".format(vid))
         else:
             doc_found = self.documents.get(doc_id)
         if doc_found is None:

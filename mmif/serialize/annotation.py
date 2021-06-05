@@ -37,6 +37,10 @@ class Annotation(FreezableMmifObject):
     
     def _deserialize(self, input_dict: dict) -> None:
         self.at_type = input_dict.pop('_type')
+        # TODO (krim @ 6/1/21): If annotation IDs must follow a certain string format,
+        # (e.g. currently auto-generated IDs will always have "prefix"_"number" format)
+        # here is the place to parse formatted IDs and store prefixes in the parent mmif object. 
+        # (see https://github.com/clamsproject/mmif/issues/64#issuecomment-849241309 for discussion)
         super()._deserialize(input_dict)
         
     def is_type(self, at_type: Union[str, ThingTypesBase]) -> bool:
@@ -47,8 +51,6 @@ class Annotation(FreezableMmifObject):
 
     @property
     def at_type(self) -> ThingTypesBase:
-        # TODO (krim @ 8/19/20): should we always return string? leaving this to return
-        #  different types can be confusing for sdk users.
         return self._type
 
     @at_type.setter

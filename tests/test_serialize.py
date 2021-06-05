@@ -135,26 +135,29 @@ class TestMmif(unittest.TestCase):
         document_json = json.loads(SUB_EXAMPLES['doc_example'])
         mmif_obj = Mmif(MMIF_EXAMPLES['mmif_example1'], frozen=False)
         old_documents_count = len(mmif_obj.documents)
-        mmif_obj.add_document(Document(document_json))  # just raise exception if this fails
+        mmif_obj.add_document(Document(document_json))  
         self.assertEqual(old_documents_count+1, len(mmif_obj.documents))
         view_obj = mmif_obj.get_view_by_id('v1')
         doc_obj = Document(document_json)
         view_obj.add_document(doc_obj)
         self.assertEqual(doc_obj.parent, view_obj.id)
+        mmif_obj.freeze()
+        new_doc = Document()
+        new_doc.id = "a_doc"
+        with self.assertRaises(TypeError):
+            mmif_obj.add_document(new_doc)
+        with self.assertRaises(TypeError):
+            view_obj.add_document(new_doc)
+        
 
     def test_get_document_by_id(self):
         mmif_obj = Mmif(MMIF_EXAMPLES['mmif_example1'])
-        try:
-            # should succeed
-            mmif_obj.get_document_by_id('m1')
-        except KeyError:
-            self.fail("didn't get m1")
-        try:
-            # should fail
+        mmif_obj.get_document_by_id('m1')
+        mmif_obj.get_document_by_id('v4:td1')
+        with self.assertRaises(KeyError):
             mmif_obj.get_document_by_id('m55')
-            self.fail("didn't raise exception on getting m55")
-        except KeyError:
-            pass
+        with self.assertRaises(KeyError):
+            mmif_obj.get_document_by_id('v1:td1')
 
     def test_get_documents_by_view_id(self):
         mmif_obj = Mmif(MMIF_EXAMPLES['mmif_example1'], frozen=False)
@@ -534,7 +537,6 @@ class TestView(unittest.TestCase):
         vmeta = ViewMetadata()
         vmeta.add_parameter('pretty', False)
         self.assertEqual(len(vmeta.parameters), 1)
-        print(vmeta.serialize(pretty=True))
         self.assertEqual(vmeta.get_parameter('pretty'), False)
         with pytest.raises(KeyError):
             vmeta.get_parameter('not_exist')
@@ -555,6 +557,18 @@ class TestView(unittest.TestCase):
         for original, new in zip(sorted(self.view_json['annotations'], key=id_func),
                                  sorted(json.loads(view_serial)['annotations'], key=id_func)):
             self.assertEqual(original, new)
+            
+    def test_new_contain(self):
+        # can add by str at_type
+        self.view_obj.new_contain("http://vocab.lappsgrid.org/Token")
+        # can add by obj at_type
+        self.view_obj.new_contain(AnnotationTypes.TimePoint)
+        # can add details
+        self.view_obj.new_contain(AnnotationTypes.TimeFrame, {"frameType": "speech"})
+        with pytest.raises(ValueError):
+            # empty at_type is not allowed
+            self.view_obj.new_contain("")
+        
 
     def test_add_annotation(self):
         anno_obj = Annotation(self.mmif_examples_json['mmif_example1']['views'][6]['annotations'][2])
@@ -565,8 +579,12 @@ class TestView(unittest.TestCase):
         _ = self.view_obj.serialize()  # raise exception if this fails
     
     def test_new_annotation(self):
-        self.view_obj.new_annotation('relation1', 'Relation')  # raise exception if this fails
+        self.view_obj.new_annotation('Relation', 'relation1')
         self.assertIn('Relation', self.view_obj.metadata.contains)
+        a1 = self.view_obj.new_annotation('TimeFrame')
+        a2 = self.view_obj.new_annotation('TimeFrame')
+        self.assertNotEqual(a1.id, a2.id)
+        self.assertEqual(a1.id.rsplit('_', 1)[0], a2.id.rsplit('_', 1)[0])
 
     def test_parent(self):
         mmif_obj = Mmif(self.mmif_examples_json['mmif_example1'])

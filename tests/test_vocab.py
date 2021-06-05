@@ -21,8 +21,8 @@ class TestAnnotationTypes(unittest.TestCase):
     def test_use_in_mmif(self):
         mmif_obj = Mmif(MMIF_EXAMPLES['mmif_example1'], frozen=False)
         view_obj: View = mmif_obj.get_view_by_id('v1')
-        view_obj.new_annotation('p1', AnnotationTypes.Polygon)
-        view_obj.new_annotation('bb2', AnnotationTypes.TimeFrame)
+        view_obj.new_annotation(AnnotationTypes.Polygon, 'p1')
+        view_obj.new_annotation(AnnotationTypes.TimeFrame, 'bb2')
         self.assertEqual(list(view_obj.metadata.contains.keys()), [f'http://mmif.clams.ai/{__specver__}/vocabulary/TimeFrame', f'http://mmif.clams.ai/{__specver__}/vocabulary/Polygon'])
 
     def test_type_checking(self):
@@ -32,12 +32,11 @@ class TestAnnotationTypes(unittest.TestCase):
         self.assertTrue(ann_obj.is_type(str(ann_obj.at_type)))
         self.assertFalse(ann_obj.is_type(DocumentTypes.VideoDocument))
 
-
     def test_serialize_within_mmif(self):
         mmif_obj = Mmif(MMIF_EXAMPLES['mmif_example1'], frozen=False)
         view_obj = mmif_obj.get_view_by_id('v5')
         view_obj.annotations._items.pop('bb25')
-        anno_obj = view_obj.new_annotation('bb25', AnnotationTypes.BoundingBox)
+        anno_obj = view_obj.new_annotation(AnnotationTypes.BoundingBox, 'bb25')
         anno_obj.add_property('coordinates', [[150, 810], [1120, 810], [150, 870], [1120, 870]])
         anno_obj.add_property('timePoint', 21000)
         anno_obj.add_property('boxType', 'text')
