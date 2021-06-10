@@ -7,4 +7,4 @@ mmif package
    :maxdepth: 4
 
    autodoc/mmif.serialize
-   .. autodoc/mmif.vocabulary
+   autodoc/mmif.vocabulary

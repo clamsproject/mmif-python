@@ -13,7 +13,7 @@ from tests.mmif_examples import *
 
 class TestFreezeView(unittest.TestCase):
     def setUp(self) -> None:
-        self.mmif_obj = Mmif(MMIF_EXAMPLES['mmif_example1'], frozen=False)
+        self.mmif_obj = Mmif(MMIF_EXAMPLES['everything'], frozen=False)
         self.v1: View = self.mmif_obj['v1']
         self.v2: View = self.mmif_obj['v2']
 
@@ -65,7 +65,7 @@ class TestFreezeView(unittest.TestCase):
 
 class TestFreezeDocument(unittest.TestCase):
     def setUp(self) -> None:
-        self.mmif_obj = Mmif(MMIF_EXAMPLES['mmif_example1'], frozen=False)
+        self.mmif_obj = Mmif(MMIF_EXAMPLES['everything'], frozen=False)
 
         self.m1: Document = self.mmif_obj['m1']
 
@@ -134,7 +134,7 @@ class TestFreezeDocument(unittest.TestCase):
 
 class TestFreezeAnnotationsList(unittest.TestCase):
     def setUp(self) -> None:
-        self.mmif_obj = Mmif(MMIF_EXAMPLES['mmif_example1'], frozen=False)
+        self.mmif_obj = Mmif(MMIF_EXAMPLES['everything'], frozen=False)
         self.annotations: AnnotationsList = self.mmif_obj['v5'].annotations
 
     def test_deep_freeze(self):
@@ -192,9 +192,9 @@ class TestFreezeAnnotationsList(unittest.TestCase):
 
 class TestFreezeMmif(unittest.TestCase):
     def setUp(self) -> None:
-        self.mmif_obj_unfrozen = Mmif(MMIF_EXAMPLES['mmif_example1'], frozen=False)
-        self.mmif_obj_frozen = Mmif(MMIF_EXAMPLES['mmif_example1'], frozen=True)
-        self.mmif_obj_default = Mmif(MMIF_EXAMPLES['mmif_example1'])
+        self.mmif_obj_unfrozen = Mmif(MMIF_EXAMPLES['everything'], frozen=False)
+        self.mmif_obj_frozen = Mmif(MMIF_EXAMPLES['everything'], frozen=True)
+        self.mmif_obj_default = Mmif(MMIF_EXAMPLES['everything'])
 
     def test_freeze_mmif(self):
         self.assertFalse(self.mmif_obj_unfrozen.documents.is_frozen())

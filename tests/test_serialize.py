@@ -24,11 +24,11 @@ SKIP_SCHEMA = False, "Not skipping TestSchema by default"
 class TestMmif(unittest.TestCase):
 
     def setUp(self) -> None:
-        self.mmif_examples_json = {'mmif_example1': json.loads(JSON_STR)}
+        self.mmif_examples_json = {'everything': json.loads(EVERYTHING_JSON)}
 
     def test_init_from_bytes(self):
-        mmif_from_str = Mmif(JSON_STR)
-        mmif_from_bytes = Mmif(JSON_STR.encode('utf8'))
+        mmif_from_str = Mmif(EVERYTHING_JSON)
+        mmif_from_bytes = Mmif(EVERYTHING_JSON.encode('utf8'))
         self.assertEqual(mmif_from_str, mmif_from_bytes)
 
     def test_str_mmif_deserialize(self):
@@ -63,8 +63,8 @@ class TestMmif(unittest.TestCase):
             self.assertEqual(str_mmif_obj.serialize(True), json_mmif_obj.serialize(True), f'Failed on {i}')
 
     def test_bad_mmif_deserialize_no_metadata(self):
-        self.mmif_examples_json['mmif_example1'].pop('metadata')
-        json_str = json.dumps(self.mmif_examples_json['mmif_example1'])
+        self.mmif_examples_json['everything'].pop('metadata')
+        json_str = json.dumps(self.mmif_examples_json['everything'])
         try:
             _ = Mmif(json_str)
             self.fail()
@@ -72,8 +72,8 @@ class TestMmif(unittest.TestCase):
             pass
 
     def test_bad_mmif_deserialize_no_documents(self):
-        self.mmif_examples_json['mmif_example1'].pop('documents')
-        json_str = json.dumps(self.mmif_examples_json['mmif_example1'])
+        self.mmif_examples_json['everything'].pop('documents')
+        json_str = json.dumps(self.mmif_examples_json['everything'])
         try:
             _ = Mmif(json_str)
             self.fail()
@@ -81,8 +81,8 @@ class TestMmif(unittest.TestCase):
             pass
 
     def test_bad_mmif_deserialize_no_views(self):
-        self.mmif_examples_json['mmif_example1'].pop('views')
-        json_str = json.dumps(self.mmif_examples_json['mmif_example1'])
+        self.mmif_examples_json['everything'].pop('views')
+        json_str = json.dumps(self.mmif_examples_json['everything'])
         try:
             _ = Mmif(json_str)
             self.fail()
@@ -90,7 +90,7 @@ class TestMmif(unittest.TestCase):
             pass
 
     def test_new_view(self):
-        mmif_obj = Mmif(MMIF_EXAMPLES['mmif_example1'])
+        mmif_obj = Mmif(MMIF_EXAMPLES['everything'])
         old_view_count = len(mmif_obj.views)
         mmif_obj.new_view()  # just raise exception if this fails
         self.assertEqual(old_view_count+1, len(mmif_obj.views))
@@ -125,15 +125,15 @@ class TestMmif(unittest.TestCase):
         self.assertEqual(deserialized.properties.text_language, '')
 
     def test_document(self):
-        document = Document(SUB_EXAMPLES['doc_example'])
+        document = Document(FRACTIONAL_EXAMPLES['doc_only'])
         serialized = document.serialize()
         plain_json = json.loads(serialized)
         self.assertEqual({'@type', 'properties'}, plain_json.keys())
         self.assertEqual({'id', 'location', 'mime'}, plain_json['properties'].keys())
 
     def test_add_documents(self):
-        document_json = json.loads(SUB_EXAMPLES['doc_example'])
-        mmif_obj = Mmif(MMIF_EXAMPLES['mmif_example1'], frozen=False)
+        document_json = json.loads(FRACTIONAL_EXAMPLES['doc_only'])
+        mmif_obj = Mmif(MMIF_EXAMPLES['everything'], frozen=False)
         old_documents_count = len(mmif_obj.documents)
         mmif_obj.add_document(Document(document_json))  
         self.assertEqual(old_documents_count+1, len(mmif_obj.documents))
@@ -151,7 +151,7 @@ class TestMmif(unittest.TestCase):
         
 
     def test_get_document_by_id(self):
-        mmif_obj = Mmif(MMIF_EXAMPLES['mmif_example1'])
+        mmif_obj = Mmif(MMIF_EXAMPLES['everything'])
         mmif_obj.get_document_by_id('m1')
         mmif_obj.get_document_by_id('v4:td1')
         with self.assertRaises(KeyError):
@@ -160,18 +160,18 @@ class TestMmif(unittest.TestCase):
             mmif_obj.get_document_by_id('v1:td1')
 
     def test_get_documents_by_view_id(self):
-        mmif_obj = Mmif(MMIF_EXAMPLES['mmif_example1'], frozen=False)
+        mmif_obj = Mmif(MMIF_EXAMPLES['everything'], frozen=False)
         self.assertEqual(len(mmif_obj.get_documents_in_view('v6')), 25)
         self.assertEqual(mmif_obj.get_documents_in_view('v6')[0],
                          mmif_obj.get_document_by_id('v6:td1'))
         self.assertEqual(len(mmif_obj.get_documents_in_view('v1')), 0)
         self.assertEqual(len(mmif_obj.get_documents_in_view('xxx')), 0)
-        new_document = Document(SUB_EXAMPLES['doc_example'])
+        new_document = Document(FRACTIONAL_EXAMPLES['doc_only'])
         mmif_obj.add_document(new_document)
         self.assertEqual(len(mmif_obj.get_documents_in_view('v4')), 1)
 
     def test_get_document_by_metadata(self):
-        mmif_obj = Mmif(MMIF_EXAMPLES['mmif_example1'], frozen=False)
+        mmif_obj = Mmif(MMIF_EXAMPLES['everything'], frozen=False)
         mmif_obj.add_document(Document("""{
           "@type": "http://mmif.clams.ai/%s/vocabulary/VideoDocument",
           "properties": {
@@ -184,7 +184,7 @@ class TestMmif(unittest.TestCase):
 
     def test_get_documents_by_app(self):
         tesseract_appid = 'http://mmif.clams.ai/apps/tesseract/0.2.1'
-        mmif_obj = Mmif(MMIF_EXAMPLES['mmif_example1'], frozen=False)
+        mmif_obj = Mmif(MMIF_EXAMPLES['everything'], frozen=False)
         self.assertEqual(len(mmif_obj.get_documents_by_app(tesseract_appid)), 25)
         self.assertEqual(len(mmif_obj.get_documents_by_app('xxx')), 0)
         new_document = Document({'@type': f'http://mmif.clams.ai/{__specver__}/vocabulary/TextDocument',
@@ -198,7 +198,7 @@ class TestMmif(unittest.TestCase):
         self.assertEqual(len(mmif_obj.get_documents_by_app(tesseract_appid)), 27)
 
     def test_get_documents_by_type(self):
-        mmif_obj = Mmif(MMIF_EXAMPLES['mmif_example1'], frozen=False)
+        mmif_obj = Mmif(MMIF_EXAMPLES['everything'], frozen=False)
         # probably the worst way of testing...
         self.assertEqual(len(mmif_obj.get_documents_by_type(DocumentTypes.VideoDocument)), 1)
         self.assertEqual(len(mmif_obj.get_documents_by_type(DocumentTypes.TextDocument)), 26)
@@ -220,7 +220,7 @@ class TestMmif(unittest.TestCase):
         self.assertEqual(Document(new_doc.serialize()), new_doc)
 
     def test_get_documents_locations(self):
-        mmif_obj = Mmif(MMIF_EXAMPLES['mmif_example1'])
+        mmif_obj = Mmif(MMIF_EXAMPLES['everything'])
         self.assertEqual(1, len(mmif_obj.get_documents_locations(f'http://mmif.clams.ai/{__specver__}/vocabulary/VideoDocument')))
         self.assertEqual(mmif_obj.get_document_location(f'http://mmif.clams.ai/{__specver__}/vocabulary/VideoDocument'), "file:///var/archive/video-002.mp4")
         self.assertEqual(mmif_obj.get_document_location(f'http://mmif.clams.ai/{__specver__}/vocabulary/VideoDocument', path_only=True), "/var/archive/video-002.mp4")
@@ -233,7 +233,7 @@ class TestMmif(unittest.TestCase):
         self.assertEqual(0, len(mmif_obj.get_documents_locations(f'http://mmif.clams.ai/{__specver__}/vocabulary/AudioDocument')))
 
     def test_get_view_by_id(self):
-        mmif_obj = Mmif(MMIF_EXAMPLES['mmif_example1'])
+        mmif_obj = Mmif(MMIF_EXAMPLES['everything'])
         try:
             _ = mmif_obj.get_view_by_id('v1')
         except KeyError:
@@ -246,7 +246,7 @@ class TestMmif(unittest.TestCase):
             pass
 
     def test_get_all_views_contain(self):
-        mmif_obj = Mmif(MMIF_EXAMPLES['mmif_example1'])
+        mmif_obj = Mmif(MMIF_EXAMPLES['everything'])
         views = mmif_obj.get_all_views_contain(AnnotationTypes.TimeFrame)
         self.assertEqual(4, len(views))
         views = mmif_obj.get_views_contain(f'http://mmif.clams.ai/{__specver__}/vocabulary/TextDocument')
@@ -263,7 +263,7 @@ class TestMmif(unittest.TestCase):
         self.assertEqual(0, len(views))
 
     def test_get_view_contains(self):
-        mmif_obj = Mmif(MMIF_EXAMPLES['mmif_example1'])
+        mmif_obj = Mmif(MMIF_EXAMPLES['everything'])
         view = mmif_obj.get_view_contains('http://vocab.lappsgrid.org/SemanticTag')
         self.assertIsNotNone(view)
         self.assertEqual('v8', view.id)
@@ -278,7 +278,7 @@ class TestMmif(unittest.TestCase):
         self.assertIsNone(view)
 
     def test_get_views_for_document(self):
-        mmif_obj = Mmif(MMIF_EXAMPLES['mmif_example1'])
+        mmif_obj = Mmif(MMIF_EXAMPLES['everything'])
         # top-level document
         self.assertEqual(5, len(mmif_obj.get_views_for_document('m1')))
         # generated document
@@ -286,9 +286,8 @@ class TestMmif(unittest.TestCase):
         # non-existing document
         self.assertEqual(0, len(mmif_obj.get_views_for_document('m321321')))
 
-
     def test_get_alignments(self):
-        mmif_obj = Mmif(MMIF_EXAMPLES['mmif_example1'])
+        mmif_obj = Mmif(MMIF_EXAMPLES['everything'])
         views_and_alignments = mmif_obj.get_alignments(DocumentTypes.TextDocument, AnnotationTypes.TimeFrame)
         self.assertEqual(1, len(views_and_alignments))
         self.assertTrue('v4' in views_and_alignments)
@@ -300,8 +299,6 @@ class TestMmif(unittest.TestCase):
         views_and_alignments = mmif_obj.get_alignments(DocumentTypes.TextDocument, AnnotationTypes.BoundingBox)
         self.assertEqual(1, len(views_and_alignments))
         self.assertTrue('v6' in views_and_alignments)
-
-
 
     def test_new_view_id(self):
         p = Mmif.view_prefix
@@ -322,8 +319,8 @@ class TestMmif(unittest.TestCase):
         self.assertEqual(len(mmif_obj.views), 5)
 
     def test_add_document(self):
-        mmif_obj = Mmif(MMIF_EXAMPLES['mmif_example1'], frozen=False)
-        med_obj = Document(SUB_EXAMPLES['doc_example'])
+        mmif_obj = Mmif(MMIF_EXAMPLES['everything'], frozen=False)
+        med_obj = Document(FRACTIONAL_EXAMPLES['doc_only'])
         mmif_obj.add_document(med_obj)
         try:
             mmif_obj.add_document(med_obj)
@@ -337,12 +334,12 @@ class TestMmif(unittest.TestCase):
 
     def test_empty_source_mmif(self):
         mmif_obj = Mmif(validate=False, frozen=False)
-        med_obj = Document(SUB_EXAMPLES['doc_example'])
+        med_obj = Document(FRACTIONAL_EXAMPLES['doc_only'])
         mmif_obj.add_document(med_obj)
         Mmif.validate(str(mmif_obj))
 
     def test_add_view(self):
-        mmif_obj = Mmif(MMIF_EXAMPLES['mmif_example1'])
+        mmif_obj = Mmif(MMIF_EXAMPLES['everything'])
         view_obj = View()
         view_obj.id = 'v400'
         mmif_obj.add_view(view_obj)
@@ -357,8 +354,8 @@ class TestMmif(unittest.TestCase):
             self.fail("raised exception on duplicate ID add when overwrite was set to True")
     
     def test_eq_checking_order(self):
-        mmif1 = Mmif(JSON_STR)
-        mmif2 = Mmif(JSON_STR)
+        mmif1 = Mmif(EVERYTHING_JSON)
+        mmif2 = Mmif(EVERYTHING_JSON)
         view1 = View()
         view1.id = 'v99'
         view2 = View()
@@ -369,8 +366,8 @@ class TestMmif(unittest.TestCase):
         mmif2.add_view(view1)
         self.assertFalse(mmif1 == mmif2)
 
-        mmif3 = Mmif(JSON_STR)
-        mmif4 = Mmif(JSON_STR)
+        mmif3 = Mmif(EVERYTHING_JSON)
+        mmif4 = Mmif(EVERYTHING_JSON)
         mmif3.add_view(view1)
         mmif3.add_view(view2)
         mmif4.add_view(view1)
@@ -379,7 +376,7 @@ class TestMmif(unittest.TestCase):
 
 
     def test___getitem__(self):
-        mmif_obj = Mmif(MMIF_EXAMPLES['mmif_example1'])
+        mmif_obj = Mmif(MMIF_EXAMPLES['everything'])
         self.assertIsInstance(mmif_obj['m1'], Document)
         self.assertIsInstance(mmif_obj['v5'], View)
         self.assertIsInstance(mmif_obj['v5:bb1'], Annotation)
@@ -392,7 +389,7 @@ class TestMmif(unittest.TestCase):
             _ = mmif_obj['m1']
 
     def test___contains__(self):
-        mmif_obj = Mmif(MMIF_EXAMPLES['mmif_example1'])
+        mmif_obj = Mmif(MMIF_EXAMPLES['everything'])
         self.assertTrue('views' in mmif_obj)
         self.assertTrue('v5' in mmif_obj)
         self.assertFalse('v432402' in mmif_obj)
@@ -431,15 +428,15 @@ class TestMmifObject(unittest.TestCase):
 
     def test_print_mmif(self):
         with patch('sys.stdout', new=StringIO()) as fake_out:
-            mmif_obj = Mmif(MMIF_EXAMPLES['mmif_example1'])
+            mmif_obj = Mmif(MMIF_EXAMPLES['everything'])
             print(mmif_obj)
-            self.assertEqual(json.loads(MMIF_EXAMPLES['mmif_example1']), json.loads(fake_out.getvalue()))
+            self.assertEqual(json.loads(MMIF_EXAMPLES['everything']), json.loads(fake_out.getvalue()))
 
 
 class TestGetItem(unittest.TestCase):
 
     def setUp(self) -> None:
-        self.mmif_obj = Mmif(MMIF_EXAMPLES['mmif_example1'])
+        self.mmif_obj = Mmif(MMIF_EXAMPLES['everything'])
 
     def test_mmif_getitem_document(self):
         try:
@@ -502,8 +499,8 @@ class TestGetItem(unittest.TestCase):
 class TestView(unittest.TestCase):
 
     def setUp(self) -> None:
-        self.mmif_examples_json = {'mmif_example1': json.loads(JSON_STR)}
-        self.view_json = self.mmif_examples_json['mmif_example1']['views'][0]
+        self.mmif_examples_json = {'everything': json.loads(EVERYTHING_JSON)}
+        self.view_json = self.mmif_examples_json['everything']['views'][0]
         self.view_obj = View(self.view_json)
         self.maxDiff = None
 
@@ -571,7 +568,7 @@ class TestView(unittest.TestCase):
         
 
     def test_add_annotation(self):
-        anno_obj = Annotation(self.mmif_examples_json['mmif_example1']['views'][6]['annotations'][2])
+        anno_obj = Annotation(self.mmif_examples_json['everything']['views'][6]['annotations'][2])
         old_len = len(self.view_obj.annotations)
         self.view_obj.add_annotation(anno_obj)  # raise exception if this fails
         self.assertEqual(old_len+1, len(self.view_obj.annotations))
@@ -587,11 +584,11 @@ class TestView(unittest.TestCase):
         self.assertEqual(a1.id.rsplit('_', 1)[0], a2.id.rsplit('_', 1)[0])
 
     def test_parent(self):
-        mmif_obj = Mmif(self.mmif_examples_json['mmif_example1'])
+        mmif_obj = Mmif(self.mmif_examples_json['everything'])
         self.assertTrue(all(doc.parent == v.id for v in mmif_obj.views for doc in mmif_obj.get_documents_in_view(v.id)))
 
     def test_get_annotations(self):
-        mmif_obj = Mmif(MMIF_EXAMPLES['mmif_example1'])
+        mmif_obj = Mmif(MMIF_EXAMPLES['everything'])
         # simple search by at_type
         annotations = list(mmif_obj['v3'].get_annotations(AnnotationTypes.TimeFrame))
         self.assertEqual(len(annotations), 2)
@@ -605,17 +602,17 @@ class TestView(unittest.TestCase):
         annotations = list(mmif_obj['v3'].get_annotations(frameType='speech'))
         self.assertEqual(len(annotations), 1)
         # at_type + annotation metadata
-        annotations = list(mmif_obj['v3'].get_annotations(AnnotationTypes.TimeFrame, unit='milliseconds'))
+        annotations = list(mmif_obj['v3'].get_annotations(AnnotationTypes.TimeFrame, timeUnit='milliseconds'))
         self.assertEqual(len(annotations), 2)
         # non-existing annotations
         with pytest.raises(StopIteration):
-            annotations = mmif_obj['v3'].get_annotations(AnnotationTypes.TimeFrame, unit='seconds')
+            annotations = mmif_obj['v3'].get_annotations(AnnotationTypes.TimeFrame, timeUnit='seconds')
             next(annotations)
         
     def test_errordict(self):
         error = ErrorDict({"message": "some message", "stackTrace": "some trace"})
         self.assertIsNotNone(error)
-        mmif_obj = Mmif(MMIF_EXAMPLES['mmif_example1'])
+        mmif_obj = Mmif(MMIF_EXAMPLES['everything'])
         aview = mmif_obj.new_view()
         ann = Annotation()
         ann.at_type = AnnotationTypes.VideoObject
@@ -658,7 +655,7 @@ class TestAnnotation(unittest.TestCase):
                      for i, example in MMIF_EXAMPLES.items()}
 
     def test_annotation_properties(self):
-        props_json = self.data['mmif_example1']['annotations'][0]['properties']
+        props_json = self.data['everything']['annotations'][0]['properties']
         props_obj = AnnotationProperties(props_json)
         self.assertEqual(props_json, json.loads(props_obj.serialize()))
 
@@ -689,13 +686,13 @@ class TestAnnotation(unittest.TestCase):
                     continue
 
     def test_id(self):
-        anno_obj: Annotation = self.data['mmif_example1']['mmif']['v5:bb1']
+        anno_obj: Annotation = self.data['everything']['mmif']['v5:bb1']
 
         old_id = anno_obj.id
         self.assertEqual('bb1', old_id)
 
     def test_change_id(self):
-        anno_obj: Annotation = self.data['mmif_example1']['mmif']['v5:bb1']
+        anno_obj: Annotation = self.data['everything']['mmif']['v5:bb1']
 
         anno_obj.id = 'bb200'
         self.assertEqual('bb200', anno_obj.id)
@@ -704,7 +701,7 @@ class TestAnnotation(unittest.TestCase):
         new_id = serialized['properties']['id']
         self.assertEqual('bb200', new_id)
 
-        serialized_mmif = json.loads(self.data['mmif_example1']['mmif'].serialize())
+        serialized_mmif = json.loads(self.data['everything']['mmif'].serialize())
         new_id_from_mmif = serialized_mmif['views'][4]['annotations'][0]['properties']['id']
         self.assertEqual('bb200', new_id_from_mmif)
 
@@ -727,7 +724,7 @@ class TestDocument(unittest.TestCase):
                     self.fail(f"{type(ex)}: {str(ex)}: {i} {document['id']}")
 
     def test_document_properties(self):
-        props_json = self.data['mmif_example1']['documents'][0]['properties']
+        props_json = self.data['everything']['documents'][0]['properties']
         props_obj = DocumentProperties(props_json)
         self.assertEqual(props_json, json.loads(props_obj.serialize()))
 
@@ -779,7 +776,7 @@ class TestDocument(unittest.TestCase):
 
 class TestDataStructure(unittest.TestCase):
     def setUp(self) -> None:
-        self.mmif_obj = Mmif(MMIF_EXAMPLES['mmif_example1'], frozen=False)
+        self.mmif_obj = Mmif(MMIF_EXAMPLES['everything'], frozen=False)
         self.datalist = self.mmif_obj.views
         self.freezable_datalist = self.mmif_obj.documents
         self.freezable_datadict = self.mmif_obj['v1'].metadata.contains
