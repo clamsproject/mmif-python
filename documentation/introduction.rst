@@ -26,7 +26,10 @@ Package ``mmif-python`` is distributed via the official PyPI. Users are supposed
   pip install mmif-python
 
 This will install a package `mmif` to local python.
-The MMIF format and specification is evolving over time, and ``mmif-python`` package will be updated along with the changes in MMIF format. Note that MMIF format is not always backward-compatible. To find out more about relations between MMIF versions and ``mmif-python`` versions, and which supports which, please take time to read our decision on the subject `here <https://mmif.clams.ai/versioning/>`_. 
+
+The MMIF format and specification is evolving over time, and ``mmif-python`` package will be updated along with the changes in MMIF format. 
+
+.. note:: MMIF format is not always backward-compatible. To find out more about relations between MMIF specification versions and ``mmif-python`` versions, please take time to read our decision on the subject `here <https://mmif.clams.ai/versioning/>`_. If you need to know which python SDK supports which specification version, see :ref:`target-versions` page. 
 
 MMIF Serialization
 ---------------------------

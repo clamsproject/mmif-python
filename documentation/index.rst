@@ -8,6 +8,7 @@ Welcome to mmif-python's documentation!
   :caption: Contents
 
   introduction
+  target-versions
   consumer-tutorial
 
 .. toctree::

@@ -9,10 +9,10 @@ mmif.vocabulary.annotation\_types module
    :undoc-members:
    :show-inheritance:
 
-mmif.vocabulary.media\_types module
------------------------------------
+mmif.vocabulary.document\_types module
+--------------------------------------
 
-.. automodule:: mmif.vocabulary.media_types
+.. automodule:: mmif.vocabulary.document_types
    :members:
    :undoc-members:
    :show-inheritance:
