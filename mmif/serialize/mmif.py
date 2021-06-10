@@ -274,24 +274,30 @@ class Mmif(MmifObject):
         :return: a dict that keyed by view IDs (str) and has lists of alignment Annotation objects as values.
         """
         v_and_a = {}
-        # at_type1 = ThingTypesBase.from_str(at_type1) if isinstance(at_type1, str) else at_type1
-        # at_type2 = ThingTypesBase.from_str(at_type2) if isinstance(at_type2, str) else at_type2
+        at_type1 = ThingTypesBase.from_str(at_type1) if isinstance(at_type1, str) else at_type1
+        at_type2 = ThingTypesBase.from_str(at_type2) if isinstance(at_type2, str) else at_type2
+        assert at_type1 != at_type2, f"Alignment must be between two different types, given only one: {at_type1}"
         for alignment_view in self.get_all_views_contain(AnnotationTypes.Alignment):
             alignments = []
-            # TODO (krim @ 11/7/20): maybe Alignment can have metadata on what types are aligned?
-            for alignment in alignment_view.get_annotations(AnnotationTypes.Alignment):
-                aligned_types = set()
-                for ann_id in [alignment.properties['target'], alignment.properties['source']]:
-                    ann_id = cast(str, ann_id)
-                    if ':' in ann_id:
-                        view_id, ann_id = ann_id.split(':')
-                        aligned_type = cast(Annotation, self[view_id][ann_id]).at_type
-                    else:
-                        aligned_type = cast(Annotation, alignment_view[ann_id]).at_type
-                    aligned_types.add(aligned_type)
-                aligned_types = list(aligned_types)  # because membership check for sets also checks hash() values
-                if at_type1 in aligned_types and at_type2 in aligned_types:
-                    alignments.append(alignment)
+            contains_meta = alignment_view.metadata.contains[AnnotationTypes.Alignment]
+            if 'sourceType' in contains_meta and 'targetType' in contains_meta:
+                aligned_types = list({contains_meta['sourceType'], contains_meta['targetType']})
+                if len(aligned_types) == 2 and at_type1 in aligned_types and at_type2 in aligned_types:
+                    alignments.extend(alignment_view.annotations)
+            else:
+                for alignment in alignment_view.get_annotations(AnnotationTypes.Alignment):
+                    aligned_types = set()
+                    for ann_id in [alignment.properties['target'], alignment.properties['source']]:
+                        ann_id = cast(str, ann_id)
+                        if ':' in ann_id:
+                            view_id, ann_id = ann_id.split(':')
+                            aligned_type = cast(Annotation, self[view_id][ann_id]).at_type
+                        else:
+                            aligned_type = cast(Annotation, alignment_view[ann_id]).at_type
+                        aligned_types.add(aligned_type)
+                    aligned_types = list(aligned_types)  # because membership check for sets also checks hash() values
+                    if len(aligned_types) == 2 and at_type1 in aligned_types and at_type2 in aligned_types:
+                        alignments.append(alignment)
             if len(alignments) > 0:
                 v_and_a[alignment_view.id] = alignments
         return v_and_a

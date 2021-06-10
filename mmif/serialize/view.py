@@ -130,8 +130,8 @@ class View(FreezableMmifObject):
         Look for certain annotations in this view, specified by parameters
 
         :param at_type: @type of the annotations to look for. When this is None, any @type will match.
-        :param properties: properties of the annotations to look for. When given more than one property, all properties 
-        must match. Note that annotation type metadata are specified in the `contains` view metadata, not in individual
+        :param properties: properties of the annotations to look for. When given more than one property, all properties \
+        must match. Note that annotation type metadata are specified in the `contains` view metadata, not in individual \
         annotation objects.
         """
         def prop_check(k, v, *props):
@@ -157,7 +157,7 @@ class View(FreezableMmifObject):
         """
         getitem implementation for View.
 
-        >>> obj = View('''{"id": "v1","metadata": {"contains": {"BoundingBox": {"unit": "pixels"}},"document": "m1","tool": "http://tools.clams.io/east/1.0.4"},"annotations": [{"@type": "BoundingBox","properties": {"id": "bb1","coordinates": [[90,40], [110,40], [90,50], [110,50]] }}]}''')
+        >>> obj = View('''{"id": "v1","metadata": {"contains": {"BoundingBox": {}},"document": "m1","tool": "http://tools.clams.io/east/1.0.4"},"annotations": [{"@type": "BoundingBox","properties": {"id": "bb1","coordinates": [[90,40], [110,40], [90,50], [110,50]] }}]}''')
         >>> type(obj['bb1'])
         <class 'mmif.serialize.annotation.Annotation'>
         >>> obj['asdf']
@@ -314,5 +314,5 @@ class ContainsDict(FreezableDataDict[ThingTypesBase, Contain]):
             key = ThingTypesBase.from_str(key)
         return self._items.get(key, default)
     
-    def __contains__(self, item):
+    def __contains__(self, item: Union[str, ThingTypesBase]):
         return item in list(self._items.keys())
