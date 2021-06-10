@@ -602,11 +602,11 @@ class TestView(unittest.TestCase):
         annotations = list(mmif_obj['v3'].get_annotations(frameType='speech'))
         self.assertEqual(len(annotations), 1)
         # at_type + annotation metadata
-        annotations = list(mmif_obj['v3'].get_annotations(AnnotationTypes.TimeFrame, unit='milliseconds'))
+        annotations = list(mmif_obj['v3'].get_annotations(AnnotationTypes.TimeFrame, timeUnit='milliseconds'))
         self.assertEqual(len(annotations), 2)
         # non-existing annotations
         with pytest.raises(StopIteration):
-            annotations = mmif_obj['v3'].get_annotations(AnnotationTypes.TimeFrame, unit='seconds')
+            annotations = mmif_obj['v3'].get_annotations(AnnotationTypes.TimeFrame, timeUnit='seconds')
             next(annotations)
         
     def test_errordict(self):
