@@ -5,7 +5,6 @@
 # https://www.sphinx-doc.org/en/master/usage/configuration.html
 
 import datetime
-import sphinx_rtd_theme
 
 # -- Path setup --------------------------------------------------------------
 
