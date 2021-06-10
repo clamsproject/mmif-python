@@ -5,7 +5,7 @@ check_deps := $(foreach dep,$(deps), $(if $(shell which $(dep)),some string,$(er
 
 # constants
 packagename = mmif
-generatedcode = $(packagename)/res $(packagename)/ver $(packagename)/vocabulary 
+generatedcode = $(packagename)/ver $(packagename)/res $(packagename)/vocabulary 
 sdistname = $(packagename)-python
 bdistname = $(packagename)_python
 artifact = build/lib/$(packagename)
@@ -18,6 +18,7 @@ testcaches = .hypothesis .pytest_cache .pytype coverage.xml htmlcov .coverage
 .PHONY: develop
 .PHONY: publish
 .PHONY: docs
+.PHONY: doc
 .PHONY: package
 .PHONY: devversion
 
@@ -30,12 +31,11 @@ develop: devversion package test
 		-u clamsuploader -p $$CLAMSUPLOADERPASSWORD dist/$(sdistname)-`cat VERSION`.tar.gz
 
 publish: distclean version package test 
-	twine upload -u __token__ -p $$PYPITOKEN dist/$(sdistname)-`cat VERSION`.tar.gz ; \
-	twine upload --repository-url http://morbius.cs-i.brandeis.edu:8081/repository/pypi-develop/ \
-		-u clamsuploader -p $$CLAMSUPLOADERPASSWORD dist/$(sdistname)-`cat VERSION`.tar.gz
+	test `git branch --show-current` = "master"
+	@git tag `cat VERSION` 
+	@git push origin `cat VERSION`
 
-$(generatedcode): VERSION
-	python3 setup.py donothing
+$(generatedcode): dist/$(sdistname)*.tar.gz
 
 docs: latest := $(shell git tag | sort -r | head -n 1)
 docs: VERSION $(generatedcode)
@@ -49,7 +49,9 @@ doc: VERSION $(generatedcode) # for single version sphinx - only use when develo
 	rm -rf documentation/_build docs
 	sphinx-build documentation documentation/_build -b html -D version=`cat VERSION` -a
 
-package: VERSION
+package: VERSION dist/$(sdistname)*.tar.gz
+
+dist/$(sdistname)*.tar.gz:
 	pip install --upgrade -r requirements.dev
 	python3 setup.py sdist
 

@@ -72,6 +72,16 @@ def generate_vocab_enum(spec_version, clams_types, mod_name) -> str:
     return string_out
 
 
+def update_target_spec(target_vers_csv, specver):
+    with open(target_vers_csv) as in_f, open(f'{target_vers_csv}.new', 'w') as out_f:
+        lines = in_f.readlines()
+        if not lines[1].startswith(version):
+            lines.insert(1, f'{version},"{specver}"\n')
+        for line in lines:
+            out_f.write(line)
+        shutil.move(out_f.name, in_f.name)
+
+
 def generate_vocabulary(spec_version, clams_types):
     """
     :param spec_version:
@@ -161,6 +171,7 @@ def prep_ext_files(setuptools_cmd):
 
         # the following will generate a new version value based on VERSION file
         generate_subpack(mmif_name, mmif_ver_pkg, f'__version__ = "{version}"\n__specver__ = "{spec_version}"')
+        update_target_spec('documentation/target-versions.csv', spec_version)
 
         # and write resource files
         write_res_file(res_dir, mmif_schema_res_name, get_spec_file_at_tag(gittag, mmif_schema_res_oriname))
