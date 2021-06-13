@@ -40,6 +40,7 @@ class Mmif(MmifObject):
             self.validate(mmif_obj)
         self.disallow_additional_properties()
         self._attribute_classes = pmap({
+            'metadata': MmifMetadata,
             'documents': DocumentsList,
             'views': ViewsList
         })

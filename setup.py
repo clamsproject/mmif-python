@@ -73,6 +73,36 @@ def generate_vocab_enum(spec_version, clams_types, mod_name) -> str:
 
 
 def update_target_spec(target_vers_csv, specver):
+    """
+    Function to record target spec version at build time. 
+    This will update ``documentation/target-versions.csv`` file. 
+    And in the github action for publication (``.github/workflow/publish.yml``)
+    the csv fill will be committed as a part of documentation publication. 
+    The csv file is used for 
+    
+    #. Public website for ``mmif-python`` API
+    #. ``sphinx-multiversion`` to generate ``ver`` package for older versions
+    
+    Unlike ``clams-python`` where this function is placed in ``documentation/conf.py``
+    (because the file is a part of documentation? ),
+    I put this function here in ``setup.py`` mainly because it is easier to access
+    ``version`` and ``specver`` variables in the ``setup.py``. 
+    
+    Also note that there are two make goals for documentation generation. 
+    
+    #. ``doc``: generated a single-versioned documentation from current work tree
+        * Uses vanilla ``sphinx-build`` command.
+        * Vanilla ``sphinx-build`` does not invoke ``setup.py`` at all.
+        * Thus, running vanilla cmd without sdist ran before will fail (e.g. ``ver`` package not found).
+    #. ``docs``: generated multi-version documentation from git tags
+        * Uses our fork of ``sphinx-multiversion`` (https://github.com/clamsproject/sphinx-multiversion)
+        * This will invoke ``setup.py sdist`` for each version to make sure all source dist content is generated. 
+    
+    Finally, when this function is needed to be moved to conf.py (I think that's a more proper place),
+    use this code snippet to import local ``mmif`` package and use __version__ and __specver__
+     sys.path.append("..")
+     import mmif
+    """
     with open(target_vers_csv) as in_f, open(f'{target_vers_csv}.new', 'w') as out_f:
         lines = in_f.readlines()
         if not lines[1].startswith(version):
