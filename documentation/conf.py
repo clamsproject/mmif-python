@@ -94,3 +94,10 @@ smv_released_pattern = r'^tags/[0-9]+\.[0-9]+\.[0-9]+.*$'
 smv_outputdir_format = '{ref.name}'
 # Determines whether remote or local git branches/tags are preferred if their output dirs conflict
 smv_prefer_remote_refs = True
+
+# TODO (krim @ 6/13/21): maybe there's a way to re-wrote what I wrote in the 
+# fork of sphinx-multiversion here in conf.py. Issues I can think of as of now; 
+# 1. sphinx-mv/main.py know current version of the library by git tag, 
+#    but conf.py has no way to know that... 
+# 2. target-versions.csv file can be read once and used in the for loop 
+#    in sphinx-mv/main.py, but here it should be read in for each `docs` bulid. 
