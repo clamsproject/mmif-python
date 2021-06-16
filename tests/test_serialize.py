@@ -574,7 +574,7 @@ class TestView(unittest.TestCase):
         self.assertEqual(old_len+1, len(self.view_obj.annotations))
         self.assertIn('http://vocab.lappsgrid.org/NamedEntity', self.view_obj.metadata.contains)
         _ = self.view_obj.serialize()  # raise exception if this fails
-    
+
     def test_new_annotation(self):
         self.view_obj.new_annotation('Relation', 'relation1')
         self.assertIn('Relation', self.view_obj.metadata.contains)
@@ -582,6 +582,14 @@ class TestView(unittest.TestCase):
         a2 = self.view_obj.new_annotation('TimeFrame')
         self.assertNotEqual(a1.id, a2.id)
         self.assertEqual(a1.id.rsplit('_', 1)[0], a2.id.rsplit('_', 1)[0])
+
+    def test_new_textdocument(self):
+        english_text = 'new document is added to the view.'
+        td1 = self.view_obj.new_textdocument(english_text)
+        td2 = self.view_obj.new_textdocument('새로운 문서가 추가되었습니다', 'ko')
+        self.assertIn(DocumentTypes.TextDocument, self.view_obj.metadata.contains)
+        self.assertNotEqual(td1.text_language, td2.text_language)
+        self.assertEqual(english_text, td1.text_value)
 
     def test_parent(self):
         mmif_obj = Mmif(self.mmif_examples_json['everything'])
