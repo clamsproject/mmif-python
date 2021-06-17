@@ -17,6 +17,8 @@ from .model import FreezableMmifObject, FreezableDataList, FreezableDataDict, Mm
 
 __all__ = ['View', 'ViewMetadata', 'Contain']
 
+from .. import DocumentTypes
+
 
 class View(FreezableMmifObject):
     """
@@ -68,13 +70,15 @@ class View(FreezableMmifObject):
         Fails if there is already an annotation with the same ID
         in the view, unless ``overwrite`` is set to True.
 
-        :param aid: the desired ID of the annotation
-        :param at_type: the desired ``@type`` of the annotation
+        :param at_type: the desired ``@type`` of the annotation.
+        :param aid: the desired ID of the annotation, when not given, 
+                    the mmif SDK tries to automatically generate an ID based on 
+                    Annotation type and existing annotations in the view. 
         :param overwrite: if set to True, will overwrite an
-                          existing annotation with the same ID
+                          existing annotation with the same ID.
         :raises KeyError: if ``overwrite`` is set to False and
                           an annotation with the same ID exists
-                          in the view
+                          in the view.
         :return: the generated :class:`mmif.serialize.annotation.Annotation`
         """
         new_annotation = Annotation()
@@ -87,7 +91,10 @@ class View(FreezableMmifObject):
             new_id = f'{prefix}_{new_num}'
             self._id_counts[prefix] = new_num
             new_annotation.id = new_id
-        return self.add_annotation(new_annotation, overwrite)
+        if new_annotation.is_document():
+            return self.add_document(cast(Document, new_annotation), overwrite)
+        else:
+            return self.add_annotation(new_annotation, overwrite)
 
     def add_annotation(self, annotation: 'Annotation', overwrite=False) -> 'Annotation':
         """
@@ -110,6 +117,29 @@ class View(FreezableMmifObject):
         self.annotations.append(annotation, overwrite)
         self.new_contain(annotation.at_type)
         return annotation
+
+    def new_textdocument(self, text: str, lang: str = "en", did: Optional[str] = None, overwrite=False) -> 'Document':
+        """
+        Generates a new :class:`mmif.serialize.annotation.Document`
+        object, particularly typed as TextDocument and adds it to the current view.
+
+        Fails if there is already a text document with the same ID
+        in the view, unless ``overwrite`` is set to True.
+
+        :param did: the desired ID of the document, when not given, 
+                    the mmif SDK tries to automatically generate an ID based on 
+                    Annotation type and existing documents in the view. 
+        :param overwrite: if set to True, will overwrite an
+                          existing document with the same ID
+        :raises KeyError: if ``overwrite`` is set to False and
+                          an document with the same ID exists
+                          in the view
+        :return: the generated :class:`mmif.serialize.annotation.Document`
+        """
+        doc = cast(Document, self.new_annotation(DocumentTypes.TextDocument, did, overwrite))
+        doc.text_language = lang
+        doc.text_value = text
+        return doc
 
     def add_document(self, document: Document, overwrite=False) -> Annotation:
         """
