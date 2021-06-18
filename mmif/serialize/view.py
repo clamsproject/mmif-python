@@ -61,6 +61,16 @@ class View(FreezableMmifObject):
             raise ValueError("@type must not be empty.")
         else:
             return self.metadata.new_contain(at_type, contain_dict)
+    
+    def _set_id(self, annotation: Annotation, identifier):
+        if identifier is not None:
+            annotation.id = identifier
+        else:
+            prefix = annotation.at_type.get_prefix()
+            new_num = self._id_counts.get(prefix, 0) + 1
+            new_id = f'{prefix}_{new_num}'
+            self._id_counts[prefix] = new_num
+            annotation.id = new_id
 
     def new_annotation(self, at_type: Union[str, ThingTypesBase], aid: Optional[str] = None, overwrite=False) -> 'Annotation':
         """
@@ -83,18 +93,8 @@ class View(FreezableMmifObject):
         """
         new_annotation = Annotation()
         new_annotation.at_type = at_type
-        if aid is not None:
-            new_annotation.id = aid
-        else:
-            prefix = new_annotation.at_type.get_prefix()
-            new_num = self._id_counts.get(prefix, 0) + 1
-            new_id = f'{prefix}_{new_num}'
-            self._id_counts[prefix] = new_num
-            new_annotation.id = new_id
-        if new_annotation.is_document():
-            return self.add_document(cast(Document, new_annotation), overwrite)
-        else:
-            return self.add_annotation(new_annotation, overwrite)
+        self._set_id(new_annotation, aid)
+        return self.add_annotation(new_annotation, overwrite)
 
     def add_annotation(self, annotation: 'Annotation', overwrite=False) -> 'Annotation':
         """
@@ -126,6 +126,8 @@ class View(FreezableMmifObject):
         Fails if there is already a text document with the same ID
         in the view, unless ``overwrite`` is set to True.
 
+        :param text: text content of the new document
+        :param lang: ISO 639-1 code of the language used in the new document
         :param did: the desired ID of the document, when not given, 
                     the mmif SDK tries to automatically generate an ID based on 
                     Annotation type and existing documents in the view. 
@@ -136,10 +138,13 @@ class View(FreezableMmifObject):
                           in the view
         :return: the generated :class:`mmif.serialize.annotation.Document`
         """
-        doc = cast(Document, self.new_annotation(DocumentTypes.TextDocument, did, overwrite))
-        doc.text_language = lang
-        doc.text_value = text
-        return doc
+        new_document = Document()
+        new_document.at_type = DocumentTypes.TextDocument
+        self._set_id(new_document, did)
+        new_document.text_language = lang
+        new_document.text_value = text
+        self.add_document(new_document, overwrite)
+        return new_document
 
     def add_document(self, document: Document, overwrite=False) -> Annotation:
         """
@@ -172,14 +177,21 @@ class View(FreezableMmifObject):
             if not at_type or (at_type and annotation.at_type == at_type):
                 if all(map(lambda kv: prop_check(kv[0], kv[1], annotation.properties, at_type_metadata), properties.items())):
                     yield annotation
-
+    
+    def get_annotation_by_id(self, ann_id):
+        ann_found = self.annotations.get(ann_id)
+        if ann_found is None or not isinstance(ann_found, Annotation):
+            raise KeyError(f"Annotation \"{ann_id}\" is not found in view {self.id}.")
+        else:
+            return ann_found
+        
     def get_documents(self) -> List[Document]:
         return [cast(Document, annotation) for annotation in self.annotations if annotation.is_document()]
 
     def get_document_by_id(self, doc_id) -> Document:
         doc_found = self.annotations.get(doc_id)
         if doc_found is None or not isinstance(doc_found, Document):
-            raise KeyError(f"{doc_id} not found in view {self.id}.")
+            raise KeyError(f"Document \"{doc_id}\" not found in view {self.id}.")
         else:
             return doc_found
 

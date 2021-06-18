@@ -148,7 +148,6 @@ class TestMmif(unittest.TestCase):
             mmif_obj.add_document(new_doc)
         with self.assertRaises(TypeError):
             view_obj.add_document(new_doc)
-        
 
     def test_get_document_by_id(self):
         mmif_obj = Mmif(MMIF_EXAMPLES['everything'])
@@ -588,13 +587,24 @@ class TestView(unittest.TestCase):
         td1 = self.view_obj.new_textdocument(english_text)
         td2 = self.view_obj.new_textdocument('새로운 문서가 추가되었습니다', 'ko')
         self.assertIn(DocumentTypes.TextDocument, self.view_obj.metadata.contains)
+        self.assertFalse('parent' in td1)
+        self.assertTrue(td1.properties.text_value == td1.text_value)
         self.assertNotEqual(td1.text_language, td2.text_language)
         self.assertEqual(english_text, td1.text_value)
+        self.assertEqual(td1, self.view_obj.annotations.get(td1.id))
 
     def test_parent(self):
         mmif_obj = Mmif(self.mmif_examples_json['everything'])
         self.assertTrue(all(doc.parent == v.id for v in mmif_obj.views for doc in mmif_obj.get_documents_in_view(v.id)))
 
+    def test_get_by_id(self):
+        mmif_obj = Mmif(MMIF_EXAMPLES['everything'])
+        view_obj = mmif_obj['v4']
+        td1 = view_obj.get_document_by_id('td1')
+        self.assertEqual(td1.properties.mime, 'text/plain')
+        a1 = view_obj.get_annotation_by_id('a1')
+        self.assertEqual(a1.at_type, AnnotationTypes.Alignment)
+            
     def test_get_annotations(self):
         mmif_obj = Mmif(MMIF_EXAMPLES['everything'])
         # simple search by at_type
