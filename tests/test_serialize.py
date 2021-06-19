@@ -542,7 +542,7 @@ class TestView(unittest.TestCase):
         vmeta.add_parameters(pretty=True, validate=False)
         self.assertEqual(len(vmeta.parameters), 2)
         vmeta = ViewMetadata()
-        vmeta.add_parameters({'pretty': True, 'validate': False})
+        vmeta.add_parameters(**{'pretty': True, 'validate': False})
 
     def test_props_preserved(self):
         view_serial = self.view_obj.serialize()
@@ -560,7 +560,7 @@ class TestView(unittest.TestCase):
         # can add by obj at_type
         self.view_obj.new_contain(AnnotationTypes.TimePoint)
         # can add details
-        self.view_obj.new_contain(AnnotationTypes.TimeFrame, {"frameType": "speech"})
+        self.view_obj.new_contain(AnnotationTypes.TimeFrame, **{"frameType": "speech"})
         with pytest.raises(ValueError):
             # empty at_type is not allowed
             self.view_obj.new_contain("")
