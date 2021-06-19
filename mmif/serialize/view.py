@@ -49,18 +49,18 @@ class View(FreezableMmifObject):
             if isinstance(item, Document):
                 item.parent = self.id
 
-    def new_contain(self, at_type: Union[str, ThingTypesBase], contain_dict: dict = None) -> Optional['Contain']:
+    def new_contain(self, at_type: Union[str, ThingTypesBase], **contains_metadata) -> Optional['Contain']:
         """
         Adds a new element to the ``contains`` metadata.
 
         :param at_type: the ``@type`` of the annotation type being added
-        :param contain_dict: any metadata associated with the annotation type
+        :param contains_metadata: any metadata associated with the annotation type
         :return: the generated :class:`Contain` object
         """
         if MmifObject.is_empty(at_type):
             raise ValueError("@type must not be empty.")
         else:
-            return self.metadata.new_contain(at_type, contain_dict)
+            return self.metadata.new_contain(at_type, **contains_metadata)
     
     def _set_id(self, annotation: Annotation, identifier):
         if identifier is not None:
@@ -72,7 +72,8 @@ class View(FreezableMmifObject):
             self._id_counts[prefix] = new_num
             annotation.id = new_id
 
-    def new_annotation(self, at_type: Union[str, ThingTypesBase], aid: Optional[str] = None, overwrite=False) -> 'Annotation':
+    def new_annotation(self, at_type: Union[str, ThingTypesBase], aid: Optional[str] = None, 
+                       overwrite=False, **properties) -> 'Annotation':
         """
         Generates a new :class:`mmif.serialize.annotation.Annotation`
         object and adds it to the current view.
@@ -94,6 +95,8 @@ class View(FreezableMmifObject):
         new_annotation = Annotation()
         new_annotation.at_type = at_type
         self._set_id(new_annotation, aid)
+        for propk, propv in properties.items():
+            new_annotation.add_property(propk, propk)
         return self.add_annotation(new_annotation, overwrite)
 
     def add_annotation(self, annotation: 'Annotation', overwrite=False) -> 'Annotation':
@@ -118,7 +121,8 @@ class View(FreezableMmifObject):
         self.new_contain(annotation.at_type)
         return annotation
 
-    def new_textdocument(self, text: str, lang: str = "en", did: Optional[str] = None, overwrite=False) -> 'Document':
+    def new_textdocument(self, text: str, lang: str = "en", did: Optional[str] = None, 
+                         overwrite=False, **properties) -> 'Document':
         """
         Generates a new :class:`mmif.serialize.annotation.Document`
         object, particularly typed as TextDocument and adds it to the current view.
@@ -143,6 +147,8 @@ class View(FreezableMmifObject):
         self._set_id(new_document, did)
         new_document.text_language = lang
         new_document.text_value = text
+        for propk, propv in properties.items():
+            new_document.add_property(propk, propv)
         self.add_document(new_document, overwrite)
         return new_document
 
@@ -160,7 +166,8 @@ class View(FreezableMmifObject):
         document.parent = self.id
         return self.add_annotation(document, overwrite)
 
-    def get_annotations(self, at_type: Union[str, ThingTypesBase] = None, **properties) -> Generator[Annotation, None, None]:
+    def get_annotations(self, at_type: Union[str, ThingTypesBase] = None, 
+                        **properties) -> Generator[Annotation, None, None]:
         """
         Look for certain annotations in this view, specified by parameters
 
@@ -175,7 +182,8 @@ class View(FreezableMmifObject):
         for annotation in self.annotations:
             at_type_metadata = self.metadata.contains.get(annotation.at_type, {})
             if not at_type or (at_type and annotation.at_type == at_type):
-                if all(map(lambda kv: prop_check(kv[0], kv[1], annotation.properties, at_type_metadata), properties.items())):
+                if all(map(lambda kv: prop_check(kv[0], kv[1], annotation.properties, at_type_metadata), 
+                           properties.items())):
                     yield annotation
     
     def get_annotation_by_id(self, ann_id):
@@ -248,28 +256,24 @@ class ViewMetadata(FreezableMmifObject):
         # see MmifObject::_required_attributes in model.py 
         super().__init__(viewmetadata_obj)
 
-    def new_contain(self, at_type: Union[str, ThingTypesBase], contain_dict: dict = None) -> Optional['Contain']:
+    def new_contain(self, at_type: Union[str, ThingTypesBase], **contains_metadata) -> Optional['Contain']:
         """
         Adds a new element to the ``contains`` dictionary.
 
         :param at_type: the ``@type`` of the annotation type being added
-        :param contain_dict: any metadata associated with the annotation type
+        :param contains_metadata: any metadata associated with the annotation type
         :return: the generated :class:`Contain` object
         """
         if isinstance(at_type, str):
             at_type = ThingTypesBase.from_str(at_type)
             
         if at_type not in self.contains:
-            new_contain = Contain(contain_dict)
+            new_contain = Contain(contains_metadata)
             self.contains[at_type] = new_contain
             return new_contain
 
-    def add_parameters(self, param_dict: dict = None, **param_kwargs):
-        if param_dict is None:
-            self.parameters = {}
-        else:
-            self.parameters = param_dict
-        self.parameters.update(dict(param_kwargs))
+    def add_parameters(self, **runtime_params):
+        self.parameters.update(dict(runtime_params))
 
     def add_parameter(self, param_key, param_value):
         self.parameters[param_key] = param_value

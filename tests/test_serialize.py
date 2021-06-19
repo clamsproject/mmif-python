@@ -149,15 +149,6 @@ class TestMmif(unittest.TestCase):
         with self.assertRaises(TypeError):
             view_obj.add_document(new_doc)
 
-    def test_get_document_by_id(self):
-        mmif_obj = Mmif(MMIF_EXAMPLES['everything'])
-        mmif_obj.get_document_by_id('m1')
-        mmif_obj.get_document_by_id('v4:td1')
-        with self.assertRaises(KeyError):
-            mmif_obj.get_document_by_id('m55')
-        with self.assertRaises(KeyError):
-            mmif_obj.get_document_by_id('v1:td1')
-
     def test_get_documents_by_view_id(self):
         mmif_obj = Mmif(MMIF_EXAMPLES['everything'], frozen=False)
         self.assertEqual(len(mmif_obj.get_documents_in_view('v6')), 25)
@@ -542,7 +533,7 @@ class TestView(unittest.TestCase):
         vmeta.add_parameters(pretty=True, validate=False)
         self.assertEqual(len(vmeta.parameters), 2)
         vmeta = ViewMetadata()
-        vmeta.add_parameters({'pretty': True, 'validate': False})
+        vmeta.add_parameters(**{'pretty': True, 'validate': False})
 
     def test_props_preserved(self):
         view_serial = self.view_obj.serialize()
@@ -560,7 +551,7 @@ class TestView(unittest.TestCase):
         # can add by obj at_type
         self.view_obj.new_contain(AnnotationTypes.TimePoint)
         # can add details
-        self.view_obj.new_contain(AnnotationTypes.TimeFrame, {"frameType": "speech"})
+        self.view_obj.new_contain(AnnotationTypes.TimeFrame, **{"frameType": "speech"})
         with pytest.raises(ValueError):
             # empty at_type is not allowed
             self.view_obj.new_contain("")
@@ -581,6 +572,8 @@ class TestView(unittest.TestCase):
         a2 = self.view_obj.new_annotation('TimeFrame')
         self.assertNotEqual(a1.id, a2.id)
         self.assertEqual(a1.id.rsplit('_', 1)[0], a2.id.rsplit('_', 1)[0])
+        a3 = self.view_obj.new_annotation('TimeFrame', frameType='speech', start=100, end=500)
+        self.assertEqual(4, len(a3.properties))
 
     def test_new_textdocument(self):
         english_text = 'new document is added to the view.'
@@ -592,6 +585,9 @@ class TestView(unittest.TestCase):
         self.assertNotEqual(td1.text_language, td2.text_language)
         self.assertEqual(english_text, td1.text_value)
         self.assertEqual(td1, self.view_obj.annotations.get(td1.id))
+        td3 = self.view_obj.new_textdocument(english_text, mime='plain/text')
+        self.assertEqual(td1.text_value, td3.text_value)
+        self.assertEqual(len(td1.properties), len(td3.properties) - 1)
 
     def test_parent(self):
         mmif_obj = Mmif(self.mmif_examples_json['everything'])
@@ -599,11 +595,19 @@ class TestView(unittest.TestCase):
 
     def test_get_by_id(self):
         mmif_obj = Mmif(MMIF_EXAMPLES['everything'])
+        mmif_obj.get_document_by_id('m1')
+        mmif_obj.get_document_by_id('v4:td1')
+        with self.assertRaises(KeyError):
+            mmif_obj.get_document_by_id('m55')
+        with self.assertRaises(KeyError):
+            mmif_obj.get_document_by_id('v1:td1')
         view_obj = mmif_obj['v4']
         td1 = view_obj.get_document_by_id('td1')
         self.assertEqual(td1.properties.mime, 'text/plain')
         a1 = view_obj.get_annotation_by_id('a1')
         self.assertEqual(a1.at_type, AnnotationTypes.Alignment)
+        with self.assertRaises(KeyError):
+            view_obj.get_annotation_by_id('completely-unlikely-annotation-id')
             
     def test_get_annotations(self):
         mmif_obj = Mmif(MMIF_EXAMPLES['everything'])
