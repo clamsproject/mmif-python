@@ -147,7 +147,7 @@ class View(FreezableMmifObject):
         self._set_id(new_document, did)
         new_document.text_language = lang
         new_document.text_value = text
-        for propk, propv in properties:
+        for propk, propv in properties.items():
             new_document.add_property(propk, propv)
         self.add_document(new_document, overwrite)
         return new_document
