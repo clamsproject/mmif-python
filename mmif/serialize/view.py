@@ -96,7 +96,7 @@ class View(FreezableMmifObject):
         new_annotation.at_type = at_type
         self._set_id(new_annotation, aid)
         for propk, propv in properties.items():
-            new_annotation.add_property(propk, propk)
+            new_annotation.add_property(propk, propv)
         return self.add_annotation(new_annotation, overwrite)
 
     def add_annotation(self, annotation: 'Annotation', overwrite=False) -> 'Annotation':

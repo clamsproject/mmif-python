@@ -31,6 +31,7 @@ class Mmif(MmifObject):
     """
 
     view_prefix: ClassVar[str] = 'v_'
+    id_delimiter: ClassVar[str] = ':'
 
     def __init__(self, mmif_obj: Union[bytes, str, dict] = None, *, validate: bool = True, frozen: bool = True) -> None:
         self.metadata: MmifMetadata = MmifMetadata()
@@ -242,8 +243,8 @@ class Mmif(MmifObject):
         :return: a reference to the corresponding document, if it exists
         :raises Exception: if there is no corresponding document
         """
-        if ":" in doc_id:
-            vid, did = doc_id.split(":")
+        if Mmif.id_delimiter in doc_id:
+            vid, did = doc_id.split(Mmif.id_delimiter)
             view = self[vid]
             if isinstance(view, View):
                 return view.get_document_by_id(did) 
@@ -290,8 +291,8 @@ class Mmif(MmifObject):
                     aligned_types = set()
                     for ann_id in [alignment.properties['target'], alignment.properties['source']]:
                         ann_id = cast(str, ann_id)
-                        if ':' in ann_id:
-                            view_id, ann_id = ann_id.split(':')
+                        if Mmif.id_delimiter in ann_id:
+                            view_id, ann_id = ann_id.split(Mmif.id_delimiter)
                             aligned_type = cast(Annotation, self[view_id][ann_id]).at_type
                         else:
                             aligned_type = cast(Annotation, alignment_view[ann_id]).at_type
@@ -317,8 +318,8 @@ class Mmif(MmifObject):
                 views.append(view)
             except StopIteration:
                 # search failed by the full doc_id string, now try trimming the view_id from the string and re-do the search
-                if ':' in doc_id:
-                    vid, did = doc_id.split(':')
+                if Mmif.id_delimiter in doc_id:
+                    vid, did = doc_id.split(Mmif.id_delimiter)
                     if view.id == vid:
                         annotations = view.get_annotations(document=did)
                         try:
@@ -380,7 +381,7 @@ class Mmif(MmifObject):
         """
         if item in self._named_attributes():
             return self.__dict__[item]
-        split_attempt = item.split(':')
+        split_attempt = item.split(Mmif.id_delimiter)
 
         document_result = self.documents.get(split_attempt[0])
         view_result = self.views.get(split_attempt[0])
