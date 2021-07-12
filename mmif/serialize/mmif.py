@@ -210,7 +210,7 @@ class Mmif(MmifObject):
         docs.extend([document for document in self.documents if document.properties[prop_key] == prop_value])
         return docs
 
-    def get_documents_locations(self, m_type: Union[DocumentTypes, str], path_only=False) -> List[str]:
+    def get_documents_locations(self, m_type: Union[DocumentTypes, str], path_only=False) -> List[Union[str, None]]:
         """
         This method returns the file paths of documents of given type.
         Only top-level documents have locations, so we only check them.
@@ -218,7 +218,7 @@ class Mmif(MmifObject):
         :param m_type: the type to search for
         :return: a list of the values of the location fields in the corresponding documents
         """
-        docs = [document for document in self.documents if document.is_type(m_type) and len(document.location) > 0]
+        docs = [document for document in self.documents if document.is_type(m_type) and document.location is not None]
         if path_only:
             return [doc.location_path() for doc in docs]
         else:
