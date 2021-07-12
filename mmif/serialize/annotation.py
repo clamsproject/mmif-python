@@ -8,7 +8,7 @@ of a view. For documentation on how views are represented, see
 """
 
 import pathlib
-from typing import Union, Dict, List, Type
+from typing import Union, Dict, List, Type, Optional
 from urllib.parse import urlparse
 
 from pyrsistent import pmap, pvector
@@ -17,6 +17,8 @@ from mmif.vocabulary import ThingTypesBase, DocumentTypesBase
 from .model import FreezableMmifObject
 
 __all__ = ['Annotation', 'AnnotationProperties', 'Document', 'DocumentProperties', 'Text']
+
+from .. import DocumentTypes
 
 JSON_COMPATIBLE_PRIMITIVES: Type = Union[str, int, float, bool, None]
 
@@ -140,35 +142,68 @@ class Document(Annotation):
 
     @property
     def text_language(self) -> str:
-        return self.properties.text_language
+        if self.at_type == DocumentTypes.TextDocument:
+            return self.properties.text_language
+        else:
+            raise ValueError("Only TextDocument can have `text` field.")
 
     @text_language.setter
     def text_language(self, lang_code: str) -> None:
-        self.properties.text_language = lang_code
+        if self.at_type == DocumentTypes.TextDocument:
+            self.properties.text_language = lang_code
+        else:
+            raise ValueError("Only TextDocument can have `text` field.")
 
     @property
     def text_value(self) -> str:
-        return self.properties.text_value
+        if self.at_type == DocumentTypes.TextDocument:
+            if len(self.location) > 0:
+                if self.location_scheme() == 'file':
+                    f = open(self.location_path(), 'r', encoding='utf8')
+                    textvalue = f.read()
+                    f.close()
+                    return textvalue
+            else:
+                return self.properties.text_value
+        else:
+            raise ValueError("Only TextDocument can have `text` field.")
 
     @text_value.setter
     def text_value(self, text_value: str) -> None:
-        self.properties.text_value = text_value
+        if self.at_type == DocumentTypes.TextDocument:
+            self.properties.text_value = text_value
+        else:
+            raise ValueError("Only TextDocument can have `text` field.")
 
     @property
-    def location(self) -> str:
+    def location(self) -> Optional[str]:
         return self.properties.location
 
     @location.setter
     def location(self, location: str) -> None:
+        """
+        ``location`` property must be a legitimate URI. That is, should the document be a local file 
+        then the file:// scheme must be used.
+        """
         self.properties.location = location
 
     def location_scheme(self) -> str:
+        """
+        Retrieves URI scheme of the document location.
+        """
         return self.properties.location_scheme()
 
     def location_address(self) -> str:
+        """
+        Retrieves the full address from the document location URI.
+        """
         return self.properties.location_address()
 
     def location_path(self) -> str:
+        """
+        Retrieves only path name of the document location (hostname is ignored). 
+        Useful to get a path of a local file.
+        """
         return self.properties.location_path()
 
 
@@ -238,8 +273,12 @@ class DocumentProperties(AnnotationProperties):
         self.text.value = s
 
     @property
-    def location(self) -> str:
-        return self.location_
+    def location(self) -> Optional[str]:
+        """
+        ``location`` property must be a legitimate URI. That is, should the document be a local file 
+        then the file:// scheme must be used.
+        """
+        return self.location_ if len(self.location_) > 0 else None
 
     @location.setter
     def location(self, location: str) -> None:
@@ -250,9 +289,15 @@ class DocumentProperties(AnnotationProperties):
             self.location_ = location
 
     def location_scheme(self) -> str:
+        """
+        Retrieves URI scheme of the document location.
+        """
         return urlparse(self.location).scheme
 
     def location_address(self) -> str:
+        """
+        Retrieves the full address from the document location URI.
+        """
         parsed_location = urlparse(self.location)
         if len(parsed_location.netloc) == 0:
             return parsed_location.path
@@ -260,6 +305,10 @@ class DocumentProperties(AnnotationProperties):
             return "".join((parsed_location.netloc, parsed_location.path))
 
     def location_path(self) -> str:
+        """
+        Retrieves only path name of the document location (hostname is ignored). 
+        Useful to get a path of a local file.
+        """
         return urlparse(self.location).path
 
 
