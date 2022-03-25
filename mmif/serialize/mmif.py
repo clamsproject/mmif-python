@@ -33,7 +33,7 @@ class Mmif(MmifObject):
     view_prefix: ClassVar[str] = 'v_'
     id_delimiter: ClassVar[str] = ':'
 
-    def __init__(self, mmif_obj: Union[bytes, str, dict] = None, *, validate: bool = True, frozen: bool = True) -> None:
+    def __init__(self, mmif_obj: Optional[Union[bytes, str, dict]] = None, *, validate: bool = True, frozen: bool = True) -> None:
         self.metadata: MmifMetadata = MmifMetadata()
         self.documents: DocumentsList = DocumentsList()
         self.views: ViewsList = ViewsList()
@@ -154,7 +154,7 @@ class Mmif(MmifObject):
             fully_frozen &= view.deep_freeze()
         return fully_frozen
 
-    def get_documents_in_view(self, vid: str = None) -> List[Document]:
+    def get_documents_in_view(self, vid: Optional[str] = None) -> List[Document]:
         """
         Method to get all documents object queries by a view id.
 
@@ -210,7 +210,7 @@ class Mmif(MmifObject):
         docs.extend([document for document in self.documents if document.properties[prop_key] == prop_value])
         return docs
 
-    def get_documents_locations(self, m_type: Union[DocumentTypes, str], path_only=False) -> List[str]:
+    def get_documents_locations(self, m_type: Union[DocumentTypes, str], path_only=False) -> List[Union[str, None]]:
         """
         This method returns the file paths of documents of given type.
         Only top-level documents have locations, so we only check them.
@@ -218,7 +218,7 @@ class Mmif(MmifObject):
         :param m_type: the type to search for
         :return: a list of the values of the location fields in the corresponding documents
         """
-        docs = [document for document in self.documents if document.is_type(m_type) and len(document.location) > 0]
+        docs = [document for document in self.documents if document.is_type(m_type) and document.location is not None]
         if path_only:
             return [doc.location_path() for doc in docs]
         else:
@@ -408,7 +408,7 @@ class MmifMetadata(MmifObject):
     :param metadata_obj: the JSON data
     """
 
-    def __init__(self, metadata_obj: Union[bytes, str, dict] = None) -> None:
+    def __init__(self, metadata_obj: Optional[Union[bytes, str, dict]] = None) -> None:
         # TODO (krim @ 10/7/20): there could be a better name and a better way to give a value to this
         self.mmif: str = f"http://mmif.clams.ai/{mmif.__specver__}"
         self._required_attributes = pvector(["mmif"])

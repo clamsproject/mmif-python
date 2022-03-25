@@ -1,4 +1,5 @@
 import json
+import tempfile
 import unittest
 from io import StringIO
 from unittest.mock import patch
@@ -100,7 +101,7 @@ class TestMmif(unittest.TestCase):
         en = 'en'
         document = Document()
         document.id = 'm998'
-        document.at_type = "text"
+        document.at_type = DocumentTypes.TextDocument
         document.properties.text_value = text
         self.assertEqual(document.properties.text_value, text)
         document.text_value = text
@@ -736,6 +737,35 @@ class TestDocument(unittest.TestCase):
                          'mmif': Mmif(example, frozen=False),
                          'documents': json.loads(example)['documents']}
                      for i, example in MMIF_EXAMPLES.items()}
+    
+    def test_text_document(self):
+        t = tempfile.NamedTemporaryFile(delete=False)
+        new_text = 'new document is added'
+        t.write(bytes(new_text, 'utf8'))
+        t.close()
+        v = View()
+        td1 = v.new_textdocument(new_text)
+        self.assertEqual(new_text, td1.text_value)
+        td2 = v.new_textdocument('')
+        # must return None when no location is set
+        self.assertIsNone(td2.location)
+        self.assertIsNone(td2.location_scheme())
+        self.assertIsNone(td2.location_path())
+        self.assertIsNone(td2.location_address())
+        td2.location = t.name
+        self.assertEqual(new_text, td2.text_value)
+    
+    def test_nontext_document(self):
+        ad = Document()
+        ad.at_type = DocumentTypes.AudioDocument
+        with self.assertRaises(ValueError):
+            assert ad.text_language is None
+        with self.assertRaises(ValueError):
+            assert ad.text_value is None
+        with self.assertRaises(ValueError):
+            ad.text_value = 'non-text document must not have ``@text`` field'
+        with self.assertRaises(ValueError):
+            ad.text_value = 'tlh'
 
     def test_init(self):
         for i, datum in self.data.items():

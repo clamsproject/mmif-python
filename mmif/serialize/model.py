@@ -94,7 +94,7 @@ class MmifObject(object):
     _attribute_classes: PMap = m()  # Mapping: str -> Type
     _required_attributes: PVector
 
-    def __init__(self, mmif_obj: Union[bytes, str, dict] = None) -> None:
+    def __init__(self, mmif_obj: Optional[Union[bytes, str, dict]] = None) -> None:
         if isinstance(mmif_obj, bytes):
             mmif_obj = mmif_obj.decode('utf8')
         if not hasattr(self, '_required_attributes'):
@@ -141,7 +141,7 @@ class MmifObject(object):
         """
         return json.dumps(self._serialize(), indent=2 if pretty else None, cls=MmifObjectEncoder)
 
-    def _serialize(self, alt_container: Dict = None) -> dict:
+    def _serialize(self, alt_container: Optional[Dict] = None) -> dict:
         """
         Maps a MMIF object to a plain python dict object,
         rewriting internal keys that start with '_' to
@@ -449,7 +449,7 @@ class DataList(MmifObject, Generic[T]):
 
     :param Union[str, list] mmif_obj: the data that the list contains
     """
-    def __init__(self, mmif_obj: Union[bytes, str, list] = None):
+    def __init__(self, mmif_obj: Optional[Union[bytes, str, list]] = None):
         self.reserved_names = self.reserved_names.add('_items')
         self._items: Dict[str, T] = dict()
         self.disallow_additional_properties()
@@ -556,7 +556,7 @@ class FreezableDataList(FreezableMmifObject, DataList[T]):
 
 
 class DataDict(MmifObject, Generic[T, S]):
-    def __init__(self, mmif_obj: Union[bytes, str, dict] = None):
+    def __init__(self, mmif_obj: Optional[Union[bytes, str, dict]] = None):
         self.reserved_names = self.reserved_names.add('_items')
         self._items: Dict[T, S] = dict()
         self.disallow_additional_properties()

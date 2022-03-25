@@ -8,7 +8,7 @@ of a view. For documentation on how views are represented, see
 """
 
 import pathlib
-from typing import Union, Dict, List, Type
+from typing import Union, Dict, List, Type, Optional
 from urllib.parse import urlparse
 
 from pyrsistent import pmap, pvector
@@ -18,6 +18,8 @@ from .model import FreezableMmifObject
 
 __all__ = ['Annotation', 'AnnotationProperties', 'Document', 'DocumentProperties', 'Text']
 
+from .. import DocumentTypes
+
 JSON_COMPATIBLE_PRIMITIVES: Type = Union[str, int, float, bool, None]
 
 
@@ -26,7 +28,7 @@ class Annotation(FreezableMmifObject):
     MmifObject that represents an annotation in a MMIF view.
     """
 
-    def __init__(self, anno_obj: Union[bytes, str, dict] = None) -> None:
+    def __init__(self, anno_obj: Optional[Union[bytes, str, dict]] = None) -> None:
         self._type: ThingTypesBase = ThingTypesBase('')
         if not hasattr(self, 'properties'):  # don't overwrite DocumentProperties on super() call
             self.properties: AnnotationProperties = AnnotationProperties()
@@ -110,7 +112,7 @@ class Document(Annotation):
 
     :param document_obj: the JSON data that defines the document
     """
-    def __init__(self, doc_obj: Union[bytes, str, dict] = None) -> None:
+    def __init__(self, doc_obj: Optional[Union[bytes, str, dict]] = None) -> None:
         self._parent_view_id = ''
         self._type: Union[str, DocumentTypesBase] = ''
         self.properties: DocumentProperties = DocumentProperties()
@@ -140,35 +142,75 @@ class Document(Annotation):
 
     @property
     def text_language(self) -> str:
-        return self.properties.text_language
+        if self.at_type == DocumentTypes.TextDocument:
+            return self.properties.text_language
+        else:
+            raise ValueError("Only TextDocument can have `text` field.")
 
     @text_language.setter
     def text_language(self, lang_code: str) -> None:
-        self.properties.text_language = lang_code
+        if self.at_type == DocumentTypes.TextDocument:
+            self.properties.text_language = lang_code
+        else:
+            raise ValueError("Only TextDocument can have `text` field.")
 
     @property
     def text_value(self) -> str:
-        return self.properties.text_value
+        if self.at_type == DocumentTypes.TextDocument:
+            if self.location:
+                if self.location_scheme() == 'file':
+                    f = open(self.location_path(), 'r', encoding='utf8')
+                    textvalue = f.read()
+                    f.close()
+                    return textvalue
+                else: 
+                    # TODO (krim @ 7/11/21): add more handlers for other types of locations (e.g. s3, https, ...)
+                    return ''
+            else:
+                return self.properties.text_value
+        else:
+            raise ValueError("Only TextDocument can have `text` field.")
 
     @text_value.setter
     def text_value(self, text_value: str) -> None:
-        self.properties.text_value = text_value
+        if self.at_type == DocumentTypes.TextDocument:
+            self.properties.text_value = text_value
+        else:
+            raise ValueError("Only TextDocument can have `text` field.")
 
     @property
-    def location(self) -> str:
+    def location(self) -> Optional[str]:
+        """
+        ``location`` property must be a legitimate URI. That is, should the document be a local file
+        then the file:// scheme must be used.
+        Returns None when no location is set.
+        """
         return self.properties.location
 
     @location.setter
     def location(self, location: str) -> None:
         self.properties.location = location
 
-    def location_scheme(self) -> str:
+    def location_scheme(self) -> Optional[str]:
+        """
+        Retrieves URI scheme of the document location.
+        Returns None when no location is set.
+        """
         return self.properties.location_scheme()
 
-    def location_address(self) -> str:
+    def location_address(self) -> Optional[str]:
+        """
+        Retrieves the full address from the document location URI.
+        Returns None when no location is set.
+        """
         return self.properties.location_address()
 
-    def location_path(self) -> str:
+    def location_path(self) -> Optional[str]:
+        """
+        Retrieves only path name of the document location (hostname is ignored). 
+        Useful to get a path of a local file.
+        Returns None when no location is set.
+        """
         return self.properties.location_path()
 
 
@@ -180,7 +222,7 @@ class AnnotationProperties(FreezableMmifObject):
     :param mmif_obj: the JSON data that defines the properties
     """
 
-    def __init__(self, mmif_obj: Union[bytes, str, dict] = None) -> None:
+    def __init__(self, mmif_obj: Optional[Union[bytes, str, dict]] = None) -> None:
         self.id: str = ''
         self._required_attributes = pvector(["id"])
         super().__init__(mmif_obj)
@@ -194,7 +236,7 @@ class DocumentProperties(AnnotationProperties):
     :param mmif_obj: the JSON data that defines the properties
     """
 
-    def __init__(self, mmif_obj: Union[bytes, str, dict] = None) -> None:
+    def __init__(self, mmif_obj: Optional[Union[bytes, str, dict]] = None) -> None:
         self.mime: str = ''
         # note the trailing underscore here. I wanted to use the name `location`
         # for @property in this class and `Document` class, so had to use a diff
@@ -214,7 +256,7 @@ class DocumentProperties(AnnotationProperties):
             self.location = input_dict.pop("location")
         super()._deserialize(input_dict)
 
-    def _serialize(self, alt_container: Dict = None) -> dict:
+    def _serialize(self, alt_container: Optional[Dict] = None) -> dict:
         serialized = super()._serialize()
         if "location_" in serialized:
             serialized["location"] = serialized.pop("location_")
@@ -238,8 +280,13 @@ class DocumentProperties(AnnotationProperties):
         self.text.value = s
 
     @property
-    def location(self) -> str:
-        return self.location_
+    def location(self) -> Optional[str]:
+        """
+        ``location`` property must be a legitimate URI. That is, should the document be a local file 
+        then the file:// scheme must be used. 
+        Returns None when no location is set.
+        """
+        return self.location_ if len(self.location_) > 0 else None
 
     @location.setter
     def location(self, location: str) -> None:
@@ -249,23 +296,42 @@ class DocumentProperties(AnnotationProperties):
         else:
             self.location_ = location
 
-    def location_scheme(self) -> str:
+    def location_scheme(self) -> Optional[str]:
+        """
+        Retrieves URI scheme of the document location.
+        Returns None when no location is set.
+        """
+        if self.location is None:
+            return None
         return urlparse(self.location).scheme
 
-    def location_address(self) -> str:
+    def location_address(self) -> Optional[str]:
+        """
+        Retrieves the full address from the document location URI.
+        Returns None when no location is set.
+        """
+        if self.location is None:
+            return None
         parsed_location = urlparse(self.location)
         if len(parsed_location.netloc) == 0:
             return parsed_location.path
         else:
             return "".join((parsed_location.netloc, parsed_location.path))
 
-    def location_path(self) -> str:
+    def location_path(self) -> Optional[str]:
+        """
+        Retrieves only path name of the document location (hostname is ignored). 
+        Useful to get a path of a local file.
+        Returns None when no location is set.
+        """
+        if self.location is None:
+            return None
         return urlparse(self.location).path
 
 
 class Text(FreezableMmifObject):
 
-    def __init__(self, text_obj: Union[bytes, str, dict] = None) -> None:
+    def __init__(self, text_obj: Optional[Union[bytes, str, dict]] = None) -> None:
         self._value: str = ''
         self._language: str = ''
         self.disallow_additional_properties()

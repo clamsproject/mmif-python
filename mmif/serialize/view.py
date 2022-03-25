@@ -33,7 +33,7 @@ class View(FreezableMmifObject):
     :param view_obj: the JSON data that defines the view
     """
 
-    def __init__(self, view_obj: Union[bytes, str, dict] = None) -> None:
+    def __init__(self, view_obj: Optional[Union[bytes, str, dict]] = None) -> None:
         self._id_counts = {}
         self.id: str = ''
         self.metadata: ViewMetadata = ViewMetadata()
@@ -166,7 +166,7 @@ class View(FreezableMmifObject):
         document.parent = self.id
         return self.add_annotation(document, overwrite)
 
-    def get_annotations(self, at_type: Union[str, ThingTypesBase] = None, 
+    def get_annotations(self, at_type: Optional[Union[str, ThingTypesBase]] = None, 
                         **properties) -> Generator[Annotation, None, None]:
         """
         Look for certain annotations in this view, specified by parameters
@@ -238,7 +238,7 @@ class ViewMetadata(FreezableMmifObject):
     :param viewmetadata_obj: the JSON data that defines the metadata
     """
 
-    def __init__(self, viewmetadata_obj: Union[bytes, str, dict] = None) -> None:
+    def __init__(self, viewmetadata_obj: Optional[Union[bytes, str, dict]] = None) -> None:
         self.document: str = ''
         self.timestamp: Optional[datetime] = None
         self.app: str = ''
@@ -293,7 +293,7 @@ class ErrorDict(FreezableMmifObject):
     """
     Error object that stores information about error occurred during processing. 
     """
-    def __init__(self, error_obj: Union[bytes, str, dict] = None) -> None:
+    def __init__(self, error_obj: Optional[Union[bytes, str, dict]] = None) -> None:
         self.message: str = ''
         self.stackTrace: str = ''
         super().__init__(error_obj)
