@@ -33,7 +33,7 @@ class Mmif(MmifObject):
     view_prefix: ClassVar[str] = 'v_'
     id_delimiter: ClassVar[str] = ':'
 
-    def __init__(self, mmif_obj: Union[bytes, str, dict] = None, *, validate: bool = True, frozen: bool = True) -> None:
+    def __init__(self, mmif_obj: Optional[Union[bytes, str, dict]] = None, *, validate: bool = True, frozen: bool = True) -> None:
         self.metadata: MmifMetadata = MmifMetadata()
         self.documents: DocumentsList = DocumentsList()
         self.views: ViewsList = ViewsList()
@@ -154,7 +154,7 @@ class Mmif(MmifObject):
             fully_frozen &= view.deep_freeze()
         return fully_frozen
 
-    def get_documents_in_view(self, vid: str = None) -> List[Document]:
+    def get_documents_in_view(self, vid: Optional[str] = None) -> List[Document]:
         """
         Method to get all documents object queries by a view id.
 
@@ -408,7 +408,7 @@ class MmifMetadata(MmifObject):
     :param metadata_obj: the JSON data
     """
 
-    def __init__(self, metadata_obj: Union[bytes, str, dict] = None) -> None:
+    def __init__(self, metadata_obj: Optional[Union[bytes, str, dict]] = None) -> None:
         # TODO (krim @ 10/7/20): there could be a better name and a better way to give a value to this
         self.mmif: str = f"http://mmif.clams.ai/{mmif.__specver__}"
         self._required_attributes = pvector(["mmif"])

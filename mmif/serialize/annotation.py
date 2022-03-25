@@ -28,7 +28,7 @@ class Annotation(FreezableMmifObject):
     MmifObject that represents an annotation in a MMIF view.
     """
 
-    def __init__(self, anno_obj: Union[bytes, str, dict] = None) -> None:
+    def __init__(self, anno_obj: Optional[Union[bytes, str, dict]] = None) -> None:
         self._type: ThingTypesBase = ThingTypesBase('')
         if not hasattr(self, 'properties'):  # don't overwrite DocumentProperties on super() call
             self.properties: AnnotationProperties = AnnotationProperties()
@@ -112,7 +112,7 @@ class Document(Annotation):
 
     :param document_obj: the JSON data that defines the document
     """
-    def __init__(self, doc_obj: Union[bytes, str, dict] = None) -> None:
+    def __init__(self, doc_obj: Optional[Union[bytes, str, dict]] = None) -> None:
         self._parent_view_id = ''
         self._type: Union[str, DocumentTypesBase] = ''
         self.properties: DocumentProperties = DocumentProperties()
@@ -222,7 +222,7 @@ class AnnotationProperties(FreezableMmifObject):
     :param mmif_obj: the JSON data that defines the properties
     """
 
-    def __init__(self, mmif_obj: Union[bytes, str, dict] = None) -> None:
+    def __init__(self, mmif_obj: Optional[Union[bytes, str, dict]] = None) -> None:
         self.id: str = ''
         self._required_attributes = pvector(["id"])
         super().__init__(mmif_obj)
@@ -236,7 +236,7 @@ class DocumentProperties(AnnotationProperties):
     :param mmif_obj: the JSON data that defines the properties
     """
 
-    def __init__(self, mmif_obj: Union[bytes, str, dict] = None) -> None:
+    def __init__(self, mmif_obj: Optional[Union[bytes, str, dict]] = None) -> None:
         self.mime: str = ''
         # note the trailing underscore here. I wanted to use the name `location`
         # for @property in this class and `Document` class, so had to use a diff
@@ -256,7 +256,7 @@ class DocumentProperties(AnnotationProperties):
             self.location = input_dict.pop("location")
         super()._deserialize(input_dict)
 
-    def _serialize(self, alt_container: Dict = None) -> dict:
+    def _serialize(self, alt_container: Optional[Dict] = None) -> dict:
         serialized = super()._serialize()
         if "location_" in serialized:
             serialized["location"] = serialized.pop("location_")
@@ -331,7 +331,7 @@ class DocumentProperties(AnnotationProperties):
 
 class Text(FreezableMmifObject):
 
-    def __init__(self, text_obj: Union[bytes, str, dict] = None) -> None:
+    def __init__(self, text_obj: Optional[Union[bytes, str, dict]] = None) -> None:
         self._value: str = ''
         self._language: str = ''
         self.disallow_additional_properties()
