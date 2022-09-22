@@ -11,10 +11,10 @@ import pathlib
 from typing import Union, Dict, List, Type, Optional
 from urllib.parse import urlparse
 
-from pyrsistent import pmap, pvector
+from pyrsistent import pvector
 
 from mmif.vocabulary import ThingTypesBase, DocumentTypesBase
-from .model import FreezableMmifObject
+from .model import MmifObject
 
 __all__ = ['Annotation', 'AnnotationProperties', 'Document', 'DocumentProperties', 'Text']
 
@@ -23,7 +23,7 @@ from .. import DocumentTypes
 JSON_COMPATIBLE_PRIMITIVES: Type = Union[str, int, float, bool, None]
 
 
-class Annotation(FreezableMmifObject):
+class Annotation(MmifObject):
     """
     MmifObject that represents an annotation in a MMIF view.
     """
@@ -32,7 +32,7 @@ class Annotation(FreezableMmifObject):
         self._type: ThingTypesBase = ThingTypesBase('')
         if not hasattr(self, 'properties'):  # don't overwrite DocumentProperties on super() call
             self.properties: AnnotationProperties = AnnotationProperties()
-            self._attribute_classes = pmap({'properties': AnnotationProperties})
+            self._attribute_classes = {'properties': AnnotationProperties}
         self.disallow_additional_properties()
         self._required_attributes = pvector(["_type", "properties"])
         super().__init__(anno_obj)
@@ -117,7 +117,7 @@ class Document(Annotation):
         self._type: Union[str, DocumentTypesBase] = ''
         self.properties: DocumentProperties = DocumentProperties()
         self.disallow_additional_properties()
-        self._attribute_classes = pmap({'properties': DocumentProperties})
+        self._attribute_classes = {'properties': DocumentProperties}
         super().__init__(doc_obj)
 
     @property
@@ -214,7 +214,7 @@ class Document(Annotation):
         return self.properties.location_path()
 
 
-class AnnotationProperties(FreezableMmifObject):
+class AnnotationProperties(MmifObject):
     """
     AnnotationProperties object that represents the
     ``properties`` object within a MMIF annotation.
@@ -244,7 +244,7 @@ class DocumentProperties(AnnotationProperties):
         # to see how this exception is handled
         self.location_: str = ''
         self.text: Text = Text()
-        self._attribute_classes = pmap({'text': Text})
+        self._attribute_classes = {'text': Text}
         # in theory, either `location` or `text` should appear in a `document`
         # but with current implementation, there's no easy way to set a condition 
         # for `oneOf` requirement 
@@ -329,7 +329,7 @@ class DocumentProperties(AnnotationProperties):
         return urlparse(self.location).path
 
 
-class Text(FreezableMmifObject):
+class Text(MmifObject):
 
     def __init__(self, text_obj: Optional[Union[bytes, str, dict]] = None) -> None:
         self._value: str = ''

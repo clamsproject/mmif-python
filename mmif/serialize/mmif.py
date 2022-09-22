@@ -10,13 +10,13 @@ from datetime import datetime
 from typing import List, Union, Optional, Dict, ClassVar, cast
 
 import jsonschema.validators
-from pyrsistent import pmap, pvector
+from pyrsistent import pvector
 
 import mmif
 from mmif import ThingTypesBase
 from mmif.vocabulary import AnnotationTypes, DocumentTypes
 from .annotation import Annotation, Document
-from .model import MmifObject, DataList, FreezableDataList
+from .model import MmifObject, DataList
 from .view import View
 
 __all__ = ['Mmif']
@@ -33,23 +33,20 @@ class Mmif(MmifObject):
     view_prefix: ClassVar[str] = 'v_'
     id_delimiter: ClassVar[str] = ':'
 
-    def __init__(self, mmif_obj: Optional[Union[bytes, str, dict]] = None, *, validate: bool = True, frozen: bool = True) -> None:
+    def __init__(self, mmif_obj: Optional[Union[bytes, str, dict]] = None, *, validate: bool = True) -> None:
         self.metadata: MmifMetadata = MmifMetadata()
         self.documents: DocumentsList = DocumentsList()
         self.views: ViewsList = ViewsList()
         if validate:
             self.validate(mmif_obj)
         self.disallow_additional_properties()
-        self._attribute_classes = pmap({
+        self._attribute_classes = {
             'metadata': MmifMetadata,
             'documents': DocumentsList,
             'views': ViewsList
-        })
+        }
         self._required_attributes = pvector(["metadata", "documents", "views"])
         super().__init__(mmif_obj)
-        if frozen:
-            self.freeze_documents()
-            self.freeze_views()
 
     @staticmethod
     def validate(json_str: Union[bytes, str, dict]) -> None:
@@ -121,38 +118,7 @@ class Mmif(MmifObject):
                           an existing view with the same ID
         :return: None
         """
-        if not self.documents.is_frozen():
-            self.documents.append(document, overwrite)
-        else:
-            raise TypeError("MMIF object is frozen")
-
-    def freeze(self):
-        """
-        Deeply freezes all elements. Returns True only when everything if frozen.
-        """
-        doc_frozen = self.freeze_documents()
-        view_frozen = self.freeze_views()
-        return view_frozen and doc_frozen
-        
-    def freeze_documents(self) -> bool:
-        """
-        Deeply freezes the list of documents. Returns the result of
-        the deep_freeze() call, signifying whether everything
-        was fully frozen or not.
-        """
-        return self.documents.deep_freeze()
-
-    def freeze_views(self) -> bool:
-        """
-        Deeply freezes all of the existing views without freezing
-        the list of views itself. Returns the conjunct of the returns
-        of all of the deep_freeze() calls, signifying whether everything
-        was fully frozen or not.
-        """
-        fully_frozen = True
-        for view in self.views:
-            fully_frozen &= view.deep_freeze()
-        return fully_frozen
+        self.documents.append(document, overwrite)
 
     def get_documents_in_view(self, vid: Optional[str] = None) -> List[Document]:
         """
@@ -276,7 +242,7 @@ class Mmif(MmifObject):
         :return: a dict that keyed by view IDs (str) and has lists of alignment Annotation objects as values.
         """
         v_and_a = {}
-        at_type1 = ThingTypesBase.from_str(at_type1) if isinstance(at_type1, str) else at_type1
+        at_type1 = ThingTypesBase.froam_str(at_type1) if isinstance(at_type1, str) else at_type1
         at_type2 = ThingTypesBase.from_str(at_type2) if isinstance(at_type2, str) else at_type2
         assert at_type1 != at_type2, f"Alignment must be between two different types, given only one: {at_type1}"
         for alignment_view in self.get_all_views_contain(AnnotationTypes.Alignment):
@@ -415,7 +381,7 @@ class MmifMetadata(MmifObject):
         super().__init__(metadata_obj)
 
 
-class DocumentsList(FreezableDataList[Document]):
+class DocumentsList(DataList[Document]):
     """
     DocumentsList object that implements :class:`mmif.serialize.model.DataList`
     for :class:`mmif.serialize.document.Document`.
