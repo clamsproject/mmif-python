@@ -18,7 +18,6 @@ from datetime import datetime
 from typing import Union, Any, Dict, Optional, TypeVar, Generic, Generator, Iterator
 
 from deepdiff import DeepDiff
-from pyrsistent import pvector, PVector
 
 T = TypeVar('T')
 S = TypeVar('S')
@@ -87,13 +86,12 @@ class MmifObject(object):
                              ]
     _unnamed_attributes: Optional[dict]
     _attribute_classes: Dict[str, Type] = {}  # Mapping: str -> Type
-    _required_attributes: PVector
 
     def __init__(self, mmif_obj: Optional[Union[bytes, str, dict]] = None) -> None:
         if isinstance(mmif_obj, bytes):
             mmif_obj = mmif_obj.decode('utf8')
         if not hasattr(self, '_required_attributes'):
-            self._required_attributes = pvector()
+            self._required_attributes = []
         if not hasattr(self, '_unnamed_attributes'):
             self._unnamed_attributes = {}
         if mmif_obj is not None:

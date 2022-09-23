@@ -11,8 +11,6 @@ import pathlib
 from typing import Union, Dict, List, Type, Optional
 from urllib.parse import urlparse
 
-from pyrsistent import pvector
-
 from mmif.vocabulary import ThingTypesBase, DocumentTypesBase
 from .model import MmifObject
 
@@ -34,7 +32,7 @@ class Annotation(MmifObject):
             self.properties: AnnotationProperties = AnnotationProperties()
             self._attribute_classes = {'properties': AnnotationProperties}
         self.disallow_additional_properties()
-        self._required_attributes = pvector(["_type", "properties"])
+        self._required_attributes = ["_type", "properties"]
         super().__init__(anno_obj)
     
     def _deserialize(self, input_dict: dict) -> None:
@@ -224,7 +222,7 @@ class AnnotationProperties(MmifObject):
 
     def __init__(self, mmif_obj: Optional[Union[bytes, str, dict]] = None) -> None:
         self.id: str = ''
-        self._required_attributes = pvector(["id"])
+        self._required_attributes = ["id"]
         super().__init__(mmif_obj)
 
 
@@ -335,7 +333,7 @@ class Text(MmifObject):
         self._value: str = ''
         self._language: str = ''
         self.disallow_additional_properties()
-        self._required_attributes = pvector(["_value"])
+        self._required_attributes = ["_value"]
         super().__init__(text_obj)
 
     @property

@@ -9,7 +9,6 @@ from datetime import datetime
 from typing import Dict, Union, Optional, Generator, List, cast
 
 import dateutil.parser
-from pyrsistent import pvector
 
 from mmif.vocabulary import ThingTypesBase
 from .annotation import Annotation, Document
@@ -43,7 +42,7 @@ class View(MmifObject):
             'metadata': ViewMetadata,
             'annotations': AnnotationsList
         }
-        self._required_attributes = pvector(["id", "metadata", "annotations"])
+        self._required_attributes = ["id", "metadata", "annotations"]
         super().__init__(view_obj)
         for item in self.annotations:
             if isinstance(item, Document):
@@ -243,7 +242,7 @@ class ViewMetadata(MmifObject):
         self.contains: ContainsDict = ContainsDict()
         self.parameters: dict = {}
         self.error: Union[dict, ErrorDict] = {}
-        self._required_attributes = pvector(["app"])
+        self._required_attributes = ["app"]
         self._attribute_classes = {
             'error': ErrorDict,
             'contains': ContainsDict
