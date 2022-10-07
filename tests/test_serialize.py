@@ -142,13 +142,7 @@ class TestMmif(unittest.TestCase):
         doc_obj = Document(document_json)
         view_obj.add_document(doc_obj)
         self.assertEqual(doc_obj.parent, view_obj.id)
-        new_doc = Document()
-        new_doc.id = "a_doc"
-        with self.assertRaises(TypeError):
-            mmif_obj.add_document(new_doc)
-        with self.assertRaises(TypeError):
-            view_obj.add_document(new_doc)
-
+        
     def test_get_documents_by_view_id(self):
         mmif_obj = Mmif(MMIF_EXAMPLES['everything'])
         self.assertEqual(len(mmif_obj.get_documents_in_view('v6')), 25)
