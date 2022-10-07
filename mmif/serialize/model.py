@@ -15,7 +15,7 @@ for the different components of MMIF is added in the subclasses.
 import json
 import logging
 from datetime import datetime
-from typing import Union, Any, Dict, Optional, TypeVar, Generic, Generator, Iterator
+from typing import Union, Any, Dict, Optional, TypeVar, Generic, Generator, Iterator, Type, Set
 
 from deepdiff import DeepDiff
 
@@ -75,15 +75,16 @@ class MmifObject(object):
      an ID value automatically generated, based on its parent object.
     """
     
-    reserved_names = ['reserved_names',
-                             '_unnamed_attributes',
-                             '_attribute_classes',
-                             '_required_attributes',
-                             # used in Document class to store parent view id
-                             '_parent_view_id', 
-                             # used in View class to autogenerate annotation ids
-                             '_id_counts'
-                             ]
+    reserved_names: Set = {
+        'reserved_names',
+        '_unnamed_attributes',
+        '_attribute_classes',
+        '_required_attributes',
+        # used in Document class to store parent view id
+        '_parent_view_id', 
+        # used in View class to autogenerate annotation ids
+        '_id_counts'
+    }
     _unnamed_attributes: Optional[dict]
     _attribute_classes: Dict[str, Type] = {}  # Mapping: str -> Type
 
@@ -326,7 +327,7 @@ class DataList(MmifObject, Generic[T]):
     :param Union[str, list] mmif_obj: the data that the list contains
     """
     def __init__(self, mmif_obj: Optional[Union[bytes, str, list]] = None):
-        self.reserved_names = self.reserved_names.add('_items')
+        self.reserved_names.add('_items')
         self._items: Dict[str, T] = dict()
         self.disallow_additional_properties()
         if mmif_obj is None:
@@ -341,11 +342,11 @@ class DataList(MmifObject, Generic[T]):
         """
         return list(super()._serialize(self._items).values())
 
-    def deserialize(self, mmif_json: Union[str, list]) -> None:
+    def deserialize(self, mmif_json: Union[str, list]) -> None:  # pytype: disable=signature-mismatch
         """
         Passes the input data into the internal deserializer.
         """
-        super().deserialize(mmif_json)  # pytype: disable=unsupported-operands
+        super().deserialize(mmif_json)  
 
     @staticmethod
     def _load_json(json_list: Union[list, str]) -> list:
@@ -421,9 +422,10 @@ class DataList(MmifObject, Generic[T]):
     def empty(self):
         self._items = {}
 
+
 class DataDict(MmifObject, Generic[T, S]):
     def __init__(self, mmif_obj: Optional[Union[bytes, str, dict]] = None):
-        self.reserved_names = self.reserved_names.add('_items')
+        self.reserved_names.add('_items')
         self._items: Dict[T, S] = dict()
         self.disallow_additional_properties()
         if mmif_obj is None:

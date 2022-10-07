@@ -310,7 +310,7 @@ class AnnotationsList(DataList[Union[Annotation, Document]]):
     """
     _items: Dict[str, Union[Annotation, Document]]
 
-    def _deserialize(self, input_list: list) -> None:
+    def _deserialize(self, input_list: list) -> None:  # pytype: disable=signature-mismatch
         """
         Extends base ``_deserialize`` method to initialize ``items`` as a dict from
         annotation IDs to :class:`mmif.serialize.annotation.Annotation` objects.

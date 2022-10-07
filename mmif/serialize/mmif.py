@@ -241,7 +241,7 @@ class Mmif(MmifObject):
         :return: a dict that keyed by view IDs (str) and has lists of alignment Annotation objects as values.
         """
         v_and_a = {}
-        at_type1 = ThingTypesBase.froam_str(at_type1) if isinstance(at_type1, str) else at_type1
+        at_type1 = ThingTypesBase.from_str(at_type1) if isinstance(at_type1, str) else at_type1
         at_type2 = ThingTypesBase.from_str(at_type2) if isinstance(at_type2, str) else at_type2
         assert at_type1 != at_type2, f"Alignment must be between two different types, given only one: {at_type1}"
         for alignment_view in self.get_all_views_contain(AnnotationTypes.Alignment):
@@ -387,7 +387,7 @@ class DocumentsList(DataList[Document]):
     """
     _items: Dict[str, Document]
 
-    def _deserialize(self, input_list: list) -> None:
+    def _deserialize(self, input_list: list) -> None:  # pytype: disable=signature-mismatch
         """
         Extends base ``_deserialize`` method to initialize ``items`` as a dict from
         document IDs to :class:`mmif.serialize.document.Document` objects.
@@ -423,7 +423,7 @@ class ViewsList(DataList[View]):
     """
     _items: Dict[str, View]
 
-    def _deserialize(self, input_list: list) -> None:
+    def _deserialize(self, input_list: list) -> None:  # pytype: disable=signature-mismatch
         """
         Extends base ``_deserialize`` method to initialize ``items`` as a dict from
         view IDs to :class:`mmif.serialize.view.View` objects.
