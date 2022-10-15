@@ -10,13 +10,12 @@ from datetime import datetime
 from typing import List, Union, Optional, Dict, ClassVar, cast
 
 import jsonschema.validators
-from pyrsistent import pmap, pvector
 
 import mmif
 from mmif import ThingTypesBase
 from mmif.vocabulary import AnnotationTypes, DocumentTypes
 from .annotation import Annotation, Document
-from .model import MmifObject, DataList, FreezableDataList
+from .model import MmifObject, DataList
 from .view import View
 
 __all__ = ['Mmif']
@@ -33,23 +32,20 @@ class Mmif(MmifObject):
     view_prefix: ClassVar[str] = 'v_'
     id_delimiter: ClassVar[str] = ':'
 
-    def __init__(self, mmif_obj: Optional[Union[bytes, str, dict]] = None, *, validate: bool = True, frozen: bool = True) -> None:
+    def __init__(self, mmif_obj: Optional[Union[bytes, str, dict]] = None, *, validate: bool = True) -> None:
         self.metadata: MmifMetadata = MmifMetadata()
         self.documents: DocumentsList = DocumentsList()
         self.views: ViewsList = ViewsList()
         if validate:
             self.validate(mmif_obj)
         self.disallow_additional_properties()
-        self._attribute_classes = pmap({
+        self._attribute_classes = {
             'metadata': MmifMetadata,
             'documents': DocumentsList,
             'views': ViewsList
-        })
-        self._required_attributes = pvector(["metadata", "documents", "views"])
+        }
+        self._required_attributes = ["metadata", "documents", "views"]
         super().__init__(mmif_obj)
-        if frozen:
-            self.freeze_documents()
-            self.freeze_views()
 
     @staticmethod
     def validate(json_str: Union[bytes, str, dict]) -> None:
@@ -121,38 +117,7 @@ class Mmif(MmifObject):
                           an existing view with the same ID
         :return: None
         """
-        if not self.documents.is_frozen():
-            self.documents.append(document, overwrite)
-        else:
-            raise TypeError("MMIF object is frozen")
-
-    def freeze(self):
-        """
-        Deeply freezes all elements. Returns True only when everything if frozen.
-        """
-        doc_frozen = self.freeze_documents()
-        view_frozen = self.freeze_views()
-        return view_frozen and doc_frozen
-        
-    def freeze_documents(self) -> bool:
-        """
-        Deeply freezes the list of documents. Returns the result of
-        the deep_freeze() call, signifying whether everything
-        was fully frozen or not.
-        """
-        return self.documents.deep_freeze()
-
-    def freeze_views(self) -> bool:
-        """
-        Deeply freezes all of the existing views without freezing
-        the list of views itself. Returns the conjunct of the returns
-        of all of the deep_freeze() calls, signifying whether everything
-        was fully frozen or not.
-        """
-        fully_frozen = True
-        for view in self.views:
-            fully_frozen &= view.deep_freeze()
-        return fully_frozen
+        self.documents.append(document, overwrite)
 
     def get_documents_in_view(self, vid: Optional[str] = None) -> List[Document]:
         """
@@ -411,18 +376,18 @@ class MmifMetadata(MmifObject):
     def __init__(self, metadata_obj: Optional[Union[bytes, str, dict]] = None) -> None:
         # TODO (krim @ 10/7/20): there could be a better name and a better way to give a value to this
         self.mmif: str = f"http://mmif.clams.ai/{mmif.__specver__}"
-        self._required_attributes = pvector(["mmif"])
+        self._required_attributes = ["mmif"]
         super().__init__(metadata_obj)
 
 
-class DocumentsList(FreezableDataList[Document]):
+class DocumentsList(DataList[Document]):
     """
     DocumentsList object that implements :class:`mmif.serialize.model.DataList`
     for :class:`mmif.serialize.document.Document`.
     """
     _items: Dict[str, Document]
 
-    def _deserialize(self, input_list: list) -> None:
+    def _deserialize(self, input_list: list) -> None:  # pytype: disable=signature-mismatch
         """
         Extends base ``_deserialize`` method to initialize ``items`` as a dict from
         document IDs to :class:`mmif.serialize.document.Document` objects.
@@ -458,7 +423,7 @@ class ViewsList(DataList[View]):
     """
     _items: Dict[str, View]
 
-    def _deserialize(self, input_list: list) -> None:
+    def _deserialize(self, input_list: list) -> None:  # pytype: disable=signature-mismatch
         """
         Extends base ``_deserialize`` method to initialize ``items`` as a dict from
         view IDs to :class:`mmif.serialize.view.View` objects.

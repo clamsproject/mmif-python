@@ -9,18 +9,17 @@ from datetime import datetime
 from typing import Dict, Union, Optional, Generator, List, cast
 
 import dateutil.parser
-from pyrsistent import pmap, pvector
 
 from mmif.vocabulary import ThingTypesBase
 from .annotation import Annotation, Document
-from .model import FreezableMmifObject, FreezableDataList, FreezableDataDict, MmifObject
+from .model import MmifObject, DataList, DataDict
 
 __all__ = ['View', 'ViewMetadata', 'Contain']
 
 from .. import DocumentTypes
 
 
-class View(FreezableMmifObject):
+class View(MmifObject):
     """
     View object that represents a single view in a MMIF file.
 
@@ -39,11 +38,11 @@ class View(FreezableMmifObject):
         self.metadata: ViewMetadata = ViewMetadata()
         self.annotations: AnnotationsList = AnnotationsList()
         self.disallow_additional_properties()
-        self._attribute_classes = pmap({
+        self._attribute_classes = {
             'metadata': ViewMetadata,
             'annotations': AnnotationsList
-        })
-        self._required_attributes = pvector(["id", "metadata", "annotations"])
+        }
+        self._required_attributes = ["id", "metadata", "annotations"]
         super().__init__(view_obj)
         for item in self.annotations:
             if isinstance(item, Document):
@@ -115,8 +114,6 @@ class View(FreezableMmifObject):
                           in the view
         :return: the same Annotation object passed in as ``annotation``
         """
-        if self.is_frozen():
-            raise TypeError("MMIF object is frozen")
         self.annotations.append(annotation, overwrite)
         self.new_contain(annotation.at_type)
         return annotation
@@ -231,7 +228,7 @@ class View(FreezableMmifObject):
         self.annotations.empty()
 
 
-class ViewMetadata(FreezableMmifObject):
+class ViewMetadata(MmifObject):
     """
     ViewMetadata object that represents the ``metadata`` object within a MMIF view.
 
@@ -245,11 +242,11 @@ class ViewMetadata(FreezableMmifObject):
         self.contains: ContainsDict = ContainsDict()
         self.parameters: dict = {}
         self.error: Union[dict, ErrorDict] = {}
-        self._required_attributes = pvector(["app"])
-        self._attribute_classes = pmap(
-            {'error': ErrorDict, 
-             'contains': ContainsDict}
-        )
+        self._required_attributes = ["app"]
+        self._attribute_classes = {
+            'error': ErrorDict,
+            'contains': ContainsDict
+        }
         # in theory, either `contains` or `error` should appear in a `view`
         # but with current implementation, there's no easy way to set a condition 
         # for `oneOf` requirement 
@@ -289,7 +286,7 @@ class ViewMetadata(FreezableMmifObject):
         self.contains.empty()
 
 
-class ErrorDict(FreezableMmifObject):
+class ErrorDict(MmifObject):
     """
     Error object that stores information about error occurred during processing. 
     """
@@ -299,21 +296,21 @@ class ErrorDict(FreezableMmifObject):
         super().__init__(error_obj)
         
 
-class Contain(FreezableMmifObject):
+class Contain(MmifObject):
     """
     Contain object that represents the metadata of a single
     annotation type in the ``contains`` metadata of a MMIF view.
     """
 
 
-class AnnotationsList(FreezableDataList[Union[Annotation, Document]]):
+class AnnotationsList(DataList[Union[Annotation, Document]]):
     """
     AnnotationsList object that implements :class:`mmif.serialize.model.DataList`
     for :class:`mmif.serialize.annotation.Annotation`.
     """
     _items: Dict[str, Union[Annotation, Document]]
 
-    def _deserialize(self, input_list: list) -> None:
+    def _deserialize(self, input_list: list) -> None:  # pytype: disable=signature-mismatch
         """
         Extends base ``_deserialize`` method to initialize ``items`` as a dict from
         annotation IDs to :class:`mmif.serialize.annotation.Annotation` objects.
@@ -344,7 +341,7 @@ class AnnotationsList(FreezableDataList[Union[Annotation, Document]]):
         super()._append_with_key(value.id, value, overwrite)
 
 
-class ContainsDict(FreezableDataDict[ThingTypesBase, Contain]):
+class ContainsDict(DataDict[ThingTypesBase, Contain]):
 
     def _deserialize(self, input_dict: dict) -> None:
         self._items = {ThingTypesBase.from_str(key): Contain(value) for key, value in input_dict.items()}

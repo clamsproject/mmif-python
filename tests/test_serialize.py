@@ -134,7 +134,7 @@ class TestMmif(unittest.TestCase):
 
     def test_add_documents(self):
         document_json = json.loads(FRACTIONAL_EXAMPLES['doc_only'])
-        mmif_obj = Mmif(MMIF_EXAMPLES['everything'], frozen=False)
+        mmif_obj = Mmif(MMIF_EXAMPLES['everything'])
         old_documents_count = len(mmif_obj.documents)
         mmif_obj.add_document(Document(document_json))  
         self.assertEqual(old_documents_count+1, len(mmif_obj.documents))
@@ -142,16 +142,9 @@ class TestMmif(unittest.TestCase):
         doc_obj = Document(document_json)
         view_obj.add_document(doc_obj)
         self.assertEqual(doc_obj.parent, view_obj.id)
-        mmif_obj.freeze()
-        new_doc = Document()
-        new_doc.id = "a_doc"
-        with self.assertRaises(TypeError):
-            mmif_obj.add_document(new_doc)
-        with self.assertRaises(TypeError):
-            view_obj.add_document(new_doc)
-
+        
     def test_get_documents_by_view_id(self):
-        mmif_obj = Mmif(MMIF_EXAMPLES['everything'], frozen=False)
+        mmif_obj = Mmif(MMIF_EXAMPLES['everything'])
         self.assertEqual(len(mmif_obj.get_documents_in_view('v6')), 25)
         self.assertEqual(mmif_obj.get_documents_in_view('v6')[0],
                          mmif_obj.get_document_by_id('v6:td1'))
@@ -162,7 +155,7 @@ class TestMmif(unittest.TestCase):
         self.assertEqual(len(mmif_obj.get_documents_in_view('v4')), 1)
 
     def test_get_document_by_metadata(self):
-        mmif_obj = Mmif(MMIF_EXAMPLES['everything'], frozen=False)
+        mmif_obj = Mmif(MMIF_EXAMPLES['everything'])
         mmif_obj.add_document(Document("""{
           "@type": "http://mmif.clams.ai/%s/vocabulary/VideoDocument",
           "properties": {
@@ -175,7 +168,7 @@ class TestMmif(unittest.TestCase):
 
     def test_get_documents_by_app(self):
         tesseract_appid = 'http://mmif.clams.ai/apps/tesseract/0.2.1'
-        mmif_obj = Mmif(MMIF_EXAMPLES['everything'], frozen=False)
+        mmif_obj = Mmif(MMIF_EXAMPLES['everything'])
         self.assertEqual(len(mmif_obj.get_documents_by_app(tesseract_appid)), 25)
         self.assertEqual(len(mmif_obj.get_documents_by_app('xxx')), 0)
         new_document = Document({'@type': f'http://mmif.clams.ai/{__specver__}/vocabulary/TextDocument',
@@ -189,7 +182,7 @@ class TestMmif(unittest.TestCase):
         self.assertEqual(len(mmif_obj.get_documents_by_app(tesseract_appid)), 27)
 
     def test_get_documents_by_type(self):
-        mmif_obj = Mmif(MMIF_EXAMPLES['everything'], frozen=False)
+        mmif_obj = Mmif(MMIF_EXAMPLES['everything'])
         # probably the worst way of testing...
         self.assertEqual(len(mmif_obj.get_documents_by_type(DocumentTypes.VideoDocument)), 1)
         self.assertEqual(len(mmif_obj.get_documents_by_type(DocumentTypes.TextDocument)), 26)
@@ -310,7 +303,7 @@ class TestMmif(unittest.TestCase):
         self.assertEqual(len(mmif_obj.views), 5)
 
     def test_add_document(self):
-        mmif_obj = Mmif(MMIF_EXAMPLES['everything'], frozen=False)
+        mmif_obj = Mmif(MMIF_EXAMPLES['everything'])
         med_obj = Document(FRACTIONAL_EXAMPLES['doc_only'])
         mmif_obj.add_document(med_obj)
         try:
@@ -324,7 +317,7 @@ class TestMmif(unittest.TestCase):
             self.fail("raised exception on duplicate ID add when overwrite was set to True")
 
     def test_empty_source_mmif(self):
-        mmif_obj = Mmif(validate=False, frozen=False)
+        mmif_obj = Mmif(validate=False)
         med_obj = Document(FRACTIONAL_EXAMPLES['doc_only'])
         mmif_obj.add_document(med_obj)
         Mmif.validate(str(mmif_obj))
@@ -671,7 +664,7 @@ class TestAnnotation(unittest.TestCase):
     def setUp(self) -> None:
         self.data = {i: {'string': example,
                          'json': json.loads(example),
-                         'mmif': Mmif(example, frozen=False),
+                         'mmif': Mmif(example),
                          'annotations': [annotation
                                          for view in json.loads(example)['views']
                                          for annotation in view['annotations']]}
@@ -700,7 +693,7 @@ class TestAnnotation(unittest.TestCase):
                 removed_prop_key, removed_prop_value = list(props.items())[-1]
                 props.pop(removed_prop_key)
                 try:
-                    new_mmif = Mmif(datum['json'], frozen=False)
+                    new_mmif = Mmif(datum['json'])
                     new_mmif.get_view_by_id(view_id).annotations[anno_id].add_property(removed_prop_key, removed_prop_value)
                     self.assertEqual(json.loads(datum['string'])['views'][j],
                                      json.loads(new_mmif.serialize())['views'][j],
@@ -734,7 +727,7 @@ class TestDocument(unittest.TestCase):
     def setUp(self) -> None:
         self.data = {i: {'string': example,
                          'json': json.loads(example),
-                         'mmif': Mmif(example, frozen=False),
+                         'mmif': Mmif(example),
                          'documents': json.loads(example)['documents']}
                      for i, example in MMIF_EXAMPLES.items()}
     
@@ -819,7 +812,7 @@ class TestDocument(unittest.TestCase):
                     removed_prop_key, removed_prop_value = list(properties.items())[-1]
                     properties.pop(removed_prop_key)
                     try:
-                        new_mmif = Mmif(datum['json'], frozen=False)
+                        new_mmif = Mmif(datum['json'])
                         new_mmif.get_document_by_id(document_id).add_property(removed_prop_key, removed_prop_value)
                         self.assertEqual(json.loads(datum['string']), json.loads(new_mmif.serialize()), f'Failed on {i}, {document_id}')
                     except ValidationError:
@@ -828,41 +821,24 @@ class TestDocument(unittest.TestCase):
 
 class TestDataStructure(unittest.TestCase):
     def setUp(self) -> None:
-        self.mmif_obj = Mmif(MMIF_EXAMPLES['everything'], frozen=False)
+        self.mmif_obj = Mmif(MMIF_EXAMPLES['everything'])
         self.datalist = self.mmif_obj.views
-        self.freezable_datalist = self.mmif_obj.documents
-        self.freezable_datadict = self.mmif_obj['v1'].metadata.contains
 
     def test_setitem(self):
         self.datalist['v1'] = View({'id': 'v1'})
         self.datalist['v2'] = View({'id': 'v2'})
-        self.freezable_datalist['m1'] = Document({'@type': 'null', 'properties': {'id': 'm1'}})
-        self.freezable_datalist['m3'] = Document({'@type': 'null', 'properties': {'id': 'm3'}})
-        self.freezable_datadict['BoundingBox'] = Contain({"unit": "centimeters"})
-        self.freezable_datadict['Segment'] = Contain({"unit": "milliseconds"})
 
     def test_getitem(self):
         self.assertIs(self.mmif_obj['v1'], self.datalist['v1'])
-        self.assertIs(self.mmif_obj['m1'], self.freezable_datalist['m1'])
-        self.assertIs(self.mmif_obj['v1'].metadata.contains[f'http://mmif.clams.ai/{__specver__}/vocabulary/TimeFrame'],
-                      self.freezable_datadict[f'http://mmif.clams.ai/{__specver__}/vocabulary/TimeFrame'])
 
     def test_getitem_raises(self):
         with self.assertRaises(KeyError):
             _ = self.datalist['reserved_names']
-        with self.assertRaises(KeyError):
-            _ = self.freezable_datalist['_items']
-        with self.assertRaises(KeyError):
-            _ = self.freezable_datadict['_attribute_classes']
 
     def test_append(self):
         self.assertTrue('v256' not in self.datalist._items)
         self.datalist.append(View({'id': 'v256'}))
         self.assertTrue('v256' in self.datalist._items)
-
-        self.assertTrue('m3' not in self.freezable_datalist._items)
-        self.freezable_datalist.append(Document({'@type': 'null', 'properties': {'id': 'm3'}}))
-        self.assertTrue('m3' in self.freezable_datalist._items)
 
     def test_append_overwrite(self):
         try:
@@ -878,35 +854,12 @@ class TestDataStructure(unittest.TestCase):
         except Exception as ex:
             self.fail(ex.args[0])
 
-        try:
-            self.freezable_datalist.append(Document({'@type': 'null', 'properties': {'id': 'm1'}}))
-            self.fail('appended without overwrite')
-        except KeyError as ke:
-            self.assertEqual('Key m1 already exists', ke.args[0])
-
-        try:
-            self.freezable_datalist.append(Document({'@type': 'null', 'properties': {'id': 'm1'}}), overwrite=True)
-        except AssertionError:
-            raise
-        except Exception as ex:
-            self.fail(ex.args[0])
-
     def test_membership(self):
         self.assertIn('v1', self.datalist)
-        self.assertIn('m1', self.freezable_datalist)
-        self.assertIn(f'http://mmif.clams.ai/{__specver__}/vocabulary/TimeFrame', self.freezable_datadict)
 
         self.assertNotIn('v200', self.datalist)
         self.datalist['v200'] = View({'id': 'v200'})
         self.assertIn('v200', self.datalist)
-
-        self.assertNotIn('m2', self.freezable_datalist)
-        self.freezable_datalist['m2'] = Document({'@type': 'null', 'properties': {'id': 'm2'}})
-        self.assertIn('m2', self.freezable_datalist)
-
-        self.assertNotIn('Segment', self.freezable_datadict)
-        self.freezable_datadict['Segment'] = Contain({"unit": "milliseconds"})
-        self.assertIn('Segment', self.freezable_datadict)
 
     def test_len(self):
         self.assertEqual(8, len(self.datalist))
@@ -914,48 +867,13 @@ class TestDataStructure(unittest.TestCase):
             self.datalist[f'v{i}'] = View({'id': f'v{i}'})
             self.assertEqual(i, len(self.datalist))
 
-        self.assertEqual(1, len(self.freezable_datalist))
-        for i in range(2, 10):
-            self.freezable_datalist[f'm{i}'] = Document({'@type': 'null', 'properties': {'id': f'm{i}'}})
-            self.assertEqual(i, len(self.freezable_datalist))
-
-        self.assertEqual(1, len(self.freezable_datadict))
-        for i in range(2, 10):
-            self.freezable_datadict[f'Type{i}'] = Contain({"type": f"i"})
-            self.assertEqual(i, len(self.freezable_datadict))
-
     def test_iter(self):
         for i in range(9, 19):
             self.datalist[f'v{i}'] = View({'id': f'v{i}'})
-        for i in range(2, 10):
-            self.freezable_datalist[f'm{i}'] = Document({'@type': 'null', 'properties': {'id': f'm{i}'}})
-        for i in range(2, 10):
-            self.freezable_datadict[f'Type{i}'] = Contain({"type": f"i"})
 
         for expected_index, (actual_index, item) in zip(range(18), enumerate(self.datalist)):
             self.assertEqual(expected_index, actual_index, "here")
             self.assertEqual(expected_index+1, int(item['id'][1:]))
-        for expected_index, (actual_index, item) in zip(range(9), enumerate(self.freezable_datalist)):
-            self.assertEqual(expected_index, actual_index, "no, here")
-            self.assertEqual(expected_index+1, int(item['properties']['id'][1:]))
-        for expected_index, (actual_index, item) in zip(range(9), enumerate(self.freezable_datadict.values())):
-            self.assertEqual(expected_index, actual_index, "it's here")
-
-    def test_dict_views(self):
-        for i in range(2, 10):
-            self.freezable_datadict[f'Type{i}'] = Contain({"type": f"i"})
-        i = -1
-        for i, item in enumerate(self.freezable_datadict.values()):
-            pass
-        self.assertEqual(8, i, 'values')
-        i = -1
-        for i, item in enumerate(self.freezable_datadict.keys()):
-            pass
-        self.assertEqual(8, i, 'keys')
-        i = -1
-        for i, (key, value) in enumerate(self.freezable_datadict.items()):
-            pass
-        self.assertEqual(8, i, 'items')
 
     def test_setitem_fail_on_reserved_name(self):
         for i, name in enumerate(self.datalist.reserved_names):
@@ -965,28 +883,8 @@ class TestDataStructure(unittest.TestCase):
             except KeyError as ke:
                 self.assertEqual("can't set item on a reserved name", ke.args[0])
 
-        for i, name in enumerate(self.freezable_datalist.reserved_names):
-            try:
-                self.freezable_datalist[name] = Document({'@type': 'null', 'properties': {'id': f'm{i+1}'}})
-                self.fail("was able to setitem on reserved name")
-            except KeyError as ke:
-                self.assertEqual("can't set item on a reserved name", ke.args[0])
-
-        for i, name in enumerate(self.freezable_datadict.reserved_names):
-            try:
-                self.freezable_datadict[name] = Contain({'index': i})
-                self.fail("was able to setitem on reserved name")
-            except KeyError as ke:
-                self.assertEqual("can't set item on a reserved name", ke.args[0])
-
     def test_get(self):
         self.assertEqual(self.datalist['v1'], self.datalist.get('v1'))
-        self.assertEqual(self.freezable_datalist['m1'], self.freezable_datalist.get('m1'))
-        self.assertEqual(self.freezable_datadict[f'http://mmif.clams.ai/{__specver__}/vocabulary/TimeFrame'],
-                         self.freezable_datadict.get(f'http://mmif.clams.ai/{__specver__}/vocabulary/TimeFrame'))
-        self.assertIsNone(self.datalist.get('v55'))
-        self.assertIsNone(self.freezable_datalist.get('m5'))
-        self.assertIsNone(self.freezable_datadict.get('Segment'))
 
     def test_update(self):
         other_contains = """{
@@ -994,23 +892,12 @@ class TestDataStructure(unittest.TestCase):
           "TimePoint": { "unit": "seconds" }
         }"""
         other_datadict = ContainsDict(other_contains)
-        self.freezable_datadict.update(other_datadict)
-        self.assertEqual(3, len(self.freezable_datadict))
 
         other_contains = """{
                   "Segment": { "unit": "seconds" },
                   "TimePoint": { "unit": "milliseconds" , "foo": "bar" }
                 }"""
         other_datadict = ContainsDict(other_contains)
-
-        try:
-            self.freezable_datadict.update(other_datadict)
-            self.fail('overwrote without error')
-        except KeyError as ke:
-            self.assertEqual("Key Segment already exists", ke.args[0])
-
-        self.freezable_datadict.update(other_datadict, overwrite=True)
-        self.assertEqual({"unit": "milliseconds", "foo": "bar"}, self.freezable_datadict['TimePoint']._serialize())
 
 
 @unittest.skipIf(*SKIP_SCHEMA)
