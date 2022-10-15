@@ -6,9 +6,9 @@ In MMIF, annotations are created by apps in a pipeline as a part
 of a view. For documentation on how views are represented, see
 :mod:`mmif.serialize.view`.
 """
-
+import itertools
 import pathlib
-from typing import Union, Dict, List, Type, Optional
+from typing import Union, Dict, List, Type, Optional, Iterator, MutableMapping
 from urllib.parse import urlparse
 
 from pyrsistent import pmap, pvector
@@ -214,13 +214,25 @@ class Document(Annotation):
         return self.properties.location_path()
 
 
-class AnnotationProperties(FreezableMmifObject):
+class AnnotationProperties(FreezableMmifObject, MutableMapping[str, object]):
     """
     AnnotationProperties object that represents the
     ``properties`` object within a MMIF annotation.
 
     :param mmif_obj: the JSON data that defines the properties
     """
+
+    def __delitem__(self, key: str) -> None:
+        for k in self.__iter__():
+            if k == key:
+                if k not in self._required_attributes:
+                    del self.__dict__[k]
+                else:
+                    raise AttributeError(f'Cannot delete a required attribute "{key}"!')
+        raise KeyError(f'Key "{key}" not found.')
+                
+    def __iter__(self) -> Iterator[str]:
+        return itertools.chain(self._named_attributes(), self._unnamed_attributes)
 
     def __init__(self, mmif_obj: Optional[Union[bytes, str, dict]] = None) -> None:
         self.id: str = ''
