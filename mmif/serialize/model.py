@@ -13,7 +13,6 @@ for the different components of MMIF is added in the subclasses.
 """
 
 import json
-import logging
 from datetime import datetime
 from typing import Union, Any, Dict, Optional, TypeVar, Generic, Generator, Iterator, Type, Set
 
@@ -237,7 +236,7 @@ class MmifObject(object):
         override this method.
 
         This default method won't work for generic types (e.g. List[X], Dict[X, Y]).
-        For now, lists are abstracted as DataList and dicts are abstracted as XXXMedata classes.
+        For now, lists are abstracted as DataList and dicts are abstracted as XXXMetadata classes.
         However, if an attribute uses a generic type (e.g. view_metadata.contains: Dict[str, Contain])
         that class should override _deserialize of its own.
 

@@ -201,7 +201,8 @@ class TestMmif(unittest.TestCase):
         self.assertEqual(new_doc.location_scheme(), 'ftp')
         self.assertEqual(new_doc.location_path(), file_path)
         self.assertEqual(new_doc.location_address(), f'localhost{file_path}')
-        self.assertEqual(Document(new_doc.serialize()), new_doc)
+        # round_trip = Document(new_doc.serialize())
+        self.assertEqual(Document(new_doc.serialize()).serialize(), new_doc.serialize())
 
     def test_get_documents_locations(self):
         mmif_obj = Mmif(MMIF_EXAMPLES['everything'])
@@ -671,10 +672,25 @@ class TestAnnotation(unittest.TestCase):
                      for i, example in MMIF_EXAMPLES.items()}
 
     def test_annotation_properties(self):
-        props_json = self.data['everything']['annotations'][0]['properties']
+        ann_json = self.data['everything']['annotations'][0]
+        props_json = ann_json['properties']
+        ann_obj = Annotation(ann_json)
         props_obj = AnnotationProperties(props_json)
         self.assertEqual(props_json, json.loads(props_obj.serialize()))
-
+        self.assertEqual(ann_obj.properties, props_obj)
+        self.assertEqual(props_json['id'], props_obj.id)
+        self.assertEqual(props_json['start'], props_obj.get('start'))
+        self.assertEqual(props_json['start'], props_obj.get('start'))
+        self.assertEqual(props_json['end'], props_obj.get('end'))
+        ann_obj.add_property('new_prop', 'new_prop_value')
+        self.assertEqual(ann_obj.properties['new_prop'], 'new_prop_value')
+        for k in ann_obj.properties.keys():
+            self.assertTrue(k is not None)
+            self.assertTrue(ann_obj.properties[k] is not None)
+        for k, v in ann_obj.properties.items():
+            self.assertTrue(k is not None)
+            self.assertTrue(v is not None)
+    
     def test_property_types(self):
         ann = Annotation()
         ann.id = 'a1'

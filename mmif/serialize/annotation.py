@@ -6,15 +6,17 @@ In MMIF, annotations are created by apps in a pipeline as a part
 of a view. For documentation on how views are represented, see
 :mod:`mmif.serialize.view`.
 """
-
+import itertools
 import pathlib
-from typing import Union, Dict, List, Type, Optional
+from typing import Union, Dict, List, Type, Optional, Iterator, MutableMapping, TypeVar
 from urllib.parse import urlparse
 
 from mmif.vocabulary import ThingTypesBase, DocumentTypesBase
 from .model import MmifObject
 
 __all__ = ['Annotation', 'AnnotationProperties', 'Document', 'DocumentProperties', 'Text']
+
+T = TypeVar('T')
 
 from .. import DocumentTypes
 
@@ -212,13 +214,41 @@ class Document(Annotation):
         return self.properties.location_path()
 
 
-class AnnotationProperties(MmifObject):
+class AnnotationProperties(MmifObject, MutableMapping[str, T]):
     """
     AnnotationProperties object that represents the
     ``properties`` object within a MMIF annotation.
 
     :param mmif_obj: the JSON data that defines the properties
     """
+
+    def __delitem__(self, key: str) -> None:
+        for k in self.__iter__():
+            if k == key:
+                if k not in self._required_attributes:
+                    del self.__dict__[k]
+                else:
+                    raise AttributeError(f'Cannot delete a required attribute "{key}"!')
+        raise KeyError(f'Key "{key}" not found.')
+                
+    def __iter__(self) -> Iterator[str]:
+        """
+        ``__iter__`` on Mapping should basically work as ``keys()`` method of vanilla dict
+        however, when MMIF objects are serialized, all optional (not in ``_req_atts``),
+        empty props are ignored (note that emtpy but required props are serialized 
+        with the *emtpy* value). 
+        Hence, this ``__iter__`` method should also work in the same way and 
+        ignored empty but optional props. 
+        """
+        for key in itertools.chain(self._named_attributes(), self._unnamed_attributes):
+            if key in self._required_attributes:
+                yield key
+            else:
+                try:
+                    self.__getitem__(key)
+                    yield key
+                except KeyError:
+                    pass
 
     def __init__(self, mmif_obj: Optional[Union[bytes, str, dict]] = None) -> None:
         self.id: str = ''
