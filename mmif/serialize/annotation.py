@@ -8,13 +8,15 @@ of a view. For documentation on how views are represented, see
 """
 import itertools
 import pathlib
-from typing import Union, Dict, List, Type, Optional, Iterator, MutableMapping
+from typing import Union, Dict, List, Type, Optional, Iterator, MutableMapping, TypeVar
 from urllib.parse import urlparse
 
 from mmif.vocabulary import ThingTypesBase, DocumentTypesBase
 from .model import MmifObject
 
 __all__ = ['Annotation', 'AnnotationProperties', 'Document', 'DocumentProperties', 'Text']
+
+T = TypeVar('T')
 
 from .. import DocumentTypes
 
@@ -212,7 +214,7 @@ class Document(Annotation):
         return self.properties.location_path()
 
 
-class AnnotationProperties(MmifObject, MutableMapping[str, object]):
+class AnnotationProperties(MmifObject, MutableMapping[str, T]):
     """
     AnnotationProperties object that represents the
     ``properties`` object within a MMIF annotation.
@@ -230,7 +232,16 @@ class AnnotationProperties(MmifObject, MutableMapping[str, object]):
         raise KeyError(f'Key "{key}" not found.')
                 
     def __iter__(self) -> Iterator[str]:
-        return itertools.chain(self._named_attributes(), self._unnamed_attributes)
+        for key in itertools.chain(self._named_attributes(), self._unnamed_attributes):
+            print(self.__class__, "===", key, "===")
+            if key in self._required_attributes:
+                yield key
+            else:
+                try:
+                    self.__getitem__(key)
+                    yield key
+                except KeyError:
+                    pass
 
     def __init__(self, mmif_obj: Optional[Union[bytes, str, dict]] = None) -> None:
         self.id: str = ''

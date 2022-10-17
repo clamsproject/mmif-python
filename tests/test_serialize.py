@@ -201,7 +201,8 @@ class TestMmif(unittest.TestCase):
         self.assertEqual(new_doc.location_scheme(), 'ftp')
         self.assertEqual(new_doc.location_path(), file_path)
         self.assertEqual(new_doc.location_address(), f'localhost{file_path}')
-        self.assertEqual(Document(new_doc.serialize()), new_doc)
+        # round_trip = Document(new_doc.serialize())
+        self.assertEqual(Document(new_doc.serialize()).serialize(), new_doc.serialize())
 
     def test_get_documents_locations(self):
         mmif_obj = Mmif(MMIF_EXAMPLES['everything'])
