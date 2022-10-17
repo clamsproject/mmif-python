@@ -232,8 +232,15 @@ class AnnotationProperties(MmifObject, MutableMapping[str, T]):
         raise KeyError(f'Key "{key}" not found.')
                 
     def __iter__(self) -> Iterator[str]:
+        """
+        ``__iter__`` on Mapping should basically work as ``keys()`` method of vanilla dict
+        however, when MMIF objects are serialized, all optional (not in ``_req_atts``),
+        empty props are ignored (note that emtpy but required props are serialized 
+        with the *emtpy* value). 
+        Hence, this ``__iter__`` method should also work in the same way and 
+        ignored empty but optional props. 
+        """
         for key in itertools.chain(self._named_attributes(), self._unnamed_attributes):
-            print(self.__class__, "===", key, "===")
             if key in self._required_attributes:
                 yield key
             else:
