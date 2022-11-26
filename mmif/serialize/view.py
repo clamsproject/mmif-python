@@ -8,8 +8,6 @@ data that was previously present in the MMIF file.
 from datetime import datetime
 from typing import Dict, Union, Optional, Generator, List, cast
 
-import dateutil.parser
-
 from mmif.vocabulary import ThingTypesBase
 from .annotation import Annotation, Document
 from .model import MmifObject, DataList, DataDict

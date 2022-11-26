@@ -27,6 +27,7 @@ class TestMmif(unittest.TestCase):
     def setUp(self) -> None:
         self.mmif_examples_json = {'everything': json.loads(EVERYTHING_JSON)}
 
+    @pytest.mark.skip("comparing two `Mmif` objs with an arbitrary file path included won't work until https://github.com/seperman/deepdiff/issues/357 is addressed")
     def test_init_from_bytes(self):
         mmif_from_str = Mmif(EVERYTHING_JSON)
         mmif_from_bytes = Mmif(EVERYTHING_JSON.encode('utf8'))
@@ -338,6 +339,7 @@ class TestMmif(unittest.TestCase):
         except KeyError:
             self.fail("raised exception on duplicate ID add when overwrite was set to True")
     
+    @pytest.mark.skip("comparing two `Mmif` objs with an arbitrary file path included won't work until https://github.com/seperman/deepdiff/issues/357 is addressed")
     def test_eq_checking_order(self):
         mmif1 = Mmif(EVERYTHING_JSON)
         mmif2 = Mmif(EVERYTHING_JSON)
@@ -358,7 +360,6 @@ class TestMmif(unittest.TestCase):
         mmif4.add_view(view1)
         mmif4.add_view(view2)
         self.assertTrue(mmif3 == mmif4)
-
 
     def test___getitem__(self):
         mmif_obj = Mmif(MMIF_EXAMPLES['everything'])
