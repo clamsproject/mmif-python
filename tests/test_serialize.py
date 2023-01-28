@@ -4,9 +4,9 @@ import unittest
 from io import StringIO
 from unittest.mock import patch
 
-import hypothesis_jsonschema  # pip install hypothesis-jsonschema
+import hypothesis_jsonschema
 import pytest
-from hypothesis import given, settings, HealthCheck  # pip install hypothesis
+from hypothesis import given, settings, HealthCheck
 from jsonschema import ValidationError
 
 import mmif as mmifpkg
@@ -530,6 +530,16 @@ class TestView(unittest.TestCase):
         self.assertEqual(len(vmeta.parameters), 2)
         vmeta = ViewMetadata()
         vmeta.add_parameters(**{'pretty': True, 'validate': False})
+        
+    def test_add_warning(self):
+        vmeta = ViewMetadata()
+        w1 = Warning('first_warning')
+        w2 = UserWarning('second warning')
+        vmeta.add_warnings(w1, w2)
+        self.assertEqual(len(vmeta.warnings), 2)
+        for warning in vmeta.warnings:
+            self.assertTrue(isinstance(warning, str))
+            self.assertTrue('warning' in warning.lower())
 
     def test_props_preserved(self):
         view_serial = self.view_obj.serialize()
