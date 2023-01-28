@@ -240,6 +240,7 @@ class ViewMetadata(MmifObject):
         self.contains: ContainsDict = ContainsDict()
         self.parameters: dict = {}
         self.error: Union[dict, ErrorDict] = {}
+        self.warnings: List[str] = []
         self._required_attributes = ["app"]
         self._attribute_classes = {
             'error': ErrorDict,
@@ -282,6 +283,13 @@ class ViewMetadata(MmifObject):
     def set_error(self, message: str, stack_trace: str):
         self.error = ErrorDict({"message": message, "stackTrace": stack_trace})
         self.contains.empty()
+    
+    def add_warnings(self, *warnings: Warning):
+        for warning in warnings:
+            self.warnings.append(f'{warning.__class__.__name__}: {" - ".join(warning.args)}')
+
+    def emtpy_warnings(self):
+        self.warnings = []
 
 
 class ErrorDict(MmifObject):

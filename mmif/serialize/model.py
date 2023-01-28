@@ -333,7 +333,7 @@ class DataList(MmifObject, Generic[T]):
             mmif_obj = []
         super().__init__(mmif_obj)
 
-    def _serialize(self, *args, **kwargs) -> list:
+    def _serialize(self, *args, **kwargs) -> list:  # pytype: disable=signature-mismatch
         """
         Internal serialization method. Returns a list.
 
