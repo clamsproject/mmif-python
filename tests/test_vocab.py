@@ -19,7 +19,7 @@ class TestAnnotationTypes(unittest.TestCase):
         self.assertEqual(string_of_two, string_out)
 
     def test_use_in_mmif(self):
-        mmif_obj = Mmif(MMIF_EXAMPLES['everything'], frozen=False)
+        mmif_obj = Mmif(MMIF_EXAMPLES['everything'])
         view_obj: View = mmif_obj.get_view_by_id('v1')
         view_obj.new_annotation(AnnotationTypes.Polygon, 'p1')
         view_obj.new_annotation(AnnotationTypes.TimeFrame, 'bb2')
@@ -33,7 +33,7 @@ class TestAnnotationTypes(unittest.TestCase):
         self.assertFalse(ann_obj.is_type(DocumentTypes.VideoDocument))
 
     def test_serialize_within_mmif(self):
-        mmif_obj = Mmif(MMIF_EXAMPLES['everything'], frozen=False)
+        mmif_obj = Mmif(MMIF_EXAMPLES['everything'])
         view_obj = mmif_obj.get_view_by_id('v5')
         view_obj.annotations._items.pop('bb25')
         anno_obj = view_obj.new_annotation(AnnotationTypes.BoundingBox, 'bb25')

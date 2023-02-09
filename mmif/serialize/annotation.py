@@ -6,24 +6,24 @@ In MMIF, annotations are created by apps in a pipeline as a part
 of a view. For documentation on how views are represented, see
 :mod:`mmif.serialize.view`.
 """
-
+import itertools
 import pathlib
-from typing import Union, Dict, List, Type, Optional
+from typing import Union, Dict, List, Type, Optional, Iterator, MutableMapping, TypeVar
 from urllib.parse import urlparse
 
-from pyrsistent import pmap, pvector
-
 from mmif.vocabulary import ThingTypesBase, DocumentTypesBase
-from .model import FreezableMmifObject
+from .model import MmifObject
 
 __all__ = ['Annotation', 'AnnotationProperties', 'Document', 'DocumentProperties', 'Text']
+
+T = TypeVar('T')
 
 from .. import DocumentTypes
 
 JSON_COMPATIBLE_PRIMITIVES: Type = Union[str, int, float, bool, None]
 
 
-class Annotation(FreezableMmifObject):
+class Annotation(MmifObject):
     """
     MmifObject that represents an annotation in a MMIF view.
     """
@@ -32,9 +32,9 @@ class Annotation(FreezableMmifObject):
         self._type: ThingTypesBase = ThingTypesBase('')
         if not hasattr(self, 'properties'):  # don't overwrite DocumentProperties on super() call
             self.properties: AnnotationProperties = AnnotationProperties()
-            self._attribute_classes = pmap({'properties': AnnotationProperties})
+            self._attribute_classes = {'properties': AnnotationProperties}
         self.disallow_additional_properties()
-        self._required_attributes = pvector(["_type", "properties"])
+        self._required_attributes = ["_type", "properties"]
         super().__init__(anno_obj)
     
     def _deserialize(self, input_dict: dict) -> None:
@@ -117,7 +117,7 @@ class Document(Annotation):
         self._type: Union[str, DocumentTypesBase] = ''
         self.properties: DocumentProperties = DocumentProperties()
         self.disallow_additional_properties()
-        self._attribute_classes = pmap({'properties': DocumentProperties})
+        self._attribute_classes = {'properties': DocumentProperties}
         super().__init__(doc_obj)
 
     @property
@@ -214,7 +214,7 @@ class Document(Annotation):
         return self.properties.location_path()
 
 
-class AnnotationProperties(FreezableMmifObject):
+class AnnotationProperties(MmifObject, MutableMapping[str, T]):
     """
     AnnotationProperties object that represents the
     ``properties`` object within a MMIF annotation.
@@ -222,9 +222,37 @@ class AnnotationProperties(FreezableMmifObject):
     :param mmif_obj: the JSON data that defines the properties
     """
 
+    def __delitem__(self, key: str) -> None:
+        for k in self.__iter__():
+            if k == key:
+                if k not in self._required_attributes:
+                    del self.__dict__[k]
+                else:
+                    raise AttributeError(f'Cannot delete a required attribute "{key}"!')
+        raise KeyError(f'Key "{key}" not found.')
+                
+    def __iter__(self) -> Iterator[str]:
+        """
+        ``__iter__`` on Mapping should basically work as ``keys()`` method of vanilla dict
+        however, when MMIF objects are serialized, all optional (not in ``_req_atts``),
+        empty props are ignored (note that emtpy but required props are serialized 
+        with the *emtpy* value). 
+        Hence, this ``__iter__`` method should also work in the same way and 
+        ignored empty but optional props. 
+        """
+        for key in itertools.chain(self._named_attributes(), self._unnamed_attributes):
+            if key in self._required_attributes:
+                yield key
+            else:
+                try:
+                    self.__getitem__(key)
+                    yield key
+                except KeyError:
+                    pass
+
     def __init__(self, mmif_obj: Optional[Union[bytes, str, dict]] = None) -> None:
         self.id: str = ''
-        self._required_attributes = pvector(["id"])
+        self._required_attributes = ["id"]
         super().__init__(mmif_obj)
 
 
@@ -244,7 +272,7 @@ class DocumentProperties(AnnotationProperties):
         # to see how this exception is handled
         self.location_: str = ''
         self.text: Text = Text()
-        self._attribute_classes = pmap({'text': Text})
+        self._attribute_classes = {'text': Text}
         # in theory, either `location` or `text` should appear in a `document`
         # but with current implementation, there's no easy way to set a condition 
         # for `oneOf` requirement 
@@ -329,13 +357,13 @@ class DocumentProperties(AnnotationProperties):
         return urlparse(self.location).path
 
 
-class Text(FreezableMmifObject):
+class Text(MmifObject):
 
     def __init__(self, text_obj: Optional[Union[bytes, str, dict]] = None) -> None:
         self._value: str = ''
         self._language: str = ''
         self.disallow_additional_properties()
-        self._required_attributes = pvector(["_value"])
+        self._required_attributes = ["_value"]
         super().__init__(text_obj)
 
     @property
