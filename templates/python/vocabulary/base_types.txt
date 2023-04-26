@@ -153,5 +153,5 @@ class DocumentTypesBase(ClamsTypesBase):
 class ThingType(ThingTypesBase):
     """
     This class contains the topmost CLAMS thing type 
-    defined in the spec version <VERSION> as a class variable. 
+    defined in the spec version $VERSION as a class variable. 
     """

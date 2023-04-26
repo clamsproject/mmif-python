@@ -3,6 +3,7 @@ import io
 import json
 import os
 import shutil
+import string
 from os.path import join as pjoin
 from typing import Union
 from urllib import request
@@ -29,6 +30,7 @@ mmif_vocabulary_pkg = 'vocabulary'
 mmif_schema_res_oriname = 'schema/mmif.json'
 mmif_schema_res_name = 'mmif.json'
 mmif_vocab_res_oriname = 'vocabulary/clams.vocabulary.yaml'
+mmif_vocab_attypevers_res_oriname = 'docs/{version}/vocabulary/attypeversions.json'
 mmif_vocab_res_name = 'clams.vocabulary.yaml'
 
 
@@ -50,7 +52,6 @@ def generate_subpack(parpack_name, subpack_name, init_contents=""):
 
 
 def generate_vocab_enum(spec_version, clams_types, mod_name) -> str:
-    vocab_url = 'http://mmif.clams.ai/%s/vocabulary' % spec_version
     
     template_file = os.path.join(vocabulary_templates_path, mod_name + '.txt')
     if mod_name.startswith('annotation'):
@@ -62,10 +63,10 @@ def generate_vocab_enum(spec_version, clams_types, mod_name) -> str:
 
     file_out = io.StringIO()
     with open(template_file, 'r') as file_in:
-        for line in file_in.readlines():
-            file_out.write(line.replace('<VERSION>', spec_version))
-        for type_name in clams_types:
-            file_out.write(f"    {type_name} = {base_class_name}('{vocab_url}/{type_name}')\n")
+        file_out.write(string.Template(file_in.read()).safe_substitute(VERSION=spec_version))
+    for type_name, type_ver in clams_types:
+        vocab_url = f'http://mmif.clams.ai/vocabulary/{type_name}/{type_ver}'
+        file_out.write(f"    {type_name} = {base_class_name}('{vocab_url}')\n")
 
     string_out = file_out.getvalue()
     file_out.close()
@@ -112,10 +113,10 @@ def update_target_spec(target_vers_csv, specver):
         shutil.move(out_f.name, in_f.name)
 
 
-def generate_vocabulary(spec_version, clams_types):
+def generate_vocabulary(spec_version, clams_types_vers):
     """
     :param spec_version:
-    :param clams_types: the tree
+    :param clams_types_vers: list of (name, version) tuples of annotation types in CLAMS vocab
     :param template_path: the directory of source txt files
     :return:
     """
@@ -132,16 +133,22 @@ def generate_vocabulary(spec_version, clams_types):
             for class_name in classes
         )+'\n'
     )
+    document_types = []
+    annotation_types = []
+    base_types = []
+    
+    for n, v in clams_types_vers:
+        if n == 'Thing':
+            base_types.append((n, v))
+        elif 'Document' in n:
+            document_types.append((n, v))
+        else:
+            annotation_types.append((n, v))
 
     type_lists = {
-        # extract document types (hacky for now, improve later)
-        'document_types': [t for t in clams_types if 'Document' in t],
-
-        # extract annotation types
-        'annotation_types': [t for t in clams_types if 'Document' not in t and t != 'Thing'],
-
-        # extract thing type
-        'base_types': clams_types[:1]
+        'document_types': document_types,
+        'annotation_types': annotation_types,
+        'base_types': base_types
     }
 
     for mod_name, type_list in type_lists.items():
@@ -163,6 +170,7 @@ def get_matching_gittag(version: str):
 
 
 def get_spec_file_at_tag(tag, filepath: str) -> bytes:
+    filepath = filepath.format(version=tag)
     if LOCALMMIF is not None:
         file_path = os.path.join(LOCALMMIF, filepath)
         spec_file = open(file_path, 'br')
@@ -192,10 +200,11 @@ def prep_ext_files(setuptools_cmd):
     ori_run = setuptools_cmd.run
 
     def mod_run(self):
-        # assuming build only happens inside the `mmif` git repository
-        # also, NOTE that when in `make develop`, it will use specification files from upstream "develop" branch of mmif github repository
-        gittag = get_matching_gittag(version) if '.dev' not in version else "develop"
-        spec_version = gittag.split('-')[-1]
+        # will infer the `spec_ver` from the latest git tag available either on GH or local `mmif` repository.
+        # NOTE that when `make develop`, it will use specification files from upstream "develop" branch of `mmif` repo
+        mmif_gittag = get_matching_gittag(version) if '.dev' not in version else "develop"
+        # legacy version tags were formatted as xx-a.b.c (e.g., vocab-0.0.1)
+        spec_version = mmif_gittag.split('-')[-1]
         # making resources into a python package so that `pkg_resources` can access resource files
         res_dir = generate_subpack(mmif_name, mmif_res_pkg)
 
@@ -204,14 +213,17 @@ def prep_ext_files(setuptools_cmd):
         update_target_spec('documentation/target-versions.csv', spec_version)
 
         # and write resource files
-        write_res_file(res_dir, mmif_schema_res_name, get_spec_file_at_tag(gittag, mmif_schema_res_oriname))
-        write_res_file(res_dir, mmif_vocab_res_name, get_spec_file_at_tag(gittag, mmif_vocab_res_oriname))
+        write_res_file(res_dir, mmif_schema_res_name, get_spec_file_at_tag(mmif_gittag, mmif_schema_res_oriname))
+        write_res_file(res_dir, mmif_vocab_res_name, get_spec_file_at_tag(mmif_gittag, mmif_vocab_res_oriname))
 
         # write vocabulary enum
         import yaml
-        yaml_file = io.BytesIO(get_spec_file_at_tag(gittag, mmif_vocab_res_oriname))
-        clams_types = [t['name'] for t in list(yaml.safe_load_all(yaml_file.read()))]
-        generate_vocabulary(spec_version, clams_types)
+        vocab_yaml_file = io.BytesIO(get_spec_file_at_tag(mmif_gittag, mmif_vocab_res_oriname))
+        # TODO (krim @ 4/26/23): to be completely independent of published mmif directory, 
+        # the version file needs to be generated on the fly
+        attypevers = json.load(io.BytesIO(get_spec_file_at_tag(mmif_gittag, mmif_vocab_attypevers_res_oriname)))
+        clams_types_vers = [(t['name'], attypevers[t['name']]) for t in list(yaml.safe_load_all(vocab_yaml_file.read()))]
+        generate_vocabulary(spec_version, clams_types_vers)
 
         ori_run(self)
 
