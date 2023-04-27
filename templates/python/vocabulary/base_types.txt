@@ -132,8 +132,10 @@ class ClamsTypesBase(TypesBase):
                                          f'0.4.0) are no longer supported with this app.')
                     elif o.version == '0.4.2' and o.shortname == 'Annotation':
                         vers.append('v2')
-                    else:
+                    elif o.version.startswith('0.4.'):
                         vers.append('v1')
+                    else:
+                        vers.append(o.version)
                 else:
                     vers.append(o.version)
             return self.base_uri == other.base_uri \
