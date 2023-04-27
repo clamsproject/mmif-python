@@ -4,6 +4,7 @@ import json
 import os
 import shutil
 import string
+import subprocess
 from os.path import join as pjoin
 from typing import Union
 from urllib import request
@@ -137,7 +138,7 @@ def generate_vocabulary(spec_version, clams_types_vers):
     annotation_types = []
     base_types = []
     
-    for n, v in clams_types_vers:
+    for n, v in clams_types_vers.items():
         if n == 'Thing':
             base_types.append((n, v))
         elif 'Document' in n:
@@ -158,7 +159,7 @@ def generate_vocabulary(spec_version, clams_types_vers):
     return vocabulary_dir
 
 
-def get_matching_gittag(version: str):
+def get_matching_mmif_gittag(version: str):
     vmaj, vmin, vpat = version.split('.')[0:3]
     res = request.urlopen('https://api.github.com/repos/clamsproject/mmif/git/refs/tags')
     body = json.loads(res.read())
@@ -169,14 +170,10 @@ def get_matching_gittag(version: str):
                key=lambda x: int(x.split('.')[-1]))[-1]
 
 
-def get_spec_file_at_tag(tag, filepath: str) -> bytes:
+def get_spec_file_at_gitref(tag, filepath: str) -> bytes:
     filepath = filepath.format(version=tag)
     if LOCALMMIF is not None:
-        file_path = os.path.join(LOCALMMIF, filepath)
-        spec_file = open(file_path, 'br')
-        contents = spec_file.read()
-        spec_file.close()
-        return contents
+        return subprocess.run(f'git --git-dir {LOCALMMIF}/.git --no-pager show {tag}:{filepath}'.split(), capture_output=True).stdout
     file_url = f"https://raw.githubusercontent.com/clamsproject/mmif/{tag}/{filepath}"
     return request.urlopen(file_url).read()
 
@@ -202,9 +199,10 @@ def prep_ext_files(setuptools_cmd):
     def mod_run(self):
         # will infer the `spec_ver` from the latest git tag available either on GH or local `mmif` repository.
         # NOTE that when `make develop`, it will use specification files from upstream "develop" branch of `mmif` repo
-        mmif_gittag = get_matching_gittag(version) if '.dev' not in version else "develop"
+        latest_mmif_gittag = get_matching_mmif_gittag(version)
+        spec_file_gitref = latest_mmif_gittag if '.dev' not in version else 'develop'
         # legacy version tags were formatted as xx-a.b.c (e.g., vocab-0.0.1)
-        spec_version = mmif_gittag.split('-')[-1]
+        spec_version = latest_mmif_gittag.split('-')[-1]
         # making resources into a python package so that `pkg_resources` can access resource files
         res_dir = generate_subpack(mmif_name, mmif_res_pkg)
 
@@ -213,18 +211,32 @@ def prep_ext_files(setuptools_cmd):
         update_target_spec('documentation/target-versions.csv', spec_version)
 
         # and write resource files
-        write_res_file(res_dir, mmif_schema_res_name, get_spec_file_at_tag(mmif_gittag, mmif_schema_res_oriname))
-        write_res_file(res_dir, mmif_vocab_res_name, get_spec_file_at_tag(mmif_gittag, mmif_vocab_res_oriname))
+        for res_name, res_oriname in [(mmif_schema_res_name, mmif_schema_res_oriname), (mmif_vocab_res_name, mmif_vocab_res_oriname)]:
+            if LOCALMMIF:
+                res_content = open(pjoin(LOCALMMIF, res_oriname)).read()
+            else:
+                res_content = get_spec_file_at_gitref(spec_file_gitref, res_oriname)
+            write_res_file(res_dir, res_name, res_content)
 
         # write vocabulary enum
         import yaml
-        vocab_yaml_file = io.BytesIO(get_spec_file_at_tag(mmif_gittag, mmif_vocab_res_oriname))
-        # TODO (krim @ 4/26/23): to be completely independent of published mmif directory, 
-        # the version file needs to be generated on the fly
-        attypevers = json.load(io.BytesIO(get_spec_file_at_tag(mmif_gittag, mmif_vocab_attypevers_res_oriname)))
-        clams_types_vers = [(t['name'], attypevers[t['name']]) for t in list(yaml.safe_load_all(vocab_yaml_file.read()))]
+        attypevers = json.load(io.BytesIO(get_spec_file_at_gitref(latest_mmif_gittag, mmif_vocab_attypevers_res_oriname)))
+        if '.dev' not in version:
+            vocab_yaml_file = io.BytesIO(get_spec_file_at_gitref(latest_mmif_gittag, mmif_vocab_res_oriname))
+            clams_types_vers = {t['name']: attypevers[t['name']] for t in list(yaml.safe_load_all(vocab_yaml_file.read()))}
+        else:
+            last_clams_types = {t['name']: t for t in yaml.safe_load_all(get_spec_file_at_gitref(latest_mmif_gittag, mmif_vocab_res_oriname))}
+            if LOCALMMIF:
+                new_clams_types = {t['name']: t for t in yaml.safe_load_all(open(pjoin(LOCALMMIF, mmif_vocab_res_oriname)))}
+            else:
+                new_clams_types = {t['name']: t for t in yaml.safe_load_all(get_spec_file_at_gitref(spec_file_gitref, mmif_vocab_res_oriname))}
+            clams_types_vers = {n: attypevers[n] for n, t in last_clams_types.items()}
+            for tname in new_clams_types:
+                if tname not in last_clams_types:
+                    clams_types_vers[tname] = 'v1'
+                elif last_clams_types[tname] != new_clams_types[tname]:
+                    clams_types_vers[tname] = f'v{int(clams_types_vers[tname][1:])+1}'
         generate_vocabulary(spec_version, clams_types_vers)
-
         ori_run(self)
 
     setuptools_cmd.run = mod_run
