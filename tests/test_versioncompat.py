@@ -1,44 +1,35 @@
 import unittest
-from string import Template
 
-from mmif import Mmif
+from mmif import AnnotationTypes
 from mmif.vocabulary import DocumentTypes
-from tests.mmif_examples import *
+from mmif.vocabulary.base_types import TypesBase
 
 
 class TestMMIFVersionCompatibility(unittest.TestCase):
 
-    def setUp(self) -> None:
-        self.major = 0
-        self.minor = 4
-        self.patch = 3
-        self.specver = self.version(self.major, self.minor, self.patch)
-        self.mmif_cur = Mmif(Template(EVERYTHING_JSON).substitute(VERSION=self.specver))
-        self.mmif_pat_past = Mmif(Template(EVERYTHING_JSON).substitute(VERSION=self.version(self.major, self.minor, self.patch-1)))
-        self.mmif_pat_futr = Mmif(Template(EVERYTHING_JSON).substitute(VERSION=self.version(self.major, self.minor, self.patch+1)))
-        self.mmif_min_past = Mmif(Template(EVERYTHING_JSON).substitute(VERSION=self.version(self.major, self.minor-1, self.patch)))
-        self.mmif_min_futr = Mmif(Template(EVERYTHING_JSON).substitute(VERSION=self.version(self.major, self.minor+1, self.patch)))
-        self.mmif_maj_past = Mmif(Template(EVERYTHING_JSON).substitute(VERSION=self.version(self.major-1, self.minor, self.patch)))
-        self.mmif_maj_futr = Mmif(Template(EVERYTHING_JSON).substitute(VERSION=self.version(self.major+1, self.minor, self.patch)))
-
-    @staticmethod
-    def version(*major_minor_patch):
-        return '.'.join(map(str, major_minor_patch))
-    
     def test_compatibility(self):
         """
         Simply tests searching by @type queries that do not match MMIF file version works at only patch level
         """
-        DocumentTypes.TextDocument.version = self.specver
-        td_url_prefix = f'{DocumentTypes.TextDocument.base_uri}/{DocumentTypes.TextDocument.version}'
-        text_documents = self.mmif_cur.get_documents_by_type(DocumentTypes.TextDocument)
-        views_with_text_documents = self.mmif_cur.get_views_contain(DocumentTypes.TextDocument)
-        self.assertEqual(td_url_prefix, self.mmif_cur.metadata['mmif'])
-        self.assertNotEqual(td_url_prefix, self.mmif_pat_past.metadata['mmif'])
-        self.assertEqual(len(self.mmif_pat_past.get_documents_by_type(DocumentTypes.TextDocument)), len(text_documents))
-        self.assertNotEqual(td_url_prefix, self.mmif_pat_futr.metadata['mmif'])
-        self.assertEqual(len(self.mmif_pat_futr.get_views_contain(DocumentTypes.TextDocument)), len(views_with_text_documents))
-        self.assertNotEqual(td_url_prefix, self.mmif_min_past.metadata['mmif'])
-        self.assertEqual(len(self.mmif_min_past.get_documents_by_type(DocumentTypes.TextDocument)), 0)
-        self.assertNotEqual(td_url_prefix, self.mmif_min_futr.metadata['mmif'])
-        self.assertEqual(len(self.mmif_min_futr.get_documents_by_type(DocumentTypes.TextDocument)), 0)
+        mmif_prefix = DocumentTypes.TextDocument.base_uri
+        attype_prefix = f'{mmif_prefix}/vocabulary'
+        tdv1_1 = TypesBase.from_str(f'{attype_prefix}/TextDocument/v1')
+        tdv1_2 = TypesBase.from_str(f'{attype_prefix}/TextDocument/v1')
+        tdv2_1 = TypesBase.from_str(f'{attype_prefix}/TextDocument/v2')
+        self.assertEqual(tdv1_1, tdv1_2)
+        self.assertNotEqual(tdv1_1, tdv2_1)
+        # legacy mapping: see https://github.com/clamsproject/mmif/issues/14#issuecomment-1504439497
+        
+        ann_v1 = TypesBase.from_str(f'{attype_prefix}/Annotation/v1')
+        ann_v2 = TypesBase.from_str(f'{attype_prefix}/Annotation/v2')
+        ann_0_4_0 = TypesBase.from_str(f'{mmif_prefix}/0.4.0/vocabulary/Annotation')
+        ann_0_4_2 = TypesBase.from_str(f'{mmif_prefix}/0.4.2/vocabulary/Annotation')
+        self.assertEqual(ann_v1, ann_0_4_0)
+        self.assertEqual(ann_v2, ann_0_4_2)
+        self.assertNotEqual(ann_v2, ann_0_4_0)
+        self.assertNotEqual(ann_v1, ann_0_4_2)
+
+        tf_v1 = TypesBase.from_str(f'{attype_prefix}/TimeFrame/v1')
+        for patch in range(3):
+            tf_old = TypesBase.from_str(f'{mmif_prefix}/0.4.{patch}/vocabulary/TimeFrame')
+            self.assertEqual(tf_v1, tf_old)

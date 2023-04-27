@@ -1,3 +1,4 @@
+import json
 from urllib import request
 
 from mmif import __specver__
@@ -13,6 +14,11 @@ everything_file_url = f"https://raw.githubusercontent.com/clamsproject/mmif/{__s
 res = request.urlopen(everything_file_url)
 EVERYTHING_JSON = res.read().decode('utf-8')
 
+attypevers_file_url = f"https://raw.githubusercontent.com/clamsproject/mmif/{__specver__}/docs/{__specver__}/vocabulary/attypeversions.json"
+res = request.urlopen(attypevers_file_url)
+attypevers = {f'{k}_VER': v for k, v in json.loads(res.read().decode('utf-8')).items()}
+attypevers['VERSION'] = __specver__
+
 MMIF_EXAMPLES = {
     'everything': Template(EVERYTHING_JSON),
 }
@@ -27,5 +33,5 @@ FRACTIONAL_EXAMPLES = {
 }"""),
 }
 
-MMIF_EXAMPLES = dict((k, v.substitute(VERSION=__specver__)) for k, v in MMIF_EXAMPLES.items())
-FRACTIONAL_EXAMPLES = dict((k, v.substitute(VERSION=__specver__)) for k, v in FRACTIONAL_EXAMPLES.items())
+MMIF_EXAMPLES = dict((k, v.safe_substitute(**attypevers)) for k, v in MMIF_EXAMPLES.items())
+FRACTIONAL_EXAMPLES = dict((k, v.safe_substitute(**attypevers)) for k, v in FRACTIONAL_EXAMPLES.items())

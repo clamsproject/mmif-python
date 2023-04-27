@@ -290,7 +290,6 @@ class DocumentProperties(AnnotationProperties):
             serialized["location"] = serialized.pop("location_")
         return serialized
 
-
     @property
     def text_language(self) -> str:
         return self.text.lang

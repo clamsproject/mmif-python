@@ -42,7 +42,7 @@ class TestAnnotationTypes(unittest.TestCase):
         anno_obj.add_property('boxType', 'text')
         expected = json.loads(Mmif(MMIF_EXAMPLES['everything']).serialize())
         actual = json.loads(mmif_obj.serialize())
-        bb_type = f'http://mmif.clams.ai/{__specver__}/vocabulary/BoundingBox'
+        bb_type = str(AnnotationTypes.BoundingBox)
         expected['views'][4]['metadata']['contains'][bb_type]['gen_time'] = 'dummy'
         actual['views'][4]['metadata']['contains'][bb_type]['gen_time'] = 'dummy'
         self.assertEqual(expected, actual)

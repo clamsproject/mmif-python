@@ -43,7 +43,8 @@ class TestMmif(unittest.TestCase):
                 self.assertEqual(mmif_obj.serialize(True), Mmif(mmif_obj.serialize()).serialize(True), f'Failed on {i}')
 
     def test_json_mmif_deserialize(self):
-        for i, example in self.mmif_examples_json.items():
+        for i, example in MMIF_EXAMPLES.items():
+            example = json.loads(example)
             try:
                 mmif_obj = Mmif(example)
             except ValidationError as ve:
@@ -485,7 +486,7 @@ class TestGetItem(unittest.TestCase):
 class TestView(unittest.TestCase):
 
     def setUp(self) -> None:
-        self.mmif_examples_json = {'everything': json.loads(EVERYTHING_JSON)}
+        self.mmif_examples_json = {k: json.loads(v) for k, v in MMIF_EXAMPLES.items()}
         self.view_json = self.mmif_examples_json['everything']['views'][0]
         self.view_obj = View(self.view_json)
         self.maxDiff = None
