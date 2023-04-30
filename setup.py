@@ -2,6 +2,7 @@
 import io
 import json
 import os
+import re
 import shutil
 import string
 import subprocess
@@ -160,15 +161,14 @@ def generate_vocabulary(spec_version, clams_types_vers):
     return vocabulary_dir
 
 
-def get_matching_mmif_gittag(version: str):
-    vmaj, vmin, vpat = version.split('.')[0:3]
+def get_latest_mmif_gittag(version: str):
+    # vmaj, vmin, vpat = version.split('.')[0:3]
     res = request.urlopen('https://api.github.com/repos/clamsproject/mmif/git/refs/tags')
     body = json.loads(res.read())
     tags = [os.path.basename(tag['ref']) for tag in body]
     # sort and return highest version
-    return \
-        sorted([tag for tag in tags if f'{vmaj}.{vmin}.' in tag and 'py-' not in tag],
-               key=lambda x: int(x.split('.')[-1]))[-1]
+    mmif_ver_format = lambda x: re.match(r'\d+\.\d+\.\d$', x)
+    return sorted([tag for tag in tags if mmif_ver_format(tag)])[-1]
 
 
 def get_spec_file_at_gitref(tag, filepath: str) -> bytes:
@@ -200,7 +200,7 @@ def prep_ext_files(setuptools_cmd):
     def mod_run(self):
         # will infer the `spec_ver` from the latest git tag available either on GH or local `mmif` repository.
         # NOTE that when `make develop`, it will use specification files from upstream "develop" branch of `mmif` repo
-        latest_mmif_gittag = get_matching_mmif_gittag(version)
+        latest_mmif_gittag = get_latest_mmif_gittag(version)
         spec_file_gitref = latest_mmif_gittag if '.dev' not in version else 'develop'
         # legacy version tags were formatted as xx-a.b.c (e.g., vocab-0.0.1)
         spec_version = latest_mmif_gittag.split('-')[-1]
