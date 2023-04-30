@@ -8,7 +8,7 @@ data that was previously present in the MMIF file.
 from datetime import datetime
 from typing import Dict, Union, Optional, Generator, List, cast
 
-from mmif.vocabulary import ThingTypesBase
+from mmif.vocabulary import ThingTypesBase, ClamsTypesBase
 from .annotation import Annotation, Document
 from .model import MmifObject, DataList, DataDict
 
@@ -325,7 +325,7 @@ class AnnotationsList(DataList[Union[Annotation, Document]]):
         :return: None
         """
         self._items = {item['properties']['id']: Document(item)
-                       if item['_type'].endswith("Document") else Annotation(item)
+                       if ClamsTypesBase.attype_iri_isdocument(item['_type']) else Annotation(item)
                        for item in input_list}
 
     def append(self, value: Union[Annotation, Document], overwrite=False) -> None:

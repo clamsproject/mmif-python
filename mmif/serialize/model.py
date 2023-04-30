@@ -353,7 +353,7 @@ class DataList(MmifObject, Generic[T]):
             json_list = json.loads(json_list)
         return [MmifObject._load_json(obj) for obj in json_list]
     
-    def _deserialize(self, input_list: dict) -> None:
+    def _deserialize(self, input_list: list) -> None:
         raise NotImplementedError()
 
     def get(self, key: str) -> Optional[T]:
