@@ -52,7 +52,7 @@ def generate_subpack(parpack_name, subpack_name, init_contents=""):
     return subpack_dir
 
 
-def generate_vocab_enum(spec_version, clams_types, mod_name) -> str:
+def generate_vocab_enum(spec_version, clams_types_vers, mod_name) -> str:
     
     template_file = os.path.join(vocabulary_templates_path, mod_name + '.txt')
     if mod_name.startswith('annotation'):
@@ -65,9 +65,10 @@ def generate_vocab_enum(spec_version, clams_types, mod_name) -> str:
     file_out = io.StringIO()
     with open(template_file, 'r') as file_in:
         file_out.write(string.Template(file_in.read()).safe_substitute(VERSION=spec_version))
-    for type_name, type_ver in clams_types:
+    for type_name, type_ver in clams_types_vers:
         vocab_url = f'http://mmif.clams.ai/vocabulary/{type_name}/{type_ver}'
         file_out.write(f"    {type_name} = {base_class_name}('{vocab_url}')\n")
+    file_out.write(f"    typevers = {dict(clams_types_vers)}\n")
 
     string_out = file_out.getvalue()
     file_out.close()
@@ -152,8 +153,8 @@ def generate_vocabulary(spec_version, clams_types_vers):
         'base_types': base_types
     }
 
-    for mod_name, type_list in type_lists.items():
-        enum_contents = generate_vocab_enum(spec_version, type_list, mod_name)
+    for mod_name, type_ver_list in type_lists.items():
+        enum_contents = generate_vocab_enum(spec_version, type_ver_list, mod_name)
         write_res_file(vocabulary_dir, mod_name+'.py', enum_contents)
 
     return vocabulary_dir

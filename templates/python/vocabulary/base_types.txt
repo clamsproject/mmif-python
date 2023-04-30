@@ -8,12 +8,13 @@ class TypesBase(object):
     and (de-)serialization methods. 
     """
     _prefixes = {}
-    base_url: str
+    base_uri: str
     shortname: str
     
     def __init__(self, type_uri: str):
         self.parse_names(type_uri)
         if self.__repr__() not in self.__class__._prefixes:
+            # prepare auto-inferred prefix for Annotations.[].id field
             self.__class__._prefixes[self.__repr__()] \
                 = self.__class__._create_prefix(self.shortname,
                                                 self.__class__._prefixes.values()
@@ -109,12 +110,23 @@ class ClamsTypesBase(TypesBase):
     dev_version: ClassVar[str] = 'develop'
     
     def parse_names(self, type_uri:str):
-        if 'mmif.clams.ai' not in type_uri:
-            raise ValueError(f'{type_uri} is not a CLAMS vocabulary URI')
-        if type_uri[-1].isdigit():  # new versioning
+        if not type_uri:
+            self.base_uri, self.shortname, self.version = "", "", ""
+        elif 'mmif.clams.ai' not in type_uri:
+            raise ValueError(f'Cannot process "{type_uri}"!: not a CLAMS vocabulary URI')
+        elif type_uri[-1].isdigit():  # new versioning
             self.base_uri, _, self.shortname, self.version = type_uri.rsplit('/', 3)
         else:  # legacy versioning
             self.base_uri, self.version, _, self.shortname = type_uri.rsplit('/', 3)
+            self._check_legacy_version(self.version)
+
+    def _check_legacy_version(self, legacy_ver):
+        if legacy_ver < '0.4.0':
+            raise ValueError(f'Cannot process "{self}"!: CLAMS annotation types from old MMIF (older than 0.4.0) are no '
+                             f'longer supported with this app.')
+        if legacy_ver > '0.4.2':
+            raise ValueError(f'Cannot process "{self}"!: Invalid CLAMS vocabulary type URI.')
+        return True
 
     def __hash__(self):
         return hash(str(self))
@@ -125,17 +137,12 @@ class ClamsTypesBase(TypesBase):
         if isinstance(other, ClamsTypesBase):
             vers = []
             for o in (self, other):
-                if '.' in o.version:
+                if '.' in o.version and self._check_legacy_version(o.version):
                     # legacy mapping: see https://github.com/clamsproject/mmif/issues/14#issuecomment-1504439497
-                    if o.version < '0.4.0':
-                        raise ValueError(f'This cannot process {o}!: CLAMS annotation types from old MMIF (older than '
-                                         f'0.4.0) are no longer supported with this app.')
-                    elif o.version == '0.4.2' and o.shortname == 'Annotation':
+                    if o.version == '0.4.2' and o.shortname == 'Annotation':
                         vers.append('v2')
                     elif o.version.startswith('0.4.'):
                         vers.append('v1')
-                    else:
-                        vers.append(o.version)
                 else:
                     vers.append(o.version)
             return self.base_uri == other.base_uri \

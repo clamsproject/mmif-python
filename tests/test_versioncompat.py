@@ -20,6 +20,7 @@ class TestMMIFVersionCompatibility(unittest.TestCase):
         self.assertNotEqual(tdv1_1, tdv2_1)
         # legacy mapping: see https://github.com/clamsproject/mmif/issues/14#issuecomment-1504439497
         
+        # legacy mapping: see https://github.com/clamsproject/mmif/issues/14#issuecomment-1504439497
         ann_v1 = TypesBase.from_str(f'{attype_prefix}/Annotation/v1')
         ann_v2 = TypesBase.from_str(f'{attype_prefix}/Annotation/v2')
         ann_0_4_0 = TypesBase.from_str(f'{mmif_prefix}/0.4.0/vocabulary/Annotation')
