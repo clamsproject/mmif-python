@@ -1,11 +1,9 @@
-import unittest
 import json
+import unittest
 
-import pytest
-
-from mmif import Mmif, View, __specver__
-from mmif.vocabulary import AnnotationTypes, DocumentTypes
+from mmif import Mmif, View
 from mmif.serialize.model import MmifObjectEncoder
+from mmif.vocabulary import AnnotationTypes, DocumentTypes
 from tests.mmif_examples import *
 
 
@@ -14,20 +12,18 @@ class TestAnnotationTypes(unittest.TestCase):
     def setUp(self) -> None:
         self.maxDiff = None
 
-    @pytest.mark.skip("old tests from synchronized versioning of vocab items before MMIF < 0.5.0")
     def test_encode(self):
         list_of_two = [AnnotationTypes.Annotation, AnnotationTypes.Chapter]
-        string_of_two = f'["http://mmif.clams.ai/{__specver__}/vocabulary/Annotation", "http://mmif.clams.ai/{__specver__}/vocabulary/Chapter"]'
+        string_of_two = f'[\"http://mmif.clams.ai/vocabulary/Annotation/{AnnotationTypes.typevers["Annotation"]}\", \"http://mmif.clams.ai/vocabulary/Chapter/{AnnotationTypes.typevers["Chapter"]}\"]'
         string_out = json.dumps(list_of_two, indent=None, cls=MmifObjectEncoder)
         self.assertEqual(string_of_two, string_out)
 
-    @pytest.mark.skip("old tests from synchronized versioning of vocab items before MMIF < 0.5.0")
     def test_use_in_mmif(self):
         mmif_obj = Mmif(MMIF_EXAMPLES['everything'])
         view_obj: View = mmif_obj.get_view_by_id('v1')
         view_obj.new_annotation(AnnotationTypes.Polygon, 'p1')
         view_obj.new_annotation(AnnotationTypes.TimeFrame, 'bb2')
-        self.assertEqual(list(view_obj.metadata.contains.keys()), [f'http://mmif.clams.ai/{__specver__}/vocabulary/TimeFrame', f'http://mmif.clams.ai/{__specver__}/vocabulary/Polygon'])
+        self.assertEqual(list(view_obj.metadata.contains.keys()), [f'http://mmif.clams.ai/vocabulary/TimeFrame/{AnnotationTypes.typevers["TimeFrame"]}', f'http://mmif.clams.ai/vocabulary/Polygon/{AnnotationTypes.typevers["Polygon"]}'])
 
     def test_type_checking(self):
         mmif_obj = Mmif(MMIF_EXAMPLES['everything'])
