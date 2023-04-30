@@ -38,7 +38,7 @@ class Annotation(MmifObject):
         super().__init__(anno_obj)
     
     def _deserialize(self, input_dict: dict) -> None:
-        self.at_type = input_dict.pop('_type')
+        self.at_type = input_dict.pop('_type', '')
         # TODO (krim @ 6/1/21): If annotation IDs must follow a certain string format,
         # (e.g. currently auto-generated IDs will always have "prefix"_"number" format)
         # here is the place to parse formatted IDs and store prefixes in the parent mmif object. 
@@ -114,7 +114,7 @@ class Document(Annotation):
     """
     def __init__(self, doc_obj: Optional[Union[bytes, str, dict]] = None) -> None:
         self._parent_view_id = ''
-        self._type: Union[str, DocumentTypesBase] = ''
+        self._type: Union[ThingTypesBase, DocumentTypesBase] = ThingTypesBase('')
         self.properties: DocumentProperties = DocumentProperties()
         self.disallow_additional_properties()
         self._attribute_classes = {'properties': DocumentProperties}
@@ -289,7 +289,6 @@ class DocumentProperties(AnnotationProperties):
         if "location_" in serialized:
             serialized["location"] = serialized.pop("location_")
         return serialized
-
 
     @property
     def text_language(self) -> str:

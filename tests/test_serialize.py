@@ -20,6 +20,7 @@ from tests.mmif_examples import *
 # Flags for skipping tests
 DEBUG = False
 SKIP_SCHEMA = False, "Not skipping TestSchema by default"
+not_existing_attype = 'http://not.existing/type'
 
 
 class TestMmif(unittest.TestCase):
@@ -43,7 +44,8 @@ class TestMmif(unittest.TestCase):
                 self.assertEqual(mmif_obj.serialize(True), Mmif(mmif_obj.serialize()).serialize(True), f'Failed on {i}')
 
     def test_json_mmif_deserialize(self):
-        for i, example in self.mmif_examples_json.items():
+        for i, example in MMIF_EXAMPLES.items():
+            example = json.loads(example)
             try:
                 mmif_obj = Mmif(example)
             except ValidationError as ve:
@@ -120,7 +122,7 @@ class TestMmif(unittest.TestCase):
     def test_document_empty_text(self):
         document = Document()
         document.id = 'm997'
-        document.at_type = f"http://mmif.clams.ai/{__specver__}/vocabulary/TextDocument"
+        document.at_type = f"http://mmif.clams.ai/vocabulary/TextDocument/{DocumentTypes.typevers['TextDocument']}"
         serialized = document.serialize()
         deserialized = Document(serialized)
         self.assertEqual(deserialized.properties.text_value, '')
@@ -157,22 +159,16 @@ class TestMmif(unittest.TestCase):
 
     def test_get_document_by_metadata(self):
         mmif_obj = Mmif(MMIF_EXAMPLES['everything'])
-        mmif_obj.add_document(Document("""{
-          "@type": "http://mmif.clams.ai/%s/vocabulary/VideoDocument",
-          "properties": {
-            "id": "m2",
-            "mime": "video/mpeg",
-            "location": "file:///var/archive/video-003.mp4" }
-        }""" % __specver__))
-        self.assertEqual(len(mmif_obj.get_documents_by_property("mime", "video/mpeg")), 2)
-        self.assertEqual(len(mmif_obj.get_documents_by_property("mime", "text")), 0)
+        mmif_obj.add_document(Document(FRACTIONAL_EXAMPLES['doc_only']))
+        self.assertEqual(len(mmif_obj.get_documents_by_property("mime", "video/mpeg")), 1)
+        self.assertEqual(len(mmif_obj.get_documents_by_property("mime", "text/plain")), 1)
 
     def test_get_documents_by_app(self):
         tesseract_appid = 'http://mmif.clams.ai/apps/tesseract/0.2.1'
         mmif_obj = Mmif(MMIF_EXAMPLES['everything'])
         self.assertEqual(len(mmif_obj.get_documents_by_app(tesseract_appid)), 25)
         self.assertEqual(len(mmif_obj.get_documents_by_app('xxx')), 0)
-        new_document = Document({'@type': f'http://mmif.clams.ai/{__specver__}/vocabulary/TextDocument',
+        new_document = Document({'@type': f"http://mmif.clams.ai/vocabulary/TextDocument/{DocumentTypes.typevers['TextDocument']}",
                                  'properties': {'id': 'td999', 'text': {"@value": "HI"}}})
         mmif_obj['v6'].add_document(new_document)
         self.assertEqual(len(mmif_obj.get_documents_by_app(tesseract_appid)), 26)
@@ -207,16 +203,18 @@ class TestMmif(unittest.TestCase):
 
     def test_get_documents_locations(self):
         mmif_obj = Mmif(MMIF_EXAMPLES['everything'])
-        self.assertEqual(1, len(mmif_obj.get_documents_locations(f'http://mmif.clams.ai/{__specver__}/vocabulary/VideoDocument')))
-        self.assertEqual(mmif_obj.get_document_location(f'http://mmif.clams.ai/{__specver__}/vocabulary/VideoDocument'), "file:///var/archive/video-002.mp4")
-        self.assertEqual(mmif_obj.get_document_location(f'http://mmif.clams.ai/{__specver__}/vocabulary/VideoDocument', path_only=True), "/var/archive/video-002.mp4")
+        self.assertEqual(1, len(mmif_obj.get_documents_locations(DocumentTypes.VideoDocument)))
+        self.assertEqual(mmif_obj.get_document_location(DocumentTypes.VideoDocument), 
+                         "file:///var/archive/video-002.mp4")
+        self.assertEqual(mmif_obj.get_document_location(DocumentTypes.VideoDocument, path_only=True), 
+                         "/var/archive/video-002.mp4")
         # TODO (angus-lherrou @ 9-23-2020): no text documents in documents list of raw.json,
         #  un-comment and fix if we add view searching to these methods
         # text document is there but no location is specified
         # self.assertEqual(0, len(mmif_obj.get_documents_locations(f'http://mmif.clams.ai/{__specver__}/vocabulary/TextDocument')))
         # self.assertEqual(mmif_obj.get_document_location(f'http://mmif.clams.ai/{__specver__}/vocabulary/TextDocument'), None)
         # audio document is not there
-        self.assertEqual(0, len(mmif_obj.get_documents_locations(f'http://mmif.clams.ai/{__specver__}/vocabulary/AudioDocument')))
+        self.assertEqual(0, len(mmif_obj.get_documents_locations(DocumentTypes.AudioDocument)))
 
     def test_get_view_by_id(self):
         mmif_obj = Mmif(MMIF_EXAMPLES['everything'])
@@ -235,7 +233,7 @@ class TestMmif(unittest.TestCase):
         mmif_obj = Mmif(MMIF_EXAMPLES['everything'])
         views = mmif_obj.get_all_views_contain(AnnotationTypes.TimeFrame)
         self.assertEqual(4, len(views))
-        views = mmif_obj.get_views_contain(f'http://mmif.clams.ai/{__specver__}/vocabulary/TextDocument')
+        views = mmif_obj.get_views_contain(DocumentTypes.TextDocument)
         self.assertEqual(2, len(views))
         views = mmif_obj.get_all_views_contain('http://vocab.lappsgrid.org/SemanticTag')
         self.assertEqual(1, len(views))
@@ -245,7 +243,7 @@ class TestMmif(unittest.TestCase):
             AnnotationTypes.Alignment,
         ])
         self.assertEqual(1, len(views))
-        views = mmif_obj.get_all_views_contain('not_a_type')
+        views = mmif_obj.get_all_views_contain(not_existing_attype)
         self.assertEqual(0, len(views))
 
     def test_get_view_contains(self):
@@ -260,7 +258,7 @@ class TestMmif(unittest.TestCase):
         ])
         self.assertIsNotNone(view)
         self.assertEqual('v4', view.id)
-        view = mmif_obj.get_view_contains('NonExistingType')
+        view = mmif_obj.get_view_contains(not_existing_attype)
         self.assertIsNone(view)
 
     def test_get_views_for_document(self):
@@ -485,7 +483,7 @@ class TestGetItem(unittest.TestCase):
 class TestView(unittest.TestCase):
 
     def setUp(self) -> None:
-        self.mmif_examples_json = {'everything': json.loads(EVERYTHING_JSON)}
+        self.mmif_examples_json = {k: json.loads(v) for k, v in MMIF_EXAMPLES.items()}
         self.view_json = self.mmif_examples_json['everything']['views'][0]
         self.view_obj = View(self.view_json)
         self.maxDiff = None
@@ -621,7 +619,7 @@ class TestView(unittest.TestCase):
         annotations = list(mmif_obj['v3'].get_annotations(AnnotationTypes.TimeFrame))
         self.assertEqual(len(annotations), 2)
         # simple search fail by at_type
-        annotations = list(mmif_obj['v3'].get_annotations('non-existing-annotation-type'))
+        annotations = list(mmif_obj['v3'].get_annotations(not_existing_attype))
         self.assertEqual(len(annotations), 0)
         # at_type + property
         annotations = list(mmif_obj['v3'].get_annotations(AnnotationTypes.TimeFrame, frameType='speech'))
