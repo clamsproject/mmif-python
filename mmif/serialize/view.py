@@ -365,3 +365,6 @@ class ContainsDict(DataDict[ThingTypesBase, Contain]):
     
     def __contains__(self, item: Union[str, ThingTypesBase]):
         return item in list(self._items.keys())
+
+    def pop(self, key):
+        self._items.pop(key)
