@@ -56,7 +56,14 @@
 <li class="toctree-l3"><a class="reference internal" href="#mmif-serialize-model-module">mmif.serialize.model module</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#mmif-serialize-mmif-module">mmif.serialize.mmif module</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#mmif-serialize-view-module">mmif.serialize.view module</a></li>
-<li class="toctree-l3"><a class="reference internal" href="#mmif-serialize-annotation-module">mmif.serialize.annotation module</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#module-mmif.serialize.annotation">mmif.serialize.annotation module</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#mmif.serialize.annotation.Annotation"><code class="docutils literal notranslate"><span class="pre">Annotation</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#mmif.serialize.annotation.AnnotationProperties"><code class="docutils literal notranslate"><span class="pre">AnnotationProperties</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#mmif.serialize.annotation.Document"><code class="docutils literal notranslate"><span class="pre">Document</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#mmif.serialize.annotation.DocumentProperties"><code class="docutils literal notranslate"><span class="pre">DocumentProperties</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#mmif.serialize.annotation.Text"><code class="docutils literal notranslate"><span class="pre">Text</span></code></a></li>
+</ul>
+</li>
 </ul>
 </li>
 </ul>
@@ -98,8 +105,183 @@
 <section id="mmif-serialize-view-module">
 <h2>mmif.serialize.view module<a class="headerlink" href="#mmif-serialize-view-module" title="Permalink to this heading"></a></h2>
 </section>
-<section id="mmif-serialize-annotation-module">
-<h2>mmif.serialize.annotation module<a class="headerlink" href="#mmif-serialize-annotation-module" title="Permalink to this heading"></a></h2>
+<section id="module-mmif.serialize.annotation">
+<span id="mmif-serialize-annotation-module"></span><h2>mmif.serialize.annotation module<a class="headerlink" href="#module-mmif.serialize.annotation" title="Permalink to this heading"></a></h2>
+<p>The <code class="xref py py-mod docutils literal notranslate"><span class="pre">annotation</span></code> module contains the classes used to represent a
+MMIF annotation as a live Python object.</p>
+<p>In MMIF, annotations are created by apps in a pipeline as a part
+of a view. For documentation on how views are represented, see
+<code class="xref py py-mod docutils literal notranslate"><span class="pre">mmif.serialize.view</span></code>.</p>
+<dl class="py class">
+<dt class="sig sig-object py" id="mmif.serialize.annotation.Annotation">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">mmif.serialize.annotation.</span></span><span class="sig-name descname"><span class="pre">Annotation</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">anno_obj</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bytes</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">dict</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/clamsproject/mmif-python/tree/0.3.4/mmif/serialize/annotation.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mmif.serialize.annotation.Annotation" title="Permalink to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">FreezableMmifObject</span></code></p>
+<p>MmifObject that represents an annotation in a MMIF view.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="mmif.serialize.annotation.Annotation.add_property">
+<span class="sig-name descname"><span class="pre">add_property</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">value</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">int</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">float</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">bool</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">int</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">float</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">bool</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">int</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">float</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">bool</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="reference external" href="https://github.com/clamsproject/mmif-python/tree/0.3.4/mmif/serialize/annotation.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mmif.serialize.annotation.Annotation.add_property" title="Permalink to this definition"></a></dt>
+<dd><p>Adds a property to the annotation’s properties.
+:param name: the name of the property
+:param value: the property’s desired value
+:return: None</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="mmif.serialize.annotation.Annotation.at_type">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">at_type</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">ThingTypesBase</span></em><a class="reference external" href="https://github.com/clamsproject/mmif-python/tree/0.3.4/mmif/serialize/annotation.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mmif.serialize.annotation.Annotation.at_type" title="Permalink to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="mmif.serialize.annotation.Annotation.id">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">id</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></em><a class="reference external" href="https://github.com/clamsproject/mmif-python/tree/0.3.4/mmif/serialize/annotation.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mmif.serialize.annotation.Annotation.id" title="Permalink to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="mmif.serialize.annotation.Annotation.is_document">
+<span class="sig-name descname"><span class="pre">is_document</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference external" href="https://github.com/clamsproject/mmif-python/tree/0.3.4/mmif/serialize/annotation.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mmif.serialize.annotation.Annotation.is_document" title="Permalink to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="mmif.serialize.annotation.Annotation.is_type">
+<span class="sig-name descname"><span class="pre">is_type</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">type</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">ThingTypesBase</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">bool</span></span></span><a class="reference external" href="https://github.com/clamsproject/mmif-python/tree/0.3.4/mmif/serialize/annotation.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mmif.serialize.annotation.Annotation.is_type" title="Permalink to this definition"></a></dt>
+<dd><p>Check if the &#64;type of this object matches.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="mmif.serialize.annotation.AnnotationProperties">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">mmif.serialize.annotation.</span></span><span class="sig-name descname"><span class="pre">AnnotationProperties</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">mmif_obj</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bytes</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">dict</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/clamsproject/mmif-python/tree/0.3.4/mmif/serialize/annotation.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mmif.serialize.annotation.AnnotationProperties" title="Permalink to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">FreezableMmifObject</span></code></p>
+<p>AnnotationProperties object that represents the
+<code class="docutils literal notranslate"><span class="pre">properties</span></code> object within a MMIF annotation.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>mmif_obj</strong> – the JSON data that defines the properties</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="mmif.serialize.annotation.Document">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">mmif.serialize.annotation.</span></span><span class="sig-name descname"><span class="pre">Document</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">doc_obj</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bytes</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">dict</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/clamsproject/mmif-python/tree/0.3.4/mmif/serialize/annotation.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mmif.serialize.annotation.Document" title="Permalink to this definition"></a></dt>
+<dd><p>Bases: <a class="reference internal" href="#mmif.serialize.annotation.Annotation" title="mmif.serialize.annotation.Annotation"><code class="xref py py-class docutils literal notranslate"><span class="pre">Annotation</span></code></a></p>
+<p>Document object that represents a single document in a MMIF file.</p>
+<p>A document is identified by an ID, and contains certain attributes
+and potentially contains the contents of the document itself,
+metadata about how the document was created, and/or a list of
+subdocuments grouped together logically.</p>
+<p>If <code class="docutils literal notranslate"><span class="pre">document_obj</span></code> is not provided, an empty Document will be generated.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>document_obj</strong> – the JSON data that defines the document</p>
+</dd>
+</dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="mmif.serialize.annotation.Document.add_property">
+<span class="sig-name descname"><span class="pre">add_property</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">value</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">int</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">float</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">bool</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">int</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">float</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">bool</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="reference external" href="https://github.com/clamsproject/mmif-python/tree/0.3.4/mmif/serialize/annotation.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mmif.serialize.annotation.Document.add_property" title="Permalink to this definition"></a></dt>
+<dd><p>Adds a property to the annotation’s properties.
+:param name: the name of the property
+:param value: the property’s desired value
+:return: None</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="mmif.serialize.annotation.Document.location">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">location</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></em><a class="reference external" href="https://github.com/clamsproject/mmif-python/tree/0.3.4/mmif/serialize/annotation.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mmif.serialize.annotation.Document.location" title="Permalink to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="mmif.serialize.annotation.Document.location_address">
+<span class="sig-name descname"><span class="pre">location_address</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">str</span></span></span><a class="reference external" href="https://github.com/clamsproject/mmif-python/tree/0.3.4/mmif/serialize/annotation.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mmif.serialize.annotation.Document.location_address" title="Permalink to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="mmif.serialize.annotation.Document.location_path">
+<span class="sig-name descname"><span class="pre">location_path</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">str</span></span></span><a class="reference external" href="https://github.com/clamsproject/mmif-python/tree/0.3.4/mmif/serialize/annotation.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mmif.serialize.annotation.Document.location_path" title="Permalink to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="mmif.serialize.annotation.Document.location_scheme">
+<span class="sig-name descname"><span class="pre">location_scheme</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">str</span></span></span><a class="reference external" href="https://github.com/clamsproject/mmif-python/tree/0.3.4/mmif/serialize/annotation.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mmif.serialize.annotation.Document.location_scheme" title="Permalink to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="mmif.serialize.annotation.Document.parent">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">parent</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></em><a class="reference external" href="https://github.com/clamsproject/mmif-python/tree/0.3.4/mmif/serialize/annotation.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mmif.serialize.annotation.Document.parent" title="Permalink to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="mmif.serialize.annotation.Document.text_language">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">text_language</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></em><a class="reference external" href="https://github.com/clamsproject/mmif-python/tree/0.3.4/mmif/serialize/annotation.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mmif.serialize.annotation.Document.text_language" title="Permalink to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="mmif.serialize.annotation.Document.text_value">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">text_value</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></em><a class="reference external" href="https://github.com/clamsproject/mmif-python/tree/0.3.4/mmif/serialize/annotation.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mmif.serialize.annotation.Document.text_value" title="Permalink to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="mmif.serialize.annotation.DocumentProperties">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">mmif.serialize.annotation.</span></span><span class="sig-name descname"><span class="pre">DocumentProperties</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">mmif_obj</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bytes</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">dict</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/clamsproject/mmif-python/tree/0.3.4/mmif/serialize/annotation.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mmif.serialize.annotation.DocumentProperties" title="Permalink to this definition"></a></dt>
+<dd><p>Bases: <a class="reference internal" href="#mmif.serialize.annotation.AnnotationProperties" title="mmif.serialize.annotation.AnnotationProperties"><code class="xref py py-class docutils literal notranslate"><span class="pre">AnnotationProperties</span></code></a></p>
+<p>DocumentProperties object that represents the
+<code class="docutils literal notranslate"><span class="pre">properties</span></code> object within a MMIF document.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>mmif_obj</strong> – the JSON data that defines the properties</p>
+</dd>
+</dl>
+<dl class="py property">
+<dt class="sig sig-object py" id="mmif.serialize.annotation.DocumentProperties.location">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">location</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></em><a class="reference external" href="https://github.com/clamsproject/mmif-python/tree/0.3.4/mmif/serialize/annotation.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mmif.serialize.annotation.DocumentProperties.location" title="Permalink to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="mmif.serialize.annotation.DocumentProperties.location_address">
+<span class="sig-name descname"><span class="pre">location_address</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">str</span></span></span><a class="reference external" href="https://github.com/clamsproject/mmif-python/tree/0.3.4/mmif/serialize/annotation.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mmif.serialize.annotation.DocumentProperties.location_address" title="Permalink to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="mmif.serialize.annotation.DocumentProperties.location_path">
+<span class="sig-name descname"><span class="pre">location_path</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">str</span></span></span><a class="reference external" href="https://github.com/clamsproject/mmif-python/tree/0.3.4/mmif/serialize/annotation.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mmif.serialize.annotation.DocumentProperties.location_path" title="Permalink to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="mmif.serialize.annotation.DocumentProperties.location_scheme">
+<span class="sig-name descname"><span class="pre">location_scheme</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">str</span></span></span><a class="reference external" href="https://github.com/clamsproject/mmif-python/tree/0.3.4/mmif/serialize/annotation.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mmif.serialize.annotation.DocumentProperties.location_scheme" title="Permalink to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="mmif.serialize.annotation.DocumentProperties.text_language">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">text_language</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></em><a class="reference external" href="https://github.com/clamsproject/mmif-python/tree/0.3.4/mmif/serialize/annotation.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mmif.serialize.annotation.DocumentProperties.text_language" title="Permalink to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="mmif.serialize.annotation.DocumentProperties.text_value">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">text_value</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></em><a class="reference external" href="https://github.com/clamsproject/mmif-python/tree/0.3.4/mmif/serialize/annotation.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mmif.serialize.annotation.DocumentProperties.text_value" title="Permalink to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="mmif.serialize.annotation.Text">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">mmif.serialize.annotation.</span></span><span class="sig-name descname"><span class="pre">Text</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">text_obj</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bytes</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">dict</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/clamsproject/mmif-python/tree/0.3.4/mmif/serialize/annotation.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mmif.serialize.annotation.Text" title="Permalink to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">FreezableMmifObject</span></code></p>
+<dl class="py property">
+<dt class="sig sig-object py" id="mmif.serialize.annotation.Text.lang">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">lang</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></em><a class="reference external" href="https://github.com/clamsproject/mmif-python/tree/0.3.4/mmif/serialize/annotation.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mmif.serialize.annotation.Text.lang" title="Permalink to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="mmif.serialize.annotation.Text.value">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">value</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></em><a class="reference external" href="https://github.com/clamsproject/mmif-python/tree/0.3.4/mmif/serialize/annotation.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mmif.serialize.annotation.Text.value" title="Permalink to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
 </section>
 </section>
 
@@ -152,6 +334,7 @@
       <dd><a href="../../0.4.7/autodoc/mmif.serialize.html">0.4.7</a></dd>
       <dd><a href="../../0.4.8/autodoc/mmif.serialize.html">0.4.8</a></dd>
       <dd><a href="../../0.5.0/autodoc/mmif.serialize.html">0.5.0</a></dd>
+      <dd><a href="../../0.5.1/autodoc/mmif.serialize.html">0.5.1</a></dd>
     </dl>
   </div>
 </div><script>

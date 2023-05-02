@@ -1,4 +1,19 @@
 
+## releasing 0.5.1 (2023-05-02)
+### Overview
+This release includes "fuzzy" matching of at_types and sanitized `serialize` of `Mmif` objects.
+
+### Additions
+* CLAMS vocab type subclasses now support "fuzzy" `__eq__` check (#209 . Fuzzy matching will ignore differences in versions of two at_types, but still issue python warnings when there's a version mismatch. By default, all CLAMS vocab type subclasses are initiated with fuzzy mode "on". 
+* `Mmif. serialize` now supports sanitizing the output JSON (#205) . Can be turned on by passing `sanitize=True` argument. Sanitizing will perform 
+    * removal of non-existing annotation types from `contains` metadata    
+    * validating output using built-in MMIF jsonschema
+    
+
+### Changes
+* fixed a small bug in `Mmif.get_alignments` 
+* fixed `view.metadata` serialized into an invalid MMIF due to a *oneOf* condition in jsonschema
+
 ## releasing 0.5.0 (2023-04-30)
 ### Overview
 This release is a synchronization of `mmif-python` with the latest [MMIF 0.5.0 release](https://github.com/clamsproject/mmif/pull/199). 
@@ -58,6 +73,3 @@ The release includes ...
 
 ## releasing 0.3.4 (2021-05-24)
 This release includes major bug fixes (#131, #164) and a new documentation generation pipeline (#167). 
-
-## releasing 0.3.3 (2021-05-12)
-This release contains various bug fixes. 
