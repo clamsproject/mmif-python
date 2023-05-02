@@ -92,16 +92,16 @@ class TestMmif(unittest.TestCase):
         except ValidationError:
             pass
 
-    def test_safe_serialize(self):
+    def test_sanitized_serialize(self):
         mmif: Mmif = Mmif(self.mmif_examples_json['everything'])
         mmif.views.empty()
         v = mmif.new_view()
         v.metadata.app = 'http://dummy.app'
         v.new_contain(AnnotationTypes.TimeFrame)
-        self.assertEqual(0, len(Mmif(mmif.safe_serialize())[v.id].metadata.contains))
+        self.assertEqual(0, len(Mmif(mmif.serialize(sanitize=True))[v.id].metadata.contains))
         v.new_annotation(AnnotationTypes.Annotation, fps='30')
-        self.assertEqual(2, len(Mmif(mmif.serialize())[v.id].metadata.contains))
-        self.assertEqual(1, len(Mmif(mmif.safe_serialize())[v.id].metadata.contains))
+        self.assertEqual(1, len(Mmif(mmif.serialize())[v.id].metadata.contains))
+        self.assertEqual(1, len(Mmif(mmif.serialize(sanitize=True))[v.id].metadata.contains))
         
     def test_new_view(self):
         mmif_obj = Mmif(MMIF_EXAMPLES['everything'])
