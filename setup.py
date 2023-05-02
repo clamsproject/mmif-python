@@ -134,7 +134,7 @@ def generate_vocabulary(spec_version, clams_types_vers):
             f"from .{mod_name} import {class_name}"
             for mod_name, classes in types.items()
             for class_name in classes
-        )+'\n'
+        ) + '\n\n' + "typevers = {**ThingType.typevers, **AnnotationTypes.typevers, **DocumentTypes.typevers}" + '\n'
     )
     document_types = []
     annotation_types = []
@@ -161,7 +161,7 @@ def generate_vocabulary(spec_version, clams_types_vers):
     return vocabulary_dir
 
 
-def get_latest_mmif_gittag(version: str):
+def get_latest_mmif_gittag():
     # vmaj, vmin, vpat = version.split('.')[0:3]
     res = request.urlopen('https://api.github.com/repos/clamsproject/mmif/git/refs/tags')
     body = json.loads(res.read())
@@ -200,7 +200,7 @@ def prep_ext_files(setuptools_cmd):
     def mod_run(self):
         # will infer the `spec_ver` from the latest git tag available either on GH or local `mmif` repository.
         # NOTE that when `make develop`, it will use specification files from upstream "develop" branch of `mmif` repo
-        latest_mmif_gittag = get_latest_mmif_gittag(version)
+        latest_mmif_gittag = get_latest_mmif_gittag()
         spec_file_gitref = latest_mmif_gittag if '.dev' not in version else 'develop'
         # legacy version tags were formatted as xx-a.b.c (e.g., vocab-0.0.1)
         spec_version = latest_mmif_gittag.split('-')[-1]

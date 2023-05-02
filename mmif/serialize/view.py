@@ -246,11 +246,20 @@ class ViewMetadata(MmifObject):
             'error': ErrorDict,
             'contains': ContainsDict
         }
-        # in theory, either `contains` or `error` should appear in a `view`
+        # in theory, *oneOf* `contains`, `error`, or `warnings` should appear in a `view`
         # but with current implementation, there's no easy way to set a condition 
         # for `oneOf` requirement 
         # see MmifObject::_required_attributes in model.py 
+        # also see this class' `_serialize()` override implementation
         super().__init__(viewmetadata_obj)
+
+    def _serialize(self, alt_container: Optional[Dict] = None) -> dict:
+        serialized = super()._serialize()
+        # `_serialize()` eliminates any *empty* attributes, so 
+        # when no "contains", "errors", nor "warnings", at least add an empty contains back
+        if not (self.contains.items() or self.error or self.warnings):
+            serialized['contains'] = {}
+        return serialized
 
     def new_contain(self, at_type: Union[str, ThingTypesBase], **contains_metadata) -> Optional['Contain']:
         """
@@ -364,4 +373,7 @@ class ContainsDict(DataDict[ThingTypesBase, Contain]):
         return self._items.get(key, default)
     
     def __contains__(self, item: Union[str, ThingTypesBase]):
-        return item in list(self._items.keys())
+        return item in self._items
+
+    def pop(self, key):
+        self._items.pop(key)

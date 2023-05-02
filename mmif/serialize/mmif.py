@@ -68,6 +68,31 @@ class Mmif(MmifObject):
             json_str = json.loads(json_str)
         jsonschema.validators.validate(json_str, schema)
 
+    def serialize(self, pretty: bool = False, sanitize: bool = False) -> str:
+        if sanitize:
+            self.sanitize()
+        return super().serialize(pretty)
+
+    def sanitize(self):
+        """
+        Sanitizes a Mmif object by running some safeguards.
+        Concretely, it performs the following before returning the JSON string.
+        
+        #. validating output using built-in MMIF jsonschema
+        #. remove non-existing annotation types from ``contains`` metadata
+    
+        """
+        for view in self.views:
+            existing_at_types = set(annotation.at_type for annotation in view.annotations)
+            to_pop = set()
+            for contains_at_type in view.metadata.contains.keys():
+                if contains_at_type not in existing_at_types:
+                    to_pop.add(contains_at_type)
+            for key in to_pop:
+                view.metadata.contains.pop(key)
+        serialized = self.serialize()
+        self.validate(serialized)
+
     def new_view_id(self) -> str:
         """
         Fetches an ID for a new view.
@@ -241,14 +266,14 @@ class Mmif(MmifObject):
         :return: a dict that keyed by view IDs (str) and has lists of alignment Annotation objects as values.
         """
         v_and_a = {}
-        at_type1 = ThingTypesBase.from_str(at_type1) if isinstance(at_type1, str) else at_type1
-        at_type2 = ThingTypesBase.from_str(at_type2) if isinstance(at_type2, str) else at_type2
+        at_type1, at_type2 = [ThingTypesBase.from_str(x) if isinstance(x, str) else x for x in (at_type1, at_type2)]
         assert at_type1 != at_type2, f"Alignment must be between two different types, given only one: {at_type1}"
         for alignment_view in self.get_all_views_contain(AnnotationTypes.Alignment):
             alignments = []
             contains_meta = alignment_view.metadata.contains[AnnotationTypes.Alignment]
             if 'sourceType' in contains_meta and 'targetType' in contains_meta:
-                aligned_types = list({contains_meta['sourceType'], contains_meta['targetType']})
+                aligned_types = [ThingTypesBase.from_str(x) 
+                                 for x in {contains_meta['sourceType'], contains_meta['targetType']}]
                 if len(aligned_types) == 2 and at_type1 in aligned_types and at_type2 in aligned_types:
                     alignments.extend(alignment_view.annotations)
             else:
