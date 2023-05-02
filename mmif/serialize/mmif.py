@@ -68,6 +68,29 @@ class Mmif(MmifObject):
             json_str = json.loads(json_str)
         jsonschema.validators.validate(json_str, schema)
 
+    def safe_serialize(self, pretty: bool = False, check_contains: bool = True, validate: bool = True) -> str:
+        """
+        Serializes into a JSON with some additional safeguards.
+        Concretely, it performs the following before returning the JSON string.
+        
+        #. validating output using built-in MMIF jsonschema
+        #. remove non-existing annotation types from ``contains`` metadata
+    
+        """
+        if check_contains:
+            for view in self.views:
+                existing_at_types = set(annotation.at_type for annotation in view.annotations)
+                to_pop = set()
+                for contains_at_type in view.metadata.contains.keys():
+                    if contains_at_type not in existing_at_types:
+                        to_pop.add(contains_at_type)
+                for key in to_pop:
+                    view.metadata.contains.pop(key)
+        serialized = self.serialize(pretty)
+        if validate:
+            self.validate(serialized)
+        return serialized
+
     def new_view_id(self) -> str:
         """
         Fetches an ID for a new view.

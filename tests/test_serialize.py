@@ -10,7 +10,6 @@ from hypothesis import given, settings, HealthCheck
 from jsonschema import ValidationError
 
 import mmif as mmifpkg
-from mmif import __specver__
 from mmif.serialize import *
 from mmif.serialize.model import *
 from mmif.serialize.view import ContainsDict, ErrorDict
@@ -26,7 +25,7 @@ not_existing_attype = 'http://not.existing/type'
 class TestMmif(unittest.TestCase):
 
     def setUp(self) -> None:
-        self.mmif_examples_json = {'everything': json.loads(EVERYTHING_JSON)}
+        self.mmif_examples_json = {k: json.loads(v) for k, v in MMIF_EXAMPLES.items()}
 
     @pytest.mark.skip("comparing two `Mmif` objs with an arbitrary file path included won't work until https://github.com/seperman/deepdiff/issues/357 is addressed")
     def test_init_from_bytes(self):
@@ -92,6 +91,17 @@ class TestMmif(unittest.TestCase):
             self.fail()
         except ValidationError:
             pass
+
+    def test_safe_serialize(self):
+        mmif: Mmif = Mmif(self.mmif_examples_json['everything'])
+        mmif.views.empty()
+        v = mmif.new_view()
+        v.new_contain(AnnotationTypes.TimeFrame)
+        v.new_annotation(AnnotationTypes.Annotation, fps='30')
+        v.metadata.app = 'http://dummy.app'
+        self.assertEqual(2, len(Mmif(mmif.serialize())[v.id].metadata.contains))
+        self.assertEqual(1, len(Mmif(mmif.safe_serialize())[v.id].metadata.contains))
+        
 
     def test_new_view(self):
         mmif_obj = Mmif(MMIF_EXAMPLES['everything'])
