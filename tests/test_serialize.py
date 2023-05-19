@@ -570,7 +570,6 @@ class TestView(unittest.TestCase):
             # empty at_type is not allowed
             self.view_obj.new_contain("")
         
-
     def test_add_annotation(self):
         anno_obj = Annotation(self.mmif_examples_json['everything']['views'][6]['annotations'][2])
         old_len = len(self.view_obj.annotations)
@@ -578,6 +577,9 @@ class TestView(unittest.TestCase):
         self.assertEqual(old_len+1, len(self.view_obj.annotations))
         self.assertIn('http://vocab.lappsgrid.org/NamedEntity', self.view_obj.metadata.contains)
         _ = self.view_obj.serialize()  # raise exception if this fails
+        self.view_obj.new_annotation(AnnotationTypes.TimePoint)
+        roundtrip = View(json.loads(self.view_obj.serialize()))
+        self.assertEqual(roundtrip, self.view_obj)
 
     def test_new_annotation(self):
         self.view_obj.new_annotation('Relation', 'relation1')
