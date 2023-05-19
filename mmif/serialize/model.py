@@ -37,7 +37,7 @@ class MmifObject(object):
     an actual representation with a JSON formatted string or equivalent
     `dict` object argument.
 
-    This superclass has three specially designed instance variables, and these
+    This superclass has four specially designed instance variables, and these
     variable names cannot be used as attribute names for MMIF objects.
 
     1. _unnamed_attributes:
@@ -54,12 +54,15 @@ class MmifObject(object):
        When serialize, an object will skip its *empty* (e.g. zero-length, or None)
        attributes unless they are in this list. Otherwise, the serialized JSON
        string would have empty representations (e.g. ``""``, ``[]``).
+    4. _exclude_from_diff:
+       This is a simple list of names of attributes that should be excluded from
+       the diff calculation in ``__eq__``. 
 
     # TODO (krim @ 8/17/20): this dict is however, a duplicate with the type hints in the class definition.
     Maybe there is a better way to utilize type hints (e.g. getting them as a programmatically), but for now
     developers should be careful to add types to hints as well as to this dict.
 
-    Also note that those two special attributes MUST be set in the __init__()
+    Also note that those special attributes MUST be set in the __init__()
     before calling super method, otherwise deserialization will not work.
 
     And also, a subclass that has one or more *named* attributes, it must
@@ -74,17 +77,15 @@ class MmifObject(object):
      an ID value automatically generated, based on its parent object.
     """
     
-    reserved_names: Set = {
+    reserved_names: Set[str] = {
         'reserved_names',
         '_unnamed_attributes',
         '_attribute_classes',
         '_required_attributes',
-        # used in Document class to store parent view id
-        '_parent_view_id', 
-        # used in View class to autogenerate annotation ids
-        '_id_counts'
+        '_exclude_from_diff'
     }
     _unnamed_attributes: Optional[dict]
+    _exclude_from_diff: Set[str]
     _attribute_classes: Dict[str, Type] = {}  # Mapping: str -> Type
 
     def __init__(self, mmif_obj: Optional[Union[bytes, str, dict]] = None) -> None:
@@ -92,6 +93,8 @@ class MmifObject(object):
             mmif_obj = mmif_obj.decode('utf8')
         if not hasattr(self, '_required_attributes'):
             self._required_attributes = []
+        if not hasattr(self, '_exclude_from_diff'):
+            self._exclude_from_diff = set()
         if not hasattr(self, '_unnamed_attributes'):
             self._unnamed_attributes = {}
         if mmif_obj is not None:
@@ -253,7 +256,10 @@ class MmifObject(object):
 
     def __eq__(self, other) -> bool:
         return isinstance(other, type(self)) and \
-               len(DeepDiff(self, other, report_repetition=True, exclude_types=[datetime])) == 0
+               len(DeepDiff(self, other, report_repetition=True, exclude_types=[datetime],
+                            # https://github.com/clamsproject/mmif-python/issues/214
+                            exclude_paths=self._exclude_from_diff)
+                   ) == 0
 
     def __len__(self) -> int:
         """

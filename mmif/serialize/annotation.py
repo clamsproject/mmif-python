@@ -113,7 +113,10 @@ class Document(Annotation):
     :param document_obj: the JSON data that defines the document
     """
     def __init__(self, doc_obj: Optional[Union[bytes, str, dict]] = None) -> None:
+        # to store the parent view ID
         self._parent_view_id = ''
+        self.reserved_names.add('_parent_view_id')
+        
         self._type: Union[ThingTypesBase, DocumentTypesBase] = ThingTypesBase('')
         self.properties: DocumentProperties = DocumentProperties()
         self.disallow_additional_properties()
