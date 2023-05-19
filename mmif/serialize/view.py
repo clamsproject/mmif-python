@@ -31,7 +31,11 @@ class View(MmifObject):
     """
 
     def __init__(self, view_obj: Optional[Union[bytes, str, dict]] = None) -> None:
+        # used to autogenerate annotation ids
         self._id_counts = {}
+        self.reserved_names.add("_id_counts")
+        self._exclude_from_diff = {"_id_counts"}
+        
         self.id: str = ''
         self.metadata: ViewMetadata = ViewMetadata()
         self.annotations: AnnotationsList = AnnotationsList()
