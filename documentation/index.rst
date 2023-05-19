@@ -9,7 +9,6 @@ Welcome to mmif-python's documentation!
 
   introduction
   target-versions
-  consumer-tutorial
 
 .. toctree::
   :maxdepth: 2

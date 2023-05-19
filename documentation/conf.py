@@ -95,7 +95,7 @@ smv_outputdir_format = '{ref.name}'
 # Determines whether remote or local git branches/tags are preferred if their output dirs conflict
 smv_prefer_remote_refs = True
 
-# TODO (krim @ 6/13/21): maybe there's a way to re-wrote what I wrote in the 
+# TODO (krim @ 6/13/21): maybe there's a way to re-write what I wrote in the 
 # fork of sphinx-multiversion here in conf.py. Issues I can think of as of now; 
 # 1. sphinx-mv/main.py know current version of the library by git tag, 
 #    but conf.py has no way to know that... 
