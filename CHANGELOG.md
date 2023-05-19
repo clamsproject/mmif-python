@@ -1,4 +1,13 @@
 
+## releasing 0.5.2 (2023-05-19)
+### Overview
+This release fixes an oversight bug in `__eq__` in `MmifObject`s. Also includes updates of the sphinx documentation. 
+
+### Changes
+* Fixed bug some fields must be ignored when computing differences in  `__eq__` (#214 )
+* Updated sphinx documentation (#215 )
+
+
 ## releasing 0.5.1 (2023-05-02)
 ### Overview
 This release includes "fuzzy" matching of at_types and sanitized `serialize` of `Mmif` objects.
@@ -70,6 +79,3 @@ The release includes ...
 * full implementation of backward (+forward?) version compatibility is WIP (#163)
 * various bug fixes and clean-up
 
-
-## releasing 0.3.4 (2021-05-24)
-This release includes major bug fixes (#131, #164) and a new documentation generation pipeline (#167). 
