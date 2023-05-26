@@ -1,4 +1,11 @@
 
+## releasing 1.0.1 (2023-05-26)
+### Overview
+`mmif-python` 1.0.0 included MMIF 0.5.0 instead of  MMIF 1.0.0. This release fixes it
+
+### Changes
+* now based on MMIF specification 1.0.0
+
 ## releasing 1.0.0 (2023-05-25)
 ### Overview
 This release will be numbered as 1.0.0, but actually is re-numbering of 0.5.2, hence no technical changes are included in 1.0.0. 
