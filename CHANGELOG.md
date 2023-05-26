@@ -1,4 +1,9 @@
 
+## releasing 1.0.0 (2023-05-25)
+### Overview
+This release will be numbered as 1.0.0, but actually is re-numbering of 0.5.2, hence no technical changes are included in 1.0.0. 
+
+
 ## releasing 0.5.2 (2023-05-19)
 ### Overview
 This release fixes an oversight bug in `__eq__` in `MmifObject`s. Also includes updates of the sphinx documentation. 
@@ -79,3 +84,23 @@ The release includes ...
 * full implementation of backward (+forward?) version compatibility is WIP (#163)
 * various bug fixes and clean-up
 
+
+## releasing 0.3.4 (2021-05-24)
+This release includes major bug fixes (#131, #164) and a new documentation generation pipeline (#167). 
+
+## releasing 0.3.3 (2021-05-12)
+This release contains various bug fixes. 
+
+## releasing 0.3.2 (2021-05-12)
+A version to match changes in the specification 0.3.1. 
+
+## releasing 0.3.1 (2021-03-30)
+0.3.1 contains mostly small bugfixes.
+
+
+## release candidate for 0.3.0 (2021-03-14)
+release note for mmif-python 0.3.0
+
+* new in specification: added support for `parameters` 
+* new in specification: file paths are now stored as `file://` URIs
+* bugfix: added type restrictions to annotation properties
