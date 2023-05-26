@@ -104,3 +104,5 @@ distclean:
 	@rm -rf dist $(artifact) build/bdist*
 clean: distclean
 	@rm -rf VERSION VERSION.dev $(testcaches) $(buildcaches) $(generatedcode)
+	@git checkout -- documentation/target-versions.csv
+
