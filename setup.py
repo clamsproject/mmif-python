@@ -162,11 +162,17 @@ def generate_vocabulary(spec_version, clams_types_vers):
 
 
 def get_latest_mmif_gittag():
-    # vmaj, vmin, vpat = version.split('.')[0:3]
-    res = request.urlopen('https://api.github.com/repos/clamsproject/mmif/git/refs/tags')
-    body = json.loads(res.read())
-    tags = [os.path.basename(tag['ref']) for tag in body]
+    cur_p = 1
+    body = [None]
+    tags = []
+    while len(body) > 0:
+        # for when we have more than 30 (default pagination size) tags
+        res = request.urlopen(f'https://api.github.com/repos/clamsproject/mmif/tags?per_page=100&page={cur_p}')
+        body = json.loads(res.read())
+        tags.extend([tag['name'] for tag in body])
+        cur_p += 1
     # sort and return highest version
+    print(tags)
     mmif_ver_format = lambda x: re.match(r'\d+\.\d+\.\d$', x)
     return sorted([tag for tag in tags if mmif_ver_format(tag)])[-1]
 
