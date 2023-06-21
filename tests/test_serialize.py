@@ -200,13 +200,16 @@ class TestMmif(unittest.TestCase):
         file_path = "/var/archive/video-003.mp4"
         new_doc.properties.location = file_path
         self.assertEqual(new_doc.properties.location_scheme(), 'file')
-        self.assertEqual(new_doc.properties.location_path(), file_path)
+        self.assertEqual(new_doc.properties.location_path_literal(), file_path)
+        self.assertEqual(new_doc.properties.location_path_resolved(), file_path)
         new_doc.location = "/var/archive/video-003.mp4"
         self.assertEqual(new_doc.location_scheme(), 'file')
         self.assertEqual(new_doc.location_path(), file_path)
         new_doc.location = f"ftp://localhost{file_path}"
         self.assertEqual(new_doc.location_scheme(), 'ftp')
-        self.assertEqual(new_doc.location_path(), file_path)
+        with self.assertRaises(ValueError):
+            # because we don't have a handler for `ftp` scheme
+            new_doc.location_path()
         self.assertEqual(new_doc.location_address(), f'localhost{file_path}')
         # round_trip = Document(new_doc.serialize())
         self.assertEqual(Document(new_doc.serialize()).serialize(), new_doc.serialize())
@@ -945,6 +948,9 @@ class TestSchema(unittest.TestCase):
     def setUp(self) -> None:
         if DEBUG:
             self.hypos = []
+        # TODO (krim @ 6/21/23): remove this ignore filter once hypothesis-jsonschema is updated with jsonschema 4.18
+        import warnings
+        warnings.simplefilter("ignore")
 
     def tearDown(self) -> None:
         if DEBUG:
@@ -952,7 +958,7 @@ class TestSchema(unittest.TestCase):
                 json.dump(self.hypos, dump, indent=2)
 
     @given(hypothesis_jsonschema.from_schema(schema))
-    @settings(suppress_health_check=HealthCheck.all())
+    @settings(suppress_health_check=list(HealthCheck))
     def test_accepts_valid_schema(self, data):
         if DEBUG:
             self.hypos.append(data)

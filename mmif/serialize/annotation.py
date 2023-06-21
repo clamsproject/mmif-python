@@ -10,6 +10,7 @@ import importlib
 import itertools
 import pathlib
 import pkgutil
+import warnings
 from typing import Union, Dict, List, Type, Optional, Iterator, MutableMapping, TypeVar
 from urllib.parse import urlparse
 
@@ -216,11 +217,12 @@ class Document(Annotation):
 
     def location_path(self) -> Optional[str]:
         """
-        Retrieves only path name of the document location (hostname is ignored). 
-        Useful to get a path of a local file.
+        Retrieves a path that's resolved to a pathname in the local file system.
+        To obtain the original value of the "path" part in the location string
+        (before resolving), use ``properties.location_path_literal`` method.
         Returns None when no location is set.
         """
-        return self.properties.location_path()
+        return self.properties.location_path_resolved()
 
 
 class AnnotationProperties(MmifObject, MutableMapping[str, T]):
@@ -355,18 +357,37 @@ class DocumentProperties(AnnotationProperties):
             return "".join((parsed_location.netloc, parsed_location.path))
 
     def location_path(self) -> Optional[str]:
+        warnings.warn('location_path() is deprecated. Use location_path_resolved() instead.', DeprecationWarning)
+        return self.location_path_resolved()
+    
+    def location_path_resolved(self) -> Optional[str]:
         """
-        Retrieves only path name of the document location (hostname is ignored). 
-        Useful to get a path of a local file.
+        Retrieves only path name of the document location (hostname is ignored), 
+        and then try to resolve the path name in the local file system.
+        This method should be used when the document scheme is ``file`` or empty.
+        For other schemes, users should install ``mmif-locdoc-<scheme>`` plugin.
+        
         Returns None when no location is set.
+        Raise ValueError when no code found to resolve the given location scheme.
         """
         if self.location is None:
             return None
         scheme = self.location_scheme()
-        if scheme == 'file':
+        if scheme in ('', 'file'):
             return urlparse(self.location).path
         elif scheme in discovered_docloc_plugins:
             return discovered_docloc_plugins[scheme].resolve(self.location)
+        else:
+            raise ValueError(f'Cannot resolve location of scheme "{scheme}"')
+
+    def location_path_literal(self) -> Optional[str]:
+        """
+        Retrieves only path name of the document location (hostname is ignored). 
+        Returns None when no location is set.
+        """
+        if self.location is None:
+            return None
+        return urlparse(self.location).path
 
 
 class Text(MmifObject):
