@@ -378,7 +378,7 @@ class DocumentProperties(AnnotationProperties):
         elif scheme in discovered_docloc_plugins:
             return discovered_docloc_plugins[scheme].resolve(self.location)
         else:
-            raise ValueError(f'Cannot resolve location of scheme "{scheme}"')
+            raise ValueError(f'Cannot resolve location of scheme "{scheme}". Interested in developing mmif-locdoc-{scheme} plugin? See https://clams.ai/mmif-python/plugins')
 
     def location_path_literal(self) -> Optional[str]:
         """
