@@ -6,8 +6,10 @@ In MMIF, annotations are created by apps in a pipeline as a part
 of a view. For documentation on how views are represented, see
 :mod:`mmif.serialize.view`.
 """
+import importlib
 import itertools
 import pathlib
+import pkgutil
 from typing import Union, Dict, List, Type, Optional, Iterator, MutableMapping, TypeVar
 from urllib.parse import urlparse
 
@@ -21,6 +23,10 @@ T = TypeVar('T')
 from .. import DocumentTypes
 
 JSON_COMPATIBLE_PRIMITIVES: Type = Union[str, int, float, bool, None]
+
+discovered_docloc_plugins = {
+    name[len('mmif_docloc_'):]: importlib.import_module(name) for finder, name, ispkg in pkgutil.iter_modules() if name.startswith('mmif_docloc_')
+}
 
 
 class Annotation(MmifObject):
@@ -356,7 +362,11 @@ class DocumentProperties(AnnotationProperties):
         """
         if self.location is None:
             return None
-        return urlparse(self.location).path
+        scheme = self.location_scheme()
+        if scheme == 'file':
+            return urlparse(self.location).path
+        elif scheme in discovered_docloc_plugins:
+            return discovered_docloc_plugins[scheme].resolve(self.location)
 
 
 class Text(MmifObject):
