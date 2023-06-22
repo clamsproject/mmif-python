@@ -20,7 +20,7 @@ This document contains information about how to write plugins for ``mmif-python`
 Document Location Scheme Plugins
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-:class:`mmif.serialize.annotation.Document` class has various methods to access parts of ``location`` property of the document. The location is in URI/IRI format (``SCHEME://HOSTNAME/PATH``, in a nutshell) and it has to be resolved to a local file, for CLAMS Apps to process the local file to analyze and extract information about the media and its contents. The core ``mmif-python`` distribution only provides a default implementation that can handle ``file`` scheme URIs. 
+:class:`mmif.serialize.annotation.Document` class has various methods to access parts of ``location`` property of the document. The location is in `URI/IRI format <https://en.wikipedia.org/wiki/Uniform_Resource_Identifier>`_ (``SCHEME://HOSTNAME/PATH``, in a nutshell) and it has to be resolved to a local file for CLAMS Apps to process the local file to analyze and extract information about the media and its contents. The core ``mmif-python`` distribution only provides a default implementation that can handle ``file`` scheme URIs. 
 
 To add a document location handler plugin, you need to implement a Python `"package" <https://docs.python.org/3/tutorial/modules.html#packages>`_ (do not confuse with PYPI distribution), that meets these requirements; 
 
@@ -32,3 +32,44 @@ To add a document location handler plugin, you need to implement a Python `"pack
    import mmif_docloc_s3
    resolved = mmif_docloc_s3.resolve('s3://mybucket/myfile.mp4')
    # then resolved must be a local file path that can be used to open the file
+
+
+Here's a minimal example codebase that you refer to when you develop a ``docloc`` plugin. 
+
+(However, before you start writing your own plugin for a specific URI scheme, checking `if there's already a PyPI distribution <https://pypi.org/search/?q=mmif-docloc->`_ for the scheme might be a good idea.)
+
+.. code-block:: sh 
+
+   $ tree .
+   .
+   ├── mmif_docloc_dummy
+   │   └── __init__.py
+   ├── pyproject.toml
+   └── setup.cfg
+
+    $ cat pyproject.toml
+   [build-system]
+   requires = ["setuptools"]
+   build-backend = "setuptools.build_meta"
+
+   $ cat setup.cfg
+   [metadata]
+   name = mmif_docloc_dummy  # this name is IMPORTANT
+   version = 0.0.1
+   description = a plugin to mmif-pyhon to handle `dummy` location scheme
+
+
+And the plugin code. 
+
+.. code-block:: python 
+
+   # mmif_docloc_dummy/__init__.py
+   doc_types = {'video': 'mp4'}
+
+   def resolve(docloc):
+       scheme = 'dummy'
+       if docloc.startswith(f'{scheme}://'):
+           doc_id, doc_type = docloc.split('.')
+           return f'/path/to/{doc_id}.{doc_types[doc_type]}'
+       else:
+           raise ValueError(f'cannot handle document location scheme: {docloc}')
