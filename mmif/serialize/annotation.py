@@ -10,6 +10,7 @@ import importlib
 import itertools
 import pathlib
 import pkgutil
+import re
 import warnings
 from typing import Union, Dict, List, Type, Optional, Iterator, MutableMapping, TypeVar
 from urllib.parse import urlparse
@@ -26,7 +27,7 @@ from .. import DocumentTypes
 JSON_COMPATIBLE_PRIMITIVES: Type = Union[str, int, float, bool, None]
 
 discovered_docloc_plugins = {
-    name[len('mmif_docloc_'):]: importlib.import_module(name) for finder, name, ispkg in pkgutil.iter_modules() if name.startswith('mmif_docloc_')
+    name[len('mmif_docloc_'):]: importlib.import_module(name) for _, name, _ in pkgutil.iter_modules() if re.match(r'mmif[-_]docloc[-_]', name)
 }
 
 
