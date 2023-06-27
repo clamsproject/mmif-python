@@ -1,4 +1,4 @@
-.. _instroduction:
+.. _introduction:
 
 Getting Started
 ===============
