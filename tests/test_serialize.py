@@ -610,7 +610,7 @@ class TestView(unittest.TestCase):
 
     def test_parent(self):
         mmif_obj = Mmif(self.mmif_examples_json['everything'])
-        self.assertTrue(all(doc.parent == v.id for v in mmif_obj.views for doc in mmif_obj.get_documents_in_view(v.id)))
+        self.assertTrue(all(anno.parent == v.id for v in mmif_obj.views for anno in mmif_obj.get_view_by_id(v.id).annotations))
 
     def test_get_by_id(self):
         mmif_obj = Mmif(MMIF_EXAMPLES['everything'])

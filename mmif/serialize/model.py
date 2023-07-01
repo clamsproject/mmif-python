@@ -77,6 +77,8 @@ class MmifObject(object):
      an ID value automatically generated, based on its parent object.
     """
     
+    # these are the reserved names that cannot be used as attribute names, and 
+    # they won't be serialized
     reserved_names: Set[str] = {
         'reserved_names',
         '_unnamed_attributes',

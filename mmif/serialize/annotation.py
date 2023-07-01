@@ -38,6 +38,9 @@ class Annotation(MmifObject):
 
     def __init__(self, anno_obj: Optional[Union[bytes, str, dict]] = None) -> None:
         self._type: ThingTypesBase = ThingTypesBase('')
+        # to store the parent view ID
+        self._parent_view_id = ''
+        self.reserved_names.add('_parent_view_id')
         if not hasattr(self, 'properties'):  # don't overwrite DocumentProperties on super() call
             self.properties: AnnotationProperties = AnnotationProperties()
             self._attribute_classes = {'properties': AnnotationProperties}
@@ -69,6 +72,16 @@ class Annotation(MmifObject):
             self._type = ThingTypesBase.from_str(at_type)
         else:
             self._type = at_type
+
+    @property
+    def parent(self) -> str:
+        return self._parent_view_id
+
+    @parent.setter
+    def parent(self, parent_view_id: str) -> None:
+        # I want to make this to accept `View` object as an input too,
+        # but import `View` will break the code due to circular imports
+        self._parent_view_id = parent_view_id
 
     @property
     def id(self) -> str:
@@ -139,25 +152,12 @@ class Document(Annotation):
     :param document_obj: the JSON data that defines the document
     """
     def __init__(self, doc_obj: Optional[Union[bytes, str, dict]] = None) -> None:
-        # to store the parent view ID
-        self._parent_view_id = ''
-        self.reserved_names.add('_parent_view_id')
         
         self._type: Union[ThingTypesBase, DocumentTypesBase] = ThingTypesBase('')
         self.properties: DocumentProperties = DocumentProperties()
         self.disallow_additional_properties()
         self._attribute_classes = {'properties': DocumentProperties}
         super().__init__(doc_obj)
-
-    @property
-    def parent(self) -> str:
-        return self._parent_view_id
-
-    @parent.setter
-    def parent(self, parent_view_id: str) -> None:
-        # I want to make this to accept `View` object as an input too,
-        # but import `View` will break the code due to circular imports
-        self._parent_view_id = parent_view_id
 
     def add_property(self, name: str,
                      value: Union[JSON_COMPATIBLE_PRIMITIVES,
