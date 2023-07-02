@@ -447,6 +447,11 @@ class ViewsList(DataList[View]):
     for :class:`mmif.serialize.view.View`.
     """
     _items: Dict[str, View]
+    
+    def __init__(self, mmif_obj: Optional[Union[bytes, str, list]] = None):
+        self._last_view_id = None
+        self.reserved_names.add('_last_view_id')
+        super().__init__(mmif_obj)
 
     def _deserialize(self, input_list: list) -> None:  # pytype: disable=signature-mismatch
         """
@@ -456,7 +461,9 @@ class ViewsList(DataList[View]):
         :param input_list: the JSON data that defines the list of views
         :return: None
         """
-        self._items = {item['id']: View(item) for item in input_list}
+        if input_list:
+            self._items = {item['id']: View(item) for item in input_list}
+            self._last_view_id = input_list[-1]['id']
 
     def append(self, value: View, overwrite=False) -> None:
         """
@@ -474,4 +481,12 @@ class ViewsList(DataList[View]):
                           in the list
         :return: None
         """
+        self._last_view_id = value.id
         super()._append_with_key(value.id, value, overwrite)
+
+    def get_last(self) -> View:
+        """
+        Returns the last view appended to the list.
+        """
+        if self._last_view_id:
+            return self[self._last_view_id]
