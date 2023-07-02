@@ -99,7 +99,7 @@ class TestMmif(unittest.TestCase):
         v.metadata.app = 'http://dummy.app'
         v.new_contain(AnnotationTypes.TimeFrame)
         self.assertEqual(0, len(Mmif(mmif.serialize(sanitize=True))[v.id].metadata.contains))
-        v.new_annotation(AnnotationTypes.Annotation, fps='30')
+        v.new_annotation(AnnotationTypes.Annotation, fps='30', document=v.id)
         self.assertEqual(1, len(Mmif(mmif.serialize())[v.id].metadata.contains))
         self.assertEqual(1, len(Mmif(mmif.serialize(sanitize=True))[v.id].metadata.contains))
         
@@ -822,7 +822,29 @@ class TestDocument(unittest.TestCase):
         props_json = self.data['everything']['documents'][0]['properties']
         props_obj = DocumentProperties(props_json)
         self.assertEqual(props_json, json.loads(props_obj.serialize()))
-
+    
+    def test_document_added_properties(self):
+        mmif = Mmif(self.data['everything']['string'])
+        doc1 = Document()
+        doc1.at_type = DocumentTypes.TextDocument
+        doc1.id = 'doc1'
+        doc1.location = 'aScheme:///data/doc1.txt'
+        # `mime` is a special prop and shouldn't be added to "temporary" props
+        doc1.add_property('mime', 'text')
+        doc1_roundtrip = Document(doc1.serialize())
+        self.assertTrue(doc1_roundtrip.get('mime'), 'text')
+        # but a generic prop should be added to "temporary" props
+        doc1.add_property('author', 'me')
+        doc1_roundtrip = Document(doc1.serialize())
+        self.assertNotIn('author', doc1_roundtrip.properties)
+        # and converted to an `Annotation` annotation during serialization
+        mmif.add_document(doc1)
+        ## no Annotation before serialization
+        with pytest.raises(StopIteration):
+            self.assertTrue(next(mmif.views.get_last().get_annotations(AnnotationTypes.Annotation, author='me')))
+        ## after serialization, the `Annotation` annotation should be added to the last view
+        mmif_roundtrip = Mmif(mmif.serialize())
+        self.assertTrue(next(mmif_roundtrip.views.get_last().get_annotations(AnnotationTypes.Annotation, author='me')))
     def test_deserialize_with_whole_mmif(self):
         for i, datum in self.data.items():
             for j, document in enumerate(datum['documents']):

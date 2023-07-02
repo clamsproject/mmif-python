@@ -8,6 +8,7 @@ See the specification docs and the JSON Schema file for more information.
 import json
 from datetime import datetime
 from typing import List, Union, Optional, Dict, ClassVar, cast
+from collections import defaultdict
 
 import jsonschema.validators
 
@@ -68,10 +69,74 @@ class Mmif(MmifObject):
             json_str = json.loads(json_str)
         jsonschema.validators.validate(json_str, schema)
 
-    def serialize(self, pretty: bool = False, sanitize: bool = False) -> str:
+    def serialize(self, pretty: bool = False, sanitize: bool = False, autogenerate_capital_annotations=True) -> str:
+        """
+        Serializes the MMIF object to a JSON string.
+
+        :param sanitize: If True, performs some sanitization of before returning 
+            the JSON string. See :meth:`sanitize` for details.
+        :param autogenerate_capital_annotations: If True, automatically convert 
+            any "pending" temporary properties from `Document` objects to 
+            `Annotation` objects. See :meth:`generate_capital_annotations` for 
+            details.
+        :param pretty: If True, returns string representation with indentation.
+        :return: JSON string of the MMIF object.
+        """
         if sanitize:
             self.sanitize()
+        if autogenerate_capital_annotations:
+            self.generate_capital_annotations()
         return super().serialize(pretty)
+    
+    def generate_capital_annotations(self):
+        """
+        Automatically convert any "pending" temporary properties from 
+        `Document` objects to `Annotation` objects . The generated `Annotation` 
+        objects are then added to the last `View` in the views lists. 
+        
+        See https://github.com/clamsproject/mmif-python/issues/226 for rationale
+        behind this behavior and discussion.
+        """
+        view_to_write = self.views.get_last()
+        # only when there's at least one view
+        if view_to_write:
+            # to avoid duplicate property recording, this will be popluated with
+            # existing Annotation objects from all existing views
+            existing_anns = defaultdict(lambda: defaultdict(dict))
+            
+            # new properties to record in the current serialization call
+            anns_to_write = defaultdict(dict)
+            for view in self.views:
+                doc_id = None
+                if AnnotationTypes.Annotation in view.metadata.contains:
+                    if 'document' in view.metadata.contains[AnnotationTypes.Annotation]:
+                        doc_id = view.metadata.contains[AnnotationTypes.Annotation]['document']
+                    for ann in view.get_annotations(AnnotationTypes.Annotation):
+                        if doc_id is None:
+                            doc_id = ann.get_property('document')
+                        existing_anns[doc_id].update(ann.properties)
+                for doc in view.get_documents():
+                    anns_to_write[doc.id].update(doc._props_temporary)
+            for doc in self.documents:
+                anns_to_write[doc.id].update(doc._props_temporary)
+            for doc_id, found_props in anns_to_write.items():
+                # ignore the "empty" id property from temporary dict 
+                # `id` is "required" attribute for `AnnotationProperty` class 
+                # thus will always be present in `props` dict as a key with emtpy value
+                # also ignore duplicate k-v pairs
+                props = {}
+                for k, v in found_props.items():
+                    if k != 'id' and existing_anns[doc_id][k] != v:
+                        props[k] = v
+                if props:
+                    if len(anns_to_write) == 1:
+                        # if there's only one document, we can record the doc_id in the contains metadata
+                        view_to_write.metadata.new_contain(AnnotationTypes.Annotation, document=doc_id)
+                        props.pop('document', None)
+                    else:
+                        # otherwise, doc_id needs to be recorded in the annotation property
+                        props['document'] = doc_id
+                    view_to_write.new_annotation(AnnotationTypes.Annotation, **props)
 
     def sanitize(self):
         """
