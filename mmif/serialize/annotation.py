@@ -79,10 +79,8 @@ class Annotation(MmifObject):
         self.properties.id = aid
 
     def add_property(self, name: str,
-                     value: Union[JSON_COMPATIBLE_PRIMITIVES,
-                                  List[JSON_COMPATIBLE_PRIMITIVES],
-                                  List[List[JSON_COMPATIBLE_PRIMITIVES]]
-                    ]) -> None:
+                     value: Union[JSON_COMPATIBLE_PRIMITIVES, List[JSON_COMPATIBLE_PRIMITIVES], List[List[JSON_COMPATIBLE_PRIMITIVES]]]
+                     ) -> None:
         """
         Adds a property to the annotation's properties.
         :param name: the name of the property
@@ -103,6 +101,26 @@ class Annotation(MmifObject):
                              "either string, number, boolean, None, or a list of them."
                              f"(\"{name}\": \"{str(value)}\"")
 
+    def get(self, prop_name: str) -> Union['AnnotationProperties', JSON_COMPATIBLE_PRIMITIVES, List[JSON_COMPATIBLE_PRIMITIVES], List[List[JSON_COMPATIBLE_PRIMITIVES]]]:
+        """
+        A special getter for Annotation properties. This is to allow for
+        directly accessing properties without having to go through the
+        properties object.
+        """
+        if prop_name in {'at_type', '@type'}:
+            return str(self._type)
+        elif prop_name == 'properties':
+            return self.properties
+        elif prop_name in self.properties:
+            return self.properties[prop_name]
+        else:
+            raise KeyError(f"Property {prop_name} does not exist in this annotation.")
+
+    get_property = get
+
+    def __getitem__(self, prop_name: str):
+        return self.get(prop_name)
+    
     def is_document(self):
         return isinstance(self.at_type, DocumentTypesBase)
 
@@ -250,7 +268,7 @@ class AnnotationProperties(MmifObject, MutableMapping[str, T]):
         empty props are ignored (note that emtpy but required props are serialized 
         with the *emtpy* value). 
         Hence, this ``__iter__`` method should also work in the same way and 
-        ignored empty but optional props. 
+        ignore empty optional props. 
         """
         for key in itertools.chain(self._named_attributes(), self._unnamed_attributes):
             if key in self._required_attributes:

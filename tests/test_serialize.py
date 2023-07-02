@@ -171,7 +171,7 @@ class TestMmif(unittest.TestCase):
         mmif_obj = Mmif(MMIF_EXAMPLES['everything'])
         mmif_obj.add_document(Document(FRACTIONAL_EXAMPLES['doc_only']))
         self.assertEqual(len(mmif_obj.get_documents_by_property("mime", "video/mpeg")), 1)
-        self.assertEqual(len(mmif_obj.get_documents_by_property("mime", "text/plain")), 1)
+        self.assertEqual(len(mmif_obj.get_documents_by_property("mime", "text/plain")), 2)  # one from the original 'v4', one from the newly added here
 
     def test_get_documents_by_app(self):
         tesseract_appid = 'http://mmif.clams.ai/apps/tesseract/0.2.1'
@@ -740,6 +740,16 @@ class TestAnnotation(unittest.TestCase):
                                      f'Failed on {i}, {view_id}')
                 except ValidationError:
                     continue
+    
+    def test_get_property(self):
+        v = View()
+        a = v.new_annotation(AnnotationTypes.Annotation)
+        a.add_property('prop1', 'value1')
+        self.assertEqual(a.properties['prop1'], 'value1')
+        self.assertEqual(a['properties']['prop1'], 'value1')
+        self.assertEqual(a.get_property('prop1'), 'value1')
+        self.assertEqual(a['prop1'], 'value1')
+        self.assertEqual(a.id, a['id'])
 
     def test_id(self):
         anno_obj: Annotation = self.data['everything']['mmif']['v5:bb1']

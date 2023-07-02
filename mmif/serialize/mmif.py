@@ -195,9 +195,9 @@ class Mmif(MmifObject):
         docs = []
         for view in self.views:
             for doc in view.get_documents():
-                if prop_key in doc and doc.properties[prop_key] == prop_value:
+                if prop_key in doc and doc.get(prop_key) == prop_value:
                     docs.append(doc)
-        docs.extend([document for document in self.documents if document.properties[prop_key] == prop_value])
+        docs.extend([document for document in self.documents if document[prop_key] == prop_value])
         return docs
 
     def get_documents_locations(self, m_type: Union[DocumentTypes, str], path_only=False) -> List[Union[str, None]]:
@@ -279,7 +279,7 @@ class Mmif(MmifObject):
             else:
                 for alignment in alignment_view.get_annotations(AnnotationTypes.Alignment):
                     aligned_types = set()
-                    for ann_id in [alignment.properties['target'], alignment.properties['source']]:
+                    for ann_id in [alignment['target'], alignment['source']]:
                         ann_id = cast(str, ann_id)
                         if Mmif.id_delimiter in ann_id:
                             view_id, ann_id = ann_id.split(Mmif.id_delimiter)

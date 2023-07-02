@@ -278,8 +278,11 @@ class ViewMetadata(MmifObject):
             
         if at_type not in self.contains:
             new_contain = Contain(contains_metadata)
-            self.contains[at_type] = new_contain
+            self.add_contain(new_contain, at_type)
             return new_contain
+    
+    def add_contain(self, contain: 'Contain', at_type: Union[str, ThingTypesBase]):
+        self.contains[at_type] = contain
 
     def add_parameters(self, **runtime_params):
         self.parameters.update(dict(runtime_params))
