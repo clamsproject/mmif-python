@@ -845,6 +845,10 @@ class TestDocument(unittest.TestCase):
         ## after serialization, the `Annotation` annotation should be added to the last view
         mmif_roundtrip = Mmif(mmif.serialize())
         self.assertTrue(next(mmif_roundtrip.views.get_last().get_annotations(AnnotationTypes.Annotation, author='me')))
+        # finally, when deserialized back to a Mmif instance, the `Annotation` props should be added
+        # as a property of the document 
+        self.assertEqual('me', mmif_roundtrip.get_document_by_id('doc1').get_property('author'))
+    
     def test_deserialize_with_whole_mmif(self):
         for i, datum in self.data.items():
             for j, document in enumerate(datum['documents']):

@@ -165,6 +165,12 @@ class Document(Annotation):
         self.disallow_additional_properties()
         self._attribute_classes = {'properties': DocumentProperties}
         super().__init__(doc_obj)
+    
+    def _add_property_from_annotation(self, annotation: Annotation):
+        if annotation.at_type != AnnotationTypes.Annotation:
+            raise ValueError("Only `Annotation` type can be added as a property to a `Document` object.")
+        for prop_name, prop_value in annotation.properties.items():
+            self._props_existing[prop_name] = prop_value
 
     def add_property(self, name: str,
                      value: Union[JSON_PRMTV_TYPES, List[JSON_PRMTV_TYPES]]
@@ -220,6 +226,8 @@ class Document(Annotation):
         else:
             return super().get(prop_name)
 
+    get_property = get
+    
     @property
     def text_language(self) -> str:
         if self.at_type == DocumentTypes.TextDocument:

@@ -87,7 +87,28 @@ class Mmif(MmifObject):
         if autogenerate_capital_annotations:
             self.generate_capital_annotations()
         return super().serialize(pretty)
-    
+
+    def _deserialize(self, input_dict: dict) -> None:
+        """
+        Deserializes the MMIF JSON string into a Mmif object.
+        This will read in existing ``Annotation`` typed annotations and 
+        attach the document-level properties to the ``Document`` objects, 
+        using a volatile property dict. This will allow apps to access the
+        document-level properties without having too much hassle to iterate
+        views and manually collect the properties.
+        """
+        super()._deserialize(input_dict)
+        for view in self.views:
+            doc_id = None
+            if AnnotationTypes.Annotation in view.metadata.contains:
+                if 'document' in view.metadata.contains[AnnotationTypes.Annotation]:
+                    doc_id = view.metadata.contains[AnnotationTypes.Annotation]['document']
+                # in a view, it is guaranteed that all Annotation objects are not duplicates
+                for ann in view.get_annotations(AnnotationTypes.Annotation):
+                    if doc_id is None:
+                        doc_id = ann.get_property('document')
+                    self.get_document_by_id(doc_id)._add_property_from_annotation(ann)
+
     def generate_capital_annotations(self):
         """
         Automatically convert any "pending" temporary properties from 
