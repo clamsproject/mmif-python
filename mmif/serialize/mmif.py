@@ -6,6 +6,7 @@ See the specification docs and the JSON Schema file for more information.
 """
 
 import json
+import warnings
 from datetime import datetime
 from typing import List, Union, Optional, Dict, ClassVar, cast
 from collections import defaultdict
@@ -107,7 +108,10 @@ class Mmif(MmifObject):
                 for ann in view.get_annotations(AnnotationTypes.Annotation):
                     if doc_id is None:
                         doc_id = ann.get_property('document')
-                    self.get_document_by_id(doc_id)._add_property_from_annotation(ann)
+                    try:
+                        self.get_document_by_id(doc_id)._add_property_from_annotation(ann)
+                    except KeyError:
+                        warnings.warn(f"Annotation {ann.id} has a document ID {doc_id} that does not exist in the MMIF object. Skipping.", RuntimeWarning)
 
     def generate_capital_annotations(self):
         """
@@ -317,7 +321,7 @@ class Mmif(MmifObject):
 
         :param doc_id: the ID to search for
         :return: a reference to the corresponding document, if it exists
-        :raises Exception: if there is no corresponding document
+        :raises KeyError: if there is no corresponding document
         """
         if Mmif.id_delimiter in doc_id:
             vid, did = doc_id.split(Mmif.id_delimiter)
@@ -535,8 +539,6 @@ class ViewsList(DataList[View]):
     _items: Dict[str, View]
     
     def __init__(self, mmif_obj: Optional[Union[bytes, str, list]] = None):
-        self._last_view_id = None
-        self.reserved_names.add('_last_view_id')
         super().__init__(mmif_obj)
 
     def _deserialize(self, input_list: list) -> None:  # pytype: disable=signature-mismatch
@@ -549,7 +551,6 @@ class ViewsList(DataList[View]):
         """
         if input_list:
             self._items = {item['id']: View(item) for item in input_list}
-            self._last_view_id = input_list[-1]['id']
 
     def append(self, value: View, overwrite=False) -> None:
         """
@@ -567,12 +568,12 @@ class ViewsList(DataList[View]):
                           in the list
         :return: None
         """
-        self._last_view_id = value.id
         super()._append_with_key(value.id, value, overwrite)
 
     def get_last(self) -> View:
         """
         Returns the last view appended to the list.
         """
-        if self._last_view_id:
-            return self[self._last_view_id]
+        for view in reversed(self._items.values()):
+            if 'error' not in view.metadata and 'warning' not in view.metadata:
+                return view
