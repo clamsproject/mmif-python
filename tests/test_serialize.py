@@ -20,6 +20,7 @@ from tests.mmif_examples import *
 DEBUG = False
 SKIP_SCHEMA = False, "Not skipping TestSchema by default"
 not_existing_attype = 'http://not.existing/type'
+tester_appname = 'http://not.existing/app'
 
 
 class TestMmif(unittest.TestCase):
@@ -96,7 +97,7 @@ class TestMmif(unittest.TestCase):
         mmif: Mmif = Mmif(self.mmif_examples_json['everything'])
         mmif.views.empty()
         v = mmif.new_view()
-        v.metadata.app = 'http://dummy.app'
+        v.metadata.app = tester_appname
         v.new_contain(AnnotationTypes.TimeFrame)
         self.assertEqual(0, len(Mmif(mmif.serialize(sanitize=True))[v.id].metadata.contains))
         v.new_annotation(AnnotationTypes.Annotation, fps='30', document=v.id)
@@ -834,21 +835,89 @@ class TestDocument(unittest.TestCase):
         doc1_roundtrip = Document(doc1.serialize())
         self.assertTrue(doc1_roundtrip.get('mime'), 'text')
         # but a generic prop should be added to "temporary" props
+        # ("temporary" props dict will be lost after `Document`-level serialization)
         doc1.add_property('author', 'me')
         doc1_roundtrip = Document(doc1.serialize())
         self.assertNotIn('author', doc1_roundtrip.properties)
-        # and converted to an `Annotation` annotation during serialization
+        # then converted to an `Annotation` annotation during serialization at `Mmif`-level
         mmif.add_document(doc1)
         ## no Annotation before serialization
-        with pytest.raises(StopIteration):
-            self.assertTrue(next(mmif.views.get_last().get_annotations(AnnotationTypes.Annotation, author='me')))
+        self.assertEqual(0, len(list(mmif.views.get_last().get_annotations(AnnotationTypes.Annotation, author='me'))))
         ## after serialization, the `Annotation` annotation should be added to the last view
+        ## note that we didn't add any views, so the last view before and after the serialization are the same
         mmif_roundtrip = Mmif(mmif.serialize())
         self.assertTrue(next(mmif_roundtrip.views.get_last().get_annotations(AnnotationTypes.Annotation, author='me')))
         # finally, when deserialized back to a Mmif instance, the `Annotation` props should be added
         # as a property of the document 
-        self.assertEqual('me', mmif_roundtrip.get_document_by_id('doc1').get_property('author'))
-    
+        doc1_mmif_roundtrip = mmif_roundtrip.get_document_by_id('doc1')
+        self.assertEqual(0, len(doc1_mmif_roundtrip._props_temporary))
+        self.assertEqual('me', doc1_mmif_roundtrip.get_property('author'))
+        
+    def test_document_adding_duplicate_properties(self):
+        mmif = Mmif(self.data['everything']['string'])
+        doc1 = Document()
+        mmif.add_document(doc1)
+        did = 'doc1'
+        # last view before serialization rounds
+        r0_vid = mmif.views.get_last().id
+        doc1.at_type = DocumentTypes.TextDocument
+        doc1.id = did
+        doc1.location = 'aScheme:///data/doc1.txt'
+        doc1.add_property('author', 'me')
+        doc1.add_property('publisher', 'they')
+        
+        # sanity checks
+        self.assertEqual(2, len(doc1._props_temporary))
+        self.assertEqual('me', doc1.get_property('author'))
+        
+        # new value should overwrite the existing before being serialized
+        doc1.add_property('author', 'you')
+        self.assertEqual(2, len(doc1._props_temporary))
+        self.assertEqual('you', doc1.get_property('author'))
+        
+        # first round of serialization
+        mmif_roundtrip1 = Mmif(mmif.serialize())  # as we didn't add any views, two `Annotation` annotations should be in the last view of the original MMIF
+        doc1 = mmif_roundtrip1.get_document_by_id(did)
+        # adding duplicate value should not be serialized into a new Annotation object
+        ## new view to 
+        v = mmif_roundtrip1.new_view()
+        r1_vid = v.id
+        v.metadata.app = tester_appname
+        doc1.add_property('author', 'you')  # duplicate value
+        doc1.add_property('publisher', 'they')  # duplicate value
+        ## stored in temporary props even when the value is the same
+        self.assertEqual(2, len(doc1._props_temporary))
+        mmif_roundtrip2 = Mmif(mmif_roundtrip1.serialize())
+        ## but not serialized
+        self.assertEqual(0, len(list(mmif_roundtrip2.views.get_last().get_annotations(AnnotationTypes.Annotation))))
+
+        # adding non-duplicate value should be serialized into a new Annotation object
+        # even when there is a duplicate key in a previous view
+        doc1 = mmif_roundtrip2.get_document_by_id(did)
+        v = mmif_roundtrip2.new_view()
+        r2_vid = v.id
+        v.metadata.app = tester_appname
+        # print(mmif_roundtrip.views.get_last().serialize(pretty=True))
+        doc1.add_property('author', 'me')
+        doc1.add_property('publisher', 'they')
+        self.assertEqual(2, len(doc1._props_temporary))
+        mmif_roundtrip3 = Mmif(mmif_roundtrip2.serialize())
+        r0_v_anns = list(mmif_roundtrip3.views[r0_vid].get_annotations(AnnotationTypes.Annotation))
+        r1_v_anns = list(mmif_roundtrip3.views[r1_vid].get_annotations(AnnotationTypes.Annotation))
+        r2_v_anns = list(mmif_roundtrip3.views[r2_vid].get_annotations(AnnotationTypes.Annotation))
+        # two props (`author` and `publisher`) are serialized to one `Annotation` objects
+        self.assertEqual(1, len(r0_v_anns))  
+        self.assertEqual(0, len(r1_v_anns))
+        self.assertEqual(1, len(r2_v_anns))
+        
+        # when the value is different, two same-key props co-exist in two Annotation objects
+        self.assertEqual('you', r0_v_anns[0].get_property('author'))
+        self.assertEqual('me', r2_v_anns[0].get_property('author'))
+
+        # but the Annotation object should not be created when the value is the same
+        self.assertTrue('publisher' in r0_v_anns[0])
+        self.assertFalse('publisher' in r2_v_anns[0])
+
     def test_deserialize_with_whole_mmif(self):
         for i, datum in self.data.items():
             for j, document in enumerate(datum['documents']):
