@@ -570,7 +570,7 @@ class ViewsList(DataList[View]):
         """
         super()._append_with_key(value.id, value, overwrite)
 
-    def get_last(self) -> View:
+    def get_last(self) -> Optional[View]:
         """
         Returns the last view appended to the list.
         """

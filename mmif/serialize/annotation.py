@@ -204,7 +204,7 @@ class Document(Annotation):
         if name == "text":
             self.properties.text = Text(value)
         elif name == "mime":
-            self.properties.mime = value
+            self.properties.mime = str(value)
         elif name == "location":
             self.location = value
         elif name not in self._props_original:
