@@ -918,6 +918,57 @@ class TestDocument(unittest.TestCase):
         self.assertTrue('publisher' in r0_v_anns[0])
         self.assertFalse('publisher' in r2_v_anns[0])
 
+    def test_document_added_properties_with_manual_capital_annotation(self):
+        mmif = Mmif(validate=False)
+        v = mmif.new_view()
+        did = 'doc1'
+        v.metadata.app = tester_appname
+        v.metadata.new_contain(AnnotationTypes.Annotation, document=did)
+        doc1 = Document()
+        mmif.add_document(doc1)
+        doc1.at_type = DocumentTypes.TextDocument
+        doc1.id = did
+        doc1.location = 'aScheme:///data/doc1.txt'
+
+        # test auto-generation disabled when an Annotation instance is added manually during current app's run
+        v.new_annotation(AnnotationTypes.Annotation, author='me', publisher='they')
+        doc1.add_property('author', 'me')
+        mmif_roundtrip = Mmif(mmif.serialize())
+        ## should be only one Annotation object, from manual call of `new_annotation`
+        self.assertEqual(1, len(list(mmif_roundtrip.views.get_last().get_annotations(AnnotationTypes.Annotation))))
+
+        # test with duplicate property added by a downstream app
+        mmif_roundtrip = Mmif(mmif.serialize())
+        doc1_prime = mmif_roundtrip.get_document_by_id(did)
+        ## simulating a new view added by the downstream app
+        v2 = mmif_roundtrip.new_view()
+        v2.metadata.app = tester_appname
+        # author=me is already in the input MMIF
+        doc1_prime.add_property('author', 'me')
+        mmif_roundtrip2 = Mmif(mmif_roundtrip.serialize())
+        self.assertEqual(1, len(list(mmif.views.get_last().get_annotations(AnnotationTypes.Annotation))))
+        # none should be added
+        self.assertEqual(0, len(list(mmif_roundtrip2.views.get_last().get_annotations(AnnotationTypes.Annotation))))
+
+        # test with same key, different value
+        mmif_roundtrip = Mmif(mmif.serialize())
+        doc1_prime = mmif_roundtrip.get_document_by_id(did)
+        ## simulating a new view added by the downstream app
+        v2 = mmif_roundtrip.new_view()
+        v2.metadata.app = tester_appname
+        # author=me is in the input MMIF
+        doc1_prime.add_property('author', 'you')
+        mmif_roundtrip2 = Mmif(mmif_roundtrip.serialize())
+        # the Annotation in the previous view should be preserved
+        self.assertEqual(1, len(list(mmif.views.get_last().get_annotations(AnnotationTypes.Annotation))))
+        # but a new one should be added
+        self.assertEqual(1, len(list(mmif_roundtrip2.views.get_last().get_annotations(AnnotationTypes.Annotation))))
+
+        self.assertEqual('me', list(mmif.views.get_last().get_annotations(AnnotationTypes.Annotation))[0].get_property(
+            'author'))
+        self.assertEqual('you', list(mmif_roundtrip2.views.get_last().get_annotations(AnnotationTypes.Annotation))[
+            0].get_property('author'))
+
     def test_deserialize_with_whole_mmif(self):
         for i, datum in self.data.items():
             for j, document in enumerate(datum['documents']):
