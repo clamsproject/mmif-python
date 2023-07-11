@@ -27,7 +27,6 @@ def get_mmif_json_schema():
 
 patches: Dict[Type, Set[Callable]] = defaultdict(set)
 for _, name, ispkg in pkgutil.iter_modules():
-    print(name)
     if ispkg and re.match(r'mmif[-_]utils[-_]', name):
         mod = importlib.import_module(name)
         for c, ms in mod.patches.items():

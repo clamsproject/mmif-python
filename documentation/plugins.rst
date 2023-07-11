@@ -77,6 +77,11 @@ And the plugin code.
 Utility Plugins
 ^^^^^^^^^^^^^^^
 
+.. warning::
+
+  This feature is experimental and subject to change in the future.
+  See `this issue <https://github.com/clamsproject/mmif-python/issues/224>`_ for limitations and known issues.
+
 Utility plugins, or ``mmif-utils-`` plugins are used to provide monkeypatch functions to ``mmif-python``. 
 Currently :class:`mmif.serialize.model.MmifObject` and its subclasses are the only classes that are under the scope of monkeypatching supported by the `mmif-python` core SDK. 
 (Of course any Python developer can come up with other ways to custom patch any parts of the SDK, it's just not supported by the method described here.)
