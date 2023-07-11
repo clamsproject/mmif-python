@@ -317,7 +317,7 @@ class ErrorDict(MmifObject):
         super().__init__(error_obj)
         
 
-class Contain(MmifObject):
+class Contain(DataDict[str, str]):
     """
     Contain object that represents the metadata of a single
     annotation type in the ``contains`` metadata of a MMIF view.

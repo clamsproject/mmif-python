@@ -7,9 +7,9 @@ See the specification docs and the JSON Schema file for more information.
 
 import json
 import warnings
+from collections import defaultdict
 from datetime import datetime
 from typing import List, Union, Optional, Dict, ClassVar, cast
-from collections import defaultdict
 
 import jsonschema.validators
 
@@ -83,10 +83,11 @@ class Mmif(MmifObject):
         :param pretty: If True, returns string representation with indentation.
         :return: JSON string of the MMIF object.
         """
-        if sanitize:
-            self.sanitize()
         if autogenerate_capital_annotations:
             self.generate_capital_annotations()
+        # sanitization should be done after `Annotation` annotations are generated
+        if sanitize:
+            self.sanitize()
         return super().serialize(pretty)
 
     def _deserialize(self, input_dict: dict) -> None:
@@ -122,10 +123,11 @@ class Mmif(MmifObject):
         See https://github.com/clamsproject/mmif-python/issues/226 for rationale
         behind this behavior and discussion.
         """
-        view_to_write = self.views.get_last()
-        # only when there's at least one view
-        if view_to_write:
-            # to avoid duplicate property recording, this will be popluated with
+        # this view will be the default kitchen sink for all generated annotations
+        last_view = self.views.get_last()
+        # proceed only when there's at least one view
+        if last_view:
+            # to avoid duplicate property recording, this will be populated with
             # existing Annotation objects from all existing views
             existing_anns = defaultdict(lambda: defaultdict(dict))
             
@@ -144,6 +146,18 @@ class Mmif(MmifObject):
                     anns_to_write[doc.id].update(doc._props_temporary)
             for doc in self.documents:
                 anns_to_write[doc.id].update(doc._props_temporary)
+            # additional iteration of views, to find a proper view to add the 
+            # generated annotations. If none found, use the last view as the kitchen sink
+            last_view_for_docs = defaultdict(lambda: last_view)
+            doc_ids = set(anns_to_write.keys())
+            for doc_id in doc_ids:
+                for view in reversed(self.views):
+                    # first try to find out if this view "contains" any annotation to the doc
+                    # then, check for individual annotations
+                    if [cont for cont in view.metadata.contains.values() if cont.get('document', None) == doc_id] \
+                            or list(view.get_annotations(document=doc_id)):
+                        last_view_for_docs[doc_id] = view
+                        break
             for doc_id, found_props in anns_to_write.items():
                 # ignore the "empty" id property from temporary dict 
                 # `id` is "required" attribute for `AnnotationProperty` class 
@@ -156,12 +170,12 @@ class Mmif(MmifObject):
                 if props:
                     if len(anns_to_write) == 1:
                         # if there's only one document, we can record the doc_id in the contains metadata
-                        view_to_write.metadata.new_contain(AnnotationTypes.Annotation, document=doc_id)
+                        last_view_for_docs[doc_id].metadata.new_contain(AnnotationTypes.Annotation, document=doc_id)
                         props.pop('document', None)
                     else:
                         # otherwise, doc_id needs to be recorded in the annotation property
                         props['document'] = doc_id
-                    view_to_write.new_annotation(AnnotationTypes.Annotation, **props)
+                    last_view_for_docs[doc_id].new_annotation(AnnotationTypes.Annotation, **props)
 
     def sanitize(self):
         """
@@ -384,10 +398,10 @@ class Mmif(MmifObject):
                 v_and_a[alignment_view.id] = alignments
         return v_and_a
 
-    def get_views_for_document(self, doc_id: str):
+    def get_views_for_document(self, doc_id: str) -> List[View]:
         """
         Returns the list of all views that have annotations anchored on a particular document.
-        Note that when the document is insids a view (generated during the pipeline's running),
+        Note that when the document is inside a view (generated during the pipeline's running),
         doc_id must be prefixed with the view_id.
         """
         views = []

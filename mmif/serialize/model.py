@@ -423,7 +423,7 @@ class DataList(MmifObject, Generic[T]):
         return self._items.__len__()
 
     def __reversed__(self) -> Iterator[T]:
-        return reversed(list(self._items.values()))
+        return reversed(self._items.values())
 
     def __contains__(self, item) -> bool:
         return item in self._items
@@ -443,9 +443,6 @@ class DataDict(MmifObject, Generic[T, S]):
 
     def _serialize(self, *args, **kwargs) -> dict:
         return super()._serialize(self._items)
-
-    def _deserialize(self, input_dict: dict) -> None:
-        raise NotImplementedError()
 
     def get(self, key: T, default=None) -> Optional[S]:
         return self._items.get(key, default)

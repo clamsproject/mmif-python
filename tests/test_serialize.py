@@ -897,7 +897,7 @@ class TestDocument(unittest.TestCase):
         v = mmif_roundtrip2.new_view()
         r2_vid = v.id
         v.metadata.app = tester_appname
-        # print(mmif_roundtrip.views.get_last().serialize(pretty=True))
+        v.new_annotation(AnnotationTypes.Region, document=did)
         doc1.add_property('author', 'me')
         doc1.add_property('publisher', 'they')
         self.assertEqual(2, len(doc1._props_temporary))
@@ -943,6 +943,7 @@ class TestDocument(unittest.TestCase):
         ## simulating a new view added by the downstream app
         v2 = mmif_roundtrip.new_view()
         v2.metadata.app = tester_appname
+        v2.new_annotation(AnnotationTypes.Region, document=did)
         # author=me is already in the input MMIF
         doc1_prime.add_property('author', 'me')
         mmif_roundtrip2 = Mmif(mmif_roundtrip.serialize())
@@ -956,6 +957,7 @@ class TestDocument(unittest.TestCase):
         ## simulating a new view added by the downstream app
         v2 = mmif_roundtrip.new_view()
         v2.metadata.app = tester_appname
+        v2.metadata.new_contain(AnnotationTypes.Region, document=did)
         # author=me is in the input MMIF
         doc1_prime.add_property('author', 'you')
         mmif_roundtrip2 = Mmif(mmif_roundtrip.serialize())
@@ -968,6 +970,31 @@ class TestDocument(unittest.TestCase):
             'author'))
         self.assertEqual('you', list(mmif_roundtrip2.views.get_last().get_annotations(AnnotationTypes.Annotation))[
             0].get_property('author'))
+        
+    def test_capital_annotation_generation_viewfinder(self):
+        mmif = Mmif(validate=False)
+        for i in range(1, 3):
+            doc = Document()
+            doc.at_type = DocumentTypes.TextDocument
+            doc.id = f'doc{i}'
+            doc.location = f'aScheme:///data/doc{i}.txt'
+            mmif.add_document(doc)
+
+            v = mmif.new_view()
+            v.id = f'v{i}'
+            v.metadata.app = tester_appname
+            v.new_annotation(AnnotationTypes.Region, document=f'doc{i}')
+            mmif.add_view(v)
+        authors = ['me', 'you']
+        for i in range(2):
+            mmif.get_document_by_id(f'doc{i+1}').add_property('author', authors[i])
+        mmif_roundtrip = Mmif(mmif.serialize())
+        for i in range(1, 3):
+            cap_anns = list(mmif_roundtrip.views[f'v{i}'].get_annotations(AnnotationTypes.Annotation))
+            self.assertEqual(1, len(cap_anns))
+            self.assertEqual(authors[i-1], cap_anns[0].get_property('author'))
+        
+
 
     def test_deserialize_with_whole_mmif(self):
         for i, datum in self.data.items():
