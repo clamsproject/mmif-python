@@ -1,4 +1,15 @@
 
+## releasing 1.0.2 (2023-07-11)
+### Overview
+This release includes support for plugins, and a "magic" helper for using `Annotation` annotations for documents in MMIF. 
+
+### Additions
+* a "magic" helper to automatically generate the "capital" `Annotation` annotations when an app adds properties to `Document` objects using `Document.add_property()` method. (#226)
+* support for `mmif-docloc-` plugins for arbitrary URI scheme in `Document.location` property. (#222)
+* (EXPERIMENTAL) support for `mmif-utils-` plugins for monkeypatching `MmifObject` classes (#224)
+
+
+
 ## releasing 1.0.1 (2023-05-26)
 ### Overview
 `mmif-python` 1.0.0 included MMIF 0.5.0 instead of  MMIF 1.0.0. This release fixes it
