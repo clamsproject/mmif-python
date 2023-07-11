@@ -11,12 +11,14 @@ core functionality for deserializing MMIF JSON data into live objects
 and serializing live objects into MMIF JSON data. Specialized behavior
 for the different components of MMIF is added in the subclasses.
 """
-
 import json
 from datetime import datetime
+from types import MethodType
 from typing import Union, Any, Dict, Optional, TypeVar, Generic, Generator, Iterator, Type, Set
 
 from deepdiff import DeepDiff
+
+import mmif
 
 T = TypeVar('T')
 S = TypeVar('S')
@@ -103,6 +105,8 @@ class MmifObject(object):
             self._unnamed_attributes = {}
         if mmif_obj is not None:
             self.deserialize(mmif_obj)
+        for method in mmif.patches[self.__class__]:
+            setattr(self, method.__name__, MethodType(method, self))
 
     def disallow_additional_properties(self) -> None:
         """
