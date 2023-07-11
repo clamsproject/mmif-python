@@ -6,6 +6,8 @@ See the specification docs and the JSON Schema file for more information.
 """
 
 import json
+import warnings
+from collections import defaultdict
 from datetime import datetime
 from typing import List, Union, Optional, Dict, ClassVar, cast
 
@@ -68,10 +70,112 @@ class Mmif(MmifObject):
             json_str = json.loads(json_str)
         jsonschema.validators.validate(json_str, schema)
 
-    def serialize(self, pretty: bool = False, sanitize: bool = False) -> str:
+    def serialize(self, pretty: bool = False, sanitize: bool = False, autogenerate_capital_annotations=True) -> str:
+        """
+        Serializes the MMIF object to a JSON string.
+
+        :param sanitize: If True, performs some sanitization of before returning 
+            the JSON string. See :meth:`sanitize` for details.
+        :param autogenerate_capital_annotations: If True, automatically convert 
+            any "pending" temporary properties from `Document` objects to 
+            `Annotation` objects. See :meth:`generate_capital_annotations` for 
+            details.
+        :param pretty: If True, returns string representation with indentation.
+        :return: JSON string of the MMIF object.
+        """
+        if autogenerate_capital_annotations:
+            self.generate_capital_annotations()
+        # sanitization should be done after `Annotation` annotations are generated
         if sanitize:
             self.sanitize()
         return super().serialize(pretty)
+
+    def _deserialize(self, input_dict: dict) -> None:
+        """
+        Deserializes the MMIF JSON string into a Mmif object.
+        This will read in existing ``Annotation`` typed annotations and 
+        attach the document-level properties to the ``Document`` objects, 
+        using a volatile property dict. This will allow apps to access the
+        document-level properties without having too much hassle to iterate
+        views and manually collect the properties.
+        """
+        super()._deserialize(input_dict)
+        for view in self.views:
+            doc_id = None
+            if AnnotationTypes.Annotation in view.metadata.contains:
+                if 'document' in view.metadata.contains[AnnotationTypes.Annotation]:
+                    doc_id = view.metadata.contains[AnnotationTypes.Annotation]['document']
+                # in a view, it is guaranteed that all Annotation objects are not duplicates
+                for ann in view.get_annotations(AnnotationTypes.Annotation):
+                    if doc_id is None:
+                        doc_id = ann.get_property('document')
+                    try:
+                        self.get_document_by_id(doc_id)._add_property_from_annotation(ann)
+                    except KeyError:
+                        warnings.warn(f"Annotation {ann.id} has a document ID {doc_id} that does not exist in the MMIF object. Skipping.", RuntimeWarning)
+
+    def generate_capital_annotations(self):
+        """
+        Automatically convert any "pending" temporary properties from 
+        `Document` objects to `Annotation` objects . The generated `Annotation` 
+        objects are then added to the last `View` in the views lists. 
+        
+        See https://github.com/clamsproject/mmif-python/issues/226 for rationale
+        behind this behavior and discussion.
+        """
+        # this view will be the default kitchen sink for all generated annotations
+        last_view = self.views.get_last()
+        # proceed only when there's at least one view
+        if last_view:
+            # to avoid duplicate property recording, this will be populated with
+            # existing Annotation objects from all existing views
+            existing_anns = defaultdict(lambda: defaultdict(dict))
+            
+            # new properties to record in the current serialization call
+            anns_to_write = defaultdict(dict)
+            for view in self.views:
+                doc_id = None
+                if AnnotationTypes.Annotation in view.metadata.contains:
+                    if 'document' in view.metadata.contains[AnnotationTypes.Annotation]:
+                        doc_id = view.metadata.contains[AnnotationTypes.Annotation]['document']
+                    for ann in view.get_annotations(AnnotationTypes.Annotation):
+                        if doc_id is None:
+                            doc_id = ann.get_property('document')
+                        existing_anns[doc_id].update(ann.properties)
+                for doc in view.get_documents():
+                    anns_to_write[doc.id].update(doc._props_temporary)
+            for doc in self.documents:
+                anns_to_write[doc.id].update(doc._props_temporary)
+            # additional iteration of views, to find a proper view to add the 
+            # generated annotations. If none found, use the last view as the kitchen sink
+            last_view_for_docs = defaultdict(lambda: last_view)
+            doc_ids = set(anns_to_write.keys())
+            for doc_id in doc_ids:
+                for view in reversed(self.views):
+                    # first try to find out if this view "contains" any annotation to the doc
+                    # then, check for individual annotations
+                    if [cont for cont in view.metadata.contains.values() if cont.get('document', None) == doc_id] \
+                            or list(view.get_annotations(document=doc_id)):
+                        last_view_for_docs[doc_id] = view
+                        break
+            for doc_id, found_props in anns_to_write.items():
+                # ignore the "empty" id property from temporary dict 
+                # `id` is "required" attribute for `AnnotationProperty` class 
+                # thus will always be present in `props` dict as a key with emtpy value
+                # also ignore duplicate k-v pairs
+                props = {}
+                for k, v in found_props.items():
+                    if k != 'id' and existing_anns[doc_id][k] != v:
+                        props[k] = v
+                if props:
+                    if len(anns_to_write) == 1:
+                        # if there's only one document, we can record the doc_id in the contains metadata
+                        last_view_for_docs[doc_id].metadata.new_contain(AnnotationTypes.Annotation, document=doc_id)
+                        props.pop('document', None)
+                    else:
+                        # otherwise, doc_id needs to be recorded in the annotation property
+                        props['document'] = doc_id
+                    last_view_for_docs[doc_id].new_annotation(AnnotationTypes.Annotation, **props)
 
     def sanitize(self):
         """
@@ -195,9 +299,9 @@ class Mmif(MmifObject):
         docs = []
         for view in self.views:
             for doc in view.get_documents():
-                if prop_key in doc and doc.properties[prop_key] == prop_value:
+                if prop_key in doc and doc.get(prop_key) == prop_value:
                     docs.append(doc)
-        docs.extend([document for document in self.documents if document.properties[prop_key] == prop_value])
+        docs.extend([document for document in self.documents if document[prop_key] == prop_value])
         return docs
 
     def get_documents_locations(self, m_type: Union[DocumentTypes, str], path_only=False) -> List[Union[str, None]]:
@@ -231,7 +335,7 @@ class Mmif(MmifObject):
 
         :param doc_id: the ID to search for
         :return: a reference to the corresponding document, if it exists
-        :raises Exception: if there is no corresponding document
+        :raises KeyError: if there is no corresponding document
         """
         if Mmif.id_delimiter in doc_id:
             vid, did = doc_id.split(Mmif.id_delimiter)
@@ -279,7 +383,7 @@ class Mmif(MmifObject):
             else:
                 for alignment in alignment_view.get_annotations(AnnotationTypes.Alignment):
                     aligned_types = set()
-                    for ann_id in [alignment.properties['target'], alignment.properties['source']]:
+                    for ann_id in [alignment['target'], alignment['source']]:
                         ann_id = cast(str, ann_id)
                         if Mmif.id_delimiter in ann_id:
                             view_id, ann_id = ann_id.split(Mmif.id_delimiter)
@@ -294,10 +398,10 @@ class Mmif(MmifObject):
                 v_and_a[alignment_view.id] = alignments
         return v_and_a
 
-    def get_views_for_document(self, doc_id: str):
+    def get_views_for_document(self, doc_id: str) -> List[View]:
         """
         Returns the list of all views that have annotations anchored on a particular document.
-        Note that when the document is insids a view (generated during the pipeline's running),
+        Note that when the document is inside a view (generated during the pipeline's running),
         doc_id must be prefixed with the view_id.
         """
         views = []
@@ -447,6 +551,9 @@ class ViewsList(DataList[View]):
     for :class:`mmif.serialize.view.View`.
     """
     _items: Dict[str, View]
+    
+    def __init__(self, mmif_obj: Optional[Union[bytes, str, list]] = None):
+        super().__init__(mmif_obj)
 
     def _deserialize(self, input_list: list) -> None:  # pytype: disable=signature-mismatch
         """
@@ -456,7 +563,8 @@ class ViewsList(DataList[View]):
         :param input_list: the JSON data that defines the list of views
         :return: None
         """
-        self._items = {item['id']: View(item) for item in input_list}
+        if input_list:
+            self._items = {item['id']: View(item) for item in input_list}
 
     def append(self, value: View, overwrite=False) -> None:
         """
@@ -475,3 +583,11 @@ class ViewsList(DataList[View]):
         :return: None
         """
         super()._append_with_key(value.id, value, overwrite)
+
+    def get_last(self) -> Optional[View]:
+        """
+        Returns the last view appended to the list.
+        """
+        for view in reversed(self._items.values()):
+            if 'error' not in view.metadata and 'warning' not in view.metadata:
+                return view

@@ -47,8 +47,7 @@ class View(MmifObject):
         self._required_attributes = ["id", "metadata", "annotations"]
         super().__init__(view_obj)
         for item in self.annotations:
-            if isinstance(item, Document):
-                item.parent = self.id
+            item.parent = self.id
 
     def new_contain(self, at_type: Union[str, ThingTypesBase], **contains_metadata) -> Optional['Contain']:
         """
@@ -116,6 +115,7 @@ class View(MmifObject):
                           in the view
         :return: the same Annotation object passed in as ``annotation``
         """
+        annotation.parent = self.id
         self.annotations.append(annotation, overwrite)
         self.new_contain(annotation.at_type)
         return annotation
@@ -162,7 +162,6 @@ class View(MmifObject):
                           an existing view with the same ID
         :return: None
         """
-        document.parent = self.id
         return self.add_annotation(document, overwrite)
 
     def get_annotations(self, at_type: Optional[Union[str, ThingTypesBase]] = None, 
@@ -278,8 +277,11 @@ class ViewMetadata(MmifObject):
             
         if at_type not in self.contains:
             new_contain = Contain(contains_metadata)
-            self.contains[at_type] = new_contain
+            self.add_contain(new_contain, at_type)
             return new_contain
+    
+    def add_contain(self, contain: 'Contain', at_type: Union[str, ThingTypesBase]):
+        self.contains[at_type] = contain
 
     def add_parameters(self, **runtime_params):
         self.parameters.update(dict(runtime_params))
@@ -315,7 +317,7 @@ class ErrorDict(MmifObject):
         super().__init__(error_obj)
         
 
-class Contain(MmifObject):
+class Contain(DataDict[str, str]):
     """
     Contain object that represents the metadata of a single
     annotation type in the ``contains`` metadata of a MMIF view.
