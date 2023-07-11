@@ -11,20 +11,19 @@ import itertools
 import pathlib
 import pkgutil
 import re
+import typing
 import warnings
-from typing import Union, Dict, List, Type, Optional, Iterator, MutableMapping, TypeVar
+from typing import Union, Dict, List, Optional, Iterator, MutableMapping, TypeVar
 from urllib.parse import urlparse
 
 from mmif.vocabulary import ThingTypesBase, DocumentTypesBase
-from .model import MmifObject
+from .model import MmifObject, JSON_PRMTV_TYPES
 
 __all__ = ['Annotation', 'AnnotationProperties', 'Document', 'DocumentProperties', 'Text']
 
 T = TypeVar('T')
 
-from .. import DocumentTypes
-
-JSON_COMPATIBLE_PRIMITIVES: Type = Union[str, int, float, bool, None]
+from .. import DocumentTypes, AnnotationTypes
 
 discovered_docloc_plugins = {
     name[len('mmif_docloc_'):]: importlib.import_module(name) for _, name, _ in pkgutil.iter_modules() if re.match(r'mmif[-_]docloc[-_]', name)
@@ -38,6 +37,9 @@ class Annotation(MmifObject):
 
     def __init__(self, anno_obj: Optional[Union[bytes, str, dict]] = None) -> None:
         self._type: ThingTypesBase = ThingTypesBase('')
+        # to store the parent view ID
+        self._parent_view_id = ''
+        self.reserved_names.add('_parent_view_id')
         if not hasattr(self, 'properties'):  # don't overwrite DocumentProperties on super() call
             self.properties: AnnotationProperties = AnnotationProperties()
             self._attribute_classes = {'properties': AnnotationProperties}
@@ -71,38 +73,68 @@ class Annotation(MmifObject):
             self._type = at_type
 
     @property
+    def parent(self) -> str:
+        return self._parent_view_id
+
+    @parent.setter
+    def parent(self, parent_view_id: str) -> None:
+        # I want to make this to accept `View` object as an input too,
+        # but import `View` will break the code due to circular imports
+        self._parent_view_id = parent_view_id
+
+    @property
     def id(self) -> str:
         return self.properties.id
 
     @id.setter
     def id(self, aid: str) -> None:
         self.properties.id = aid
+        
+    @staticmethod
+    def check_prop_value_is_simple_enough(
+            value: Union[JSON_PRMTV_TYPES, List[JSON_PRMTV_TYPES], List[List[JSON_PRMTV_TYPES]]]):
+        def json_primitives(x): 
+            return isinstance(x, typing.get_args(JSON_PRMTV_TYPES))
+        return json_primitives(value) \
+            or (isinstance(value, list) and all(map(json_primitives, value))) \
+            or (all(map(lambda elem: isinstance(elem, list), value)) and map(json_primitives, [subelem for elem in value for subelem in elem]))
 
     def add_property(self, name: str,
-                     value: Union[JSON_COMPATIBLE_PRIMITIVES,
-                                  List[JSON_COMPATIBLE_PRIMITIVES],
-                                  List[List[JSON_COMPATIBLE_PRIMITIVES]]
-                    ]) -> None:
+                     value: Union[JSON_PRMTV_TYPES, List[JSON_PRMTV_TYPES], List[List[JSON_PRMTV_TYPES]]]
+                     ) -> None:
         """
         Adds a property to the annotation's properties.
         :param name: the name of the property
         :param value: the property's desired value
         :return: None
         """
-        json_primitives = lambda x:isinstance(x, JSON_COMPATIBLE_PRIMITIVES.__args__)
-        if json_primitives(value) or (
-                isinstance(value,list)
-                and all(map(json_primitives, value)) or (
-                        all(map(lambda elem: isinstance(elem, list), value))
-                        and map(json_primitives, [subelem for elem in value for subelem in elem])
-                )
-        ):
+        if self.check_prop_value_is_simple_enough(value):
             self.properties[name] = value
         else:
             raise ValueError("Property values cannot be a complex object. It must be "
                              "either string, number, boolean, None, or a list of them."
                              f"(\"{name}\": \"{str(value)}\"")
 
+    def get(self, prop_name: str) -> Union['AnnotationProperties', JSON_PRMTV_TYPES, List[JSON_PRMTV_TYPES], List[List[JSON_PRMTV_TYPES]]]:
+        """
+        A special getter for Annotation properties. This is to allow for
+        directly accessing properties without having to go through the
+        properties object.
+        """
+        if prop_name in {'at_type', '@type'}:
+            return str(self._type)
+        elif prop_name == 'properties':
+            return self.properties
+        elif prop_name in self.properties:
+            return self.properties[prop_name]
+        else:
+            raise KeyError(f"Property {prop_name} does not exist in this annotation.")
+
+    get_property = get
+
+    def __getitem__(self, prop_name: str):
+        return self.get(prop_name)
+    
     def is_document(self):
         return isinstance(self.at_type, DocumentTypesBase)
 
@@ -121,36 +153,81 @@ class Document(Annotation):
     :param document_obj: the JSON data that defines the document
     """
     def __init__(self, doc_obj: Optional[Union[bytes, str, dict]] = None) -> None:
-        # to store the parent view ID
-        self._parent_view_id = ''
-        self.reserved_names.add('_parent_view_id')
+        # see https://github.com/clamsproject/mmif-python/issues/226 for discussion
+        # around the use of these three dictionaries
+        self._props_original: DocumentProperties = DocumentProperties()
+        self._props_existing: AnnotationProperties = AnnotationProperties()
+        self._props_temporary: AnnotationProperties = AnnotationProperties()
+        self.reserved_names.update(('_props_original', '_props_existing', '_props_temporary'))
         
         self._type: Union[ThingTypesBase, DocumentTypesBase] = ThingTypesBase('')
-        self.properties: DocumentProperties = DocumentProperties()
+        self.properties = self._props_original
         self.disallow_additional_properties()
         self._attribute_classes = {'properties': DocumentProperties}
         super().__init__(doc_obj)
-
-    @property
-    def parent(self) -> str:
-        return self._parent_view_id
-
-    @parent.setter
-    def parent(self, parent_view_id: str) -> None:
-        # I want to make this to accept `View` object as an input too,
-        # but import `View` will break the code due to circular imports
-        self._parent_view_id = parent_view_id
+    
+    def _add_property_from_annotation(self, annotation: Annotation):
+        if annotation.at_type != AnnotationTypes.Annotation:
+            raise ValueError("Only `Annotation` type can be added as a property to a `Document` object.")
+        for prop_name, prop_value in annotation.properties.items():
+            self._props_existing[prop_name] = prop_value
 
     def add_property(self, name: str,
-                     value: Union[JSON_COMPATIBLE_PRIMITIVES,
-                                  List[JSON_COMPATIBLE_PRIMITIVES]]) -> None:
+                     value: Union[JSON_PRMTV_TYPES, List[JSON_PRMTV_TYPES]]
+                     ) -> None:
+        """
+        Adds a property to the document's properties.
+        
+        Unlike the parent :class:`Annotation` class, added properties of a 
+        ``Document`` object can be lost during serialization unless it belongs 
+        to somewhere in a ``Mmif`` object. This is because we want to keep 
+        ``Document`` object as "read-only" as possible. Thus, if you want to add 
+        a property to a ``Document`` object, 
+        
+        * add the document to a ``Mmif`` object (either in the documents list or 
+          in a view from the views list), or
+        * directly write to ``Document.properties`` instead of using this method
+          (which is not recommended). 
+        
+        With the former method, the SDK will record the added property as a 
+        `Annotation` annotation object, separate from the original `Document` 
+        object. See :meth:`.Mmif.generate_capital_annotations()` for more.
+        
+        A few notes to keep in mind:
+        
+        #. You can't overwrite an existing property of a ``Document`` object. 
+        #. A MMIF can have multiple ``Annotation`` objects with the same 
+           property name but different values. When this happens, the SDK will
+           only keep the latest value (in order of appearances in views list) of 
+           the property, effectively overwriting the previous values.
+        """
         if name == "text":
             self.properties.text = Text(value)
+        elif name == "mime":
+            self.properties.mime = str(value)
         elif name == "location":
             self.location = value
-        else:
-            super().add_property(name, value)
+        elif name not in self._props_original:
+            if self.check_prop_value_is_simple_enough(value):
+                self._props_temporary[name] = value
+            else:
+                super().add_property(name, value)
 
+    def get(self, prop_name):
+        """
+        A special getter for Document properties. This is to allow for reading 
+        the three properties in a specific order so that the latest value is 
+        returned, in case there are multiple values for the same key.
+        """
+        if prop_name in self._props_temporary:
+            return self._props_temporary[prop_name]
+        elif prop_name in self._props_existing:
+            return self._props_existing[prop_name]
+        else:
+            return super().get(prop_name)
+
+    get_property = get
+    
     @property
     def text_language(self) -> str:
         if self.at_type == DocumentTypes.TextDocument:
@@ -250,7 +327,7 @@ class AnnotationProperties(MmifObject, MutableMapping[str, T]):
         empty props are ignored (note that emtpy but required props are serialized 
         with the *emtpy* value). 
         Hence, this ``__iter__`` method should also work in the same way and 
-        ignored empty but optional props. 
+        ignore empty optional props. 
         """
         for key in itertools.chain(self._named_attributes(), self._unnamed_attributes):
             if key in self._required_attributes:
