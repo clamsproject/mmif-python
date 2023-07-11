@@ -1,5 +1,3 @@
-import contextlib
-
 import pkg_resources
 
 from mmif.ver import __version__
