@@ -2,7 +2,7 @@ from typing import List
 import numpy as np
 from PIL import Image
 
-from mmif import Document
+from mmif import Mmif, View, Annotation, Document
 from mmif.vocabulary import DocumentTypes, AnnotationTypes
 
 try:
@@ -94,6 +94,30 @@ def extract_pil_images(video_doc: Document, sample_ratio: int = 15, frame_cutoff
 
     # Potentially print some statistics like how many frames extracted, sampleRatio, cutoff
     print(f'Extracted {len(video_frames)} frames from {video_filename}')
+    return video_frames
+
+
+def get_images_from_timeframe(video_doc: Document, timeframe: Annotation, frames: int) -> List[Image]:
+    video_frames = []
+    video_filename = video_doc.location_path()
+
+    # Open the video file
+    video = cv2.VideoCapture(video_filename)
+    # Get middle frame or frames spaced out based on frames
+    if frames == 1:
+        video.set(cv2.CAP_PROP_POS_FRAMES, int(timeframe.properties['start'] + timeframe.properties['end']) / 2)
+        ret, frame = video.read()
+        if not ret:
+            raise ValueError(f'Could not read frame at {int(timeframe.properties["start"] + timeframe.properties["end"]) / 2}')
+        video_frames.append(Image.fromarray(frame[:, :, ::-1]))
+    else:
+        for i in range(frames):
+            video.set(cv2.CAP_PROP_POS_FRAMES, int(timeframe.properties['start'] + timeframe.properties['end']) / frames * i)
+            ret, frame = video.read()
+            if not ret:
+                raise ValueError(f'Could not read frame at {int(timeframe.properties["start"] + timeframe.properties["end"]) / frames * i}')
+            video_frames.append(Image.fromarray(frame[:, :, ::-1]))
+
     return video_frames
 
 
