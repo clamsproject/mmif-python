@@ -287,6 +287,11 @@ setuptools.setup(
     },
     install_requires=requires,
     extras_require={
+        'cv': [
+            'pillow',
+            'opencv-python',
+            'ffmpeg-python',
+        ],
         'dev': [
             'pytest',
             'pytest-pep8',
