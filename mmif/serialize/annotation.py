@@ -219,7 +219,15 @@ class Document(Annotation):
         the three properties in a specific order so that the latest value is 
         returned, in case there are multiple values for the same key.
         """
-        if prop_name in self._props_temporary:
+        if prop_name == 'id':
+            # because all three dicts have `id` key as required field, we need
+            # this special case to return the correct value from the correct dict
+            return self.id
+        elif prop_name == 'location':
+            # because location is internally stored in self.location_,
+            # it doesn't work with regular __getitem__ method
+            return self.location
+        elif prop_name in self._props_temporary:
             return self._props_temporary[prop_name]
         elif prop_name in self._props_existing:
             return self._props_existing[prop_name]
@@ -378,7 +386,7 @@ class DocumentProperties(AnnotationProperties):
         if "location_" in serialized:
             serialized["location"] = serialized.pop("location_")
         return serialized
-
+    
     @property
     def text_language(self) -> str:
         return self.text.lang
