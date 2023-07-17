@@ -1,10 +1,11 @@
 import math
-from typing import List
+from typing import List, Union
+
 import numpy as np
 from PIL import Image
 
-from mmif import Mmif, View, Annotation, Document
-from mmif.vocabulary import DocumentTypes, AnnotationTypes
+from mmif import Annotation, Document
+from mmif.vocabulary import DocumentTypes
 
 try:
     import cv2
@@ -15,6 +16,18 @@ except ImportError as e:
         f"Optional package {e.name} not found. You might want to install Computer-Vision dependencies by running `pip install mmif-python[cv]`")
 
 FPS_DOCPROP_KEY = 'fps'
+UNIT_NORMALIZATION = {
+    'ms': 'millisecond',
+    'msec': 'millisecond',
+    'millisecond': 'millisecond',
+    'milliseconds': 'millisecond',
+    's': 'second',
+    'sec': 'second',
+    'second': 'second',
+    'seconds': 'second',
+    'frame': 'frame',
+    'f': 'frame',
+}
 
 
 def capture(vd: Document) -> cv2.VideoCapture:
@@ -85,21 +98,46 @@ def get_images_from_timeframe(video_doc: Document, timeframe: Annotation, frames
     return video_frames
 
 
-def frames_to_seconds(video_doc: Document, frames: int, sample_ratio: int) -> float:
-    # Needs to take fps and sample ratio
+def convert(time: Union[int, float], in_unit: str, out_unit: str, fps: Union[int, float]) -> Union[int, float]:
+    try:
+        in_unit = UNIT_NORMALIZATION[in_unit]
+    except KeyError:
+        raise ValueError(f"Not supported time unit: {in_unit}")
+    try:
+        out_unit = UNIT_NORMALIZATION[out_unit]
+    except KeyError:
+        raise ValueError(f"Not supported time unit: {out_unit}")
+    if in_unit == out_unit:
+        return time
+    elif out_unit == 'frame':
+        if 'millisecond' == in_unit:
+            return int(time / 1000 * fps)
+        elif 'second' == in_unit:
+            return int(time * fps)
+    elif in_unit == 'second':
+        return time * 1000
+    elif in_unit == 'millisecond':
+        return time // 1000
+    else:
+        time = time if out_unit == 'second' else time // 1000
+        return int(time * fps)
+
+
+def framenum_to_second(video_doc: Document, frame: int):
     fps = get_framerate(video_doc)
-    return frames / (fps * sample_ratio)
+    return convert(frame, 'f', 's', fps)
 
 
-def frames_to_milliseconds(video_doc: Document, frames: int, sample_ratio: int) -> float:
-    # Needs to take fps and sample ratio
-    return frames_to_seconds(video_doc, frames, sample_ratio) * 1000
-
-
-def seconds_to_frames(video_doc: Document, seconds: float, sample_ratio: int) -> int:
+def framenum_to_millisecond(video_doc: Document, frame: int):
     fps = get_framerate(video_doc)
-    return int(seconds * fps * sample_ratio)
+    return convert(frame, 'f', 'ms', fps)
 
 
-def milliseconds_to_frames(video_doc: Document, milliseconds: float, sample_ratio: int) -> int:
-    return seconds_to_frames(video_doc, milliseconds / 1000, sample_ratio)
+def second_to_framenum(video_doc: Document, second) -> int:
+    fps = get_framerate(video_doc)
+    return convert(second, 's', 'f', fps)
+
+
+def millisecond_to_framenum(video_doc: Document, millisecond: float) -> int:
+    fps = get_framerate(video_doc)
+    return convert(millisecond, 'ms', 'f', fps)
