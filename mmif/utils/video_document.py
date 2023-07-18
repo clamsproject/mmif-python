@@ -51,6 +51,18 @@ def get_framerate(vd: Document) -> float:
     capture(vd)
     return vd.get_property(FPS_DOCPROP_KEY)
 
+def extract_frames_as_images(vd: Document, framenums: List[int], as_PIL: bool = False) -> List[np.ndarray]:
+    """
+    Extracts frames from a video document as a list of numpy arrays.
+    Use `sample_frames` function in this module to get the list of frame numbers first. 
+    
+    :param vd: VideoDocument object that holds the video file location
+    :param framenums: integers representing the frame numbers to extract
+    :param as_PIL: use PIL.Image instead of numpy.ndarray
+    :return: 
+    """
+    # TODO (krim @ 7/17/23): replace the below `extract_frames` with this function
+    raise NotImplementedError
 
 def extract_frames(vd: Document, sample_ratio: int, frames_cutoff: int = math.inf, as_PIL: bool = False) -> List[np.ndarray]:
     video_frames = []
@@ -73,6 +85,19 @@ def extract_frames(vd: Document, sample_ratio: int, frames_cutoff: int = math.in
     print(f'Extracted {len(video_frames)} frames from {vd.location}')
     return video_frames
 
+def sample_frames(start_frame: int, end_frame: int, sample_ratio: int = 1) ->  List[int]:
+    """
+    Helper function to sample frames from a time interval.
+    When start_frame is 0 and end_frame is X, this function basically works as "cutoff". 
+    
+    :param start_frame: start frame of the interval
+    :param end_frame: end frame of the interval
+    :param sample_ratio: sample ratio or sample step, default is 1, meaning all consecutive frames are sampled
+    """
+    if sample_ratio < 1:
+        raise ValueError(f"Sample ratio must be greater than 1, but got {sample_ratio}")
+    # TODO (krim @ 7/17/23): replace the below `get_images_from_timeframe` with this function
+    raise NotImplementedError
 
 def get_images_from_timeframe(video_doc: Document, timeframe: Annotation, frames: int) -> List[Image]:
     video_frames = []
