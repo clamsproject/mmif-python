@@ -60,7 +60,7 @@ def extract_frames_as_images(vd: Document, framenums: List[int], as_PIL: bool = 
     :param vd: VideoDocument object that holds the video file location
     :param framenums: integers representing the frame numbers to extract
     :param as_PIL: use PIL.Image instead of numpy.ndarray
-    :return: 
+    :return: frames as a list of numpy arrays or PIL.Image objects
     """
     frames: List[np.ndarray] = []
     video = capture(vd)
@@ -74,9 +74,14 @@ def extract_frames_as_images(vd: Document, framenums: List[int], as_PIL: bool = 
     return frames
 
 
-def extract_mid_frame(vd: Document, tf: Annotation) -> Image:
+def extract_mid_frame(vd: Document, tf: Annotation, as_PIL: bool = False) -> Image:
+    """
+    Extracts the middle frame from a video document
+    """
     midframe = (convert(tf.properties['start'], tf.properties['unit'], 'frame', get_framerate(vd)) +
                 convert(tf.properties['end'], tf.properties['unit'], 'frame', get_framerate(vd))) // 2
+    if as_PIL:
+        return extract_frames_as_images(vd, [midframe], as_PIL=True)[0]
     return extract_frames_as_images(vd, [midframe])[0]
 
 
