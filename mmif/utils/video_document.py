@@ -33,7 +33,7 @@ UNIT_NORMALIZATION = {
 def capture(vd: Document) -> cv2.VideoCapture:
     if vd is None or vd.at_type != DocumentTypes.VideoDocument:
         raise ValueError(f'The document does not exist.')
-    
+
     v = cv2.VideoCapture(vd.location_path())
     vd.add_property(FPS_DOCPROP_KEY, v.get(cv2.CAP_PROP_FPS))
     return v
@@ -51,6 +51,7 @@ def get_framerate(vd: Document) -> float:
     capture(vd)
     return vd.get_property(FPS_DOCPROP_KEY)
 
+
 def extract_frames_as_images(vd: Document, framenums: List[int], as_PIL: bool = False) -> List[np.ndarray]:
     """
     Extracts frames from a video document as a list of numpy arrays.
@@ -61,10 +62,26 @@ def extract_frames_as_images(vd: Document, framenums: List[int], as_PIL: bool = 
     :param as_PIL: use PIL.Image instead of numpy.ndarray
     :return: 
     """
-    # TODO (krim @ 7/17/23): replace the below `extract_frames` with this function
-    raise NotImplementedError
+    frames: List[np.ndarray] = []
+    video = capture(vd)
+    for framenum in framenums:
+        video.set(cv2.CAP_PROP_POS_FRAMES, framenum)
+        ret, frame = video.read()
+        if ret:
+            frames.append(Image.fromarray(frame[:, :, ::-1]) if as_PIL else frame)
+        else:
+            break
+    return frames
 
-def extract_frames(vd: Document, sample_ratio: int, frames_cutoff: int = math.inf, as_PIL: bool = False) -> List[np.ndarray]:
+
+def extract_mid_frame(vd: Document, tf: Annotation) -> Image:
+    midframe = (convert(tf.properties['start'], tf.properties['unit'], 'frame', get_framerate(vd)) +
+                convert(tf.properties['end'], tf.properties['unit'], 'frame', get_framerate(vd))) // 2
+    return extract_frames_as_images(vd, [midframe])[0]
+
+
+def extract_frames(vd: Document, sample_ratio: int, frames_cutoff: int = math.inf, as_PIL: bool = False) -> List[
+                   np.ndarray]:
     video_frames = []
     video = capture(vd)
     current_frame = 0
@@ -85,7 +102,8 @@ def extract_frames(vd: Document, sample_ratio: int, frames_cutoff: int = math.in
     print(f'Extracted {len(video_frames)} frames from {vd.location}')
     return video_frames
 
-def sample_frames(start_frame: int, end_frame: int, sample_ratio: int = 1) ->  List[int]:
+
+def sample_frames(start_frame: int, end_frame: int, sample_ratio: int = 1) -> List[int]:
     """
     Helper function to sample frames from a time interval.
     When start_frame is 0 and end_frame is X, this function basically works as "cutoff". 
@@ -96,8 +114,11 @@ def sample_frames(start_frame: int, end_frame: int, sample_ratio: int = 1) ->  L
     """
     if sample_ratio < 1:
         raise ValueError(f"Sample ratio must be greater than 1, but got {sample_ratio}")
-    # TODO (krim @ 7/17/23): replace the below `get_images_from_timeframe` with this function
-    raise NotImplementedError
+    frame_nums: List[int] = []
+    for i in range(start_frame, end_frame, sample_ratio):
+        frame_nums.append(i)
+    return frame_nums
+
 
 def get_images_from_timeframe(video_doc: Document, timeframe: Annotation, frames: int) -> List[Image]:
     video_frames = []
@@ -110,14 +131,17 @@ def get_images_from_timeframe(video_doc: Document, timeframe: Annotation, frames
         video.set(cv2.CAP_PROP_POS_FRAMES, int(timeframe.properties['start'] + timeframe.properties['end']) / 2)
         ret, frame = video.read()
         if not ret:
-            raise ValueError(f'Could not read frame at {int(timeframe.properties["start"] + timeframe.properties["end"]) / 2}')
+            raise ValueError(
+                f'Could not read frame at {int(timeframe.properties["start"] + timeframe.properties["end"]) / 2}')
         video_frames.append(Image.fromarray(frame[:, :, ::-1]))
     else:
         for i in range(frames):
-            video.set(cv2.CAP_PROP_POS_FRAMES, int(timeframe.properties['start'] + timeframe.properties['end']) / frames * i)
+            video.set(cv2.CAP_PROP_POS_FRAMES,
+                      int(timeframe.properties['start'] + timeframe.properties['end']) / frames * i)
             ret, frame = video.read()
             if not ret:
-                raise ValueError(f'Could not read frame at {int(timeframe.properties["start"] + timeframe.properties["end"]) / frames * i}')
+                raise ValueError(
+                    f'Could not read frame at {int(timeframe.properties["start"] + timeframe.properties["end"]) / frames * i}')
             video_frames.append(Image.fromarray(frame[:, :, ::-1]))
 
     return video_frames
