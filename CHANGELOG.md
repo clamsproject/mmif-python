@@ -1,4 +1,9 @@
 
+## releasing 1.0.4 (2023-07-19)
+### Overview
+This release fixes installation error in the previous version. 
+
+
 ## releasing 1.0.3 (2023-07-19)
 ### Overview
 This release is primarily about adding `mmif.utils` package and `mmif.utils.video_document_helper` module. The module provides many helper functions to handle frame-based and time-based documents and annotations. 
