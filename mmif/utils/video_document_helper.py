@@ -1,10 +1,10 @@
 import math
-from typing import List, Union
+from typing import List, Union, Tuple
 
 import numpy as np
 from PIL import Image
 
-from mmif import Annotation, Document
+from mmif import Annotation, Document, Mmif
 from mmif.vocabulary import DocumentTypes
 
 try:
@@ -124,6 +124,44 @@ def convert(time: Union[int, float], in_unit: str, out_unit: str, fps: Union[int
     else:
         time = time if out_unit == 'second' else time // 1000
         return int(time * fps)
+
+def get_annotation_property(mmif, annotation, prop_name):
+    # TODO (krim @ 7/18/23): this probably should be merged to the main mmif.serialize packge
+    if prop_name in annotation:
+        return annotation.get_property(prop_name)
+    try:
+        return mmif[annotation.parent].metadata.contains[annotation.at_type].get_property(prop_name)
+    except KeyError:
+        raise KeyError(f"Annotation {annotation.id} does not have {prop_name} property.")
+
+def convert_timepoint(mmif: Mmif, timepoint: Annotation, out_unit: str) -> Union[int, float]:
+    """
+    Converts a time point included in an annotation to a different time unit.
+    The input annotation must have ``timePoint`` property. 
+
+    :param mmif: input MMIF to obtain fps and input timeunit
+    :param timepoint: annotation with ``timePoint`` property
+    :param out_unit: time unit to which the point is converted
+    :return: frame number (integer) or second/millisecond (float) of input timepoint
+    """
+    in_unit = get_annotation_property(mmif, timepoint, 'timeUnit')
+    vd = get_annotation_property(mmif, timepoint, 'document')
+    return convert(timepoint.get_property('timePoint'), in_unit, out_unit, get_framerate(vd))
+
+def convert_timeframe(mmif: Mmif, timeframe: Annotation, out_unit: str) -> Union[Tuple[int, int], Tuple[float, float]]:
+    """
+    Converts start and end points in a TimeFrame annotation a different time unit.
+
+    :param mmif: input MMIF to obtain fps and input timeunit
+    :param timeframe: ``TimeFrame` type annotation
+    :param out_unit: time unit to which the point is converted
+    :return: tuple of frame numbers (integer) or seconds/milliseconds (float) of input start and end
+    """
+    in_unit = get_annotation_property(mmif, timeframe, 'timeUnit')
+    vd = get_annotation_property(mmif, timeframe, 'document')
+    return convert(timeframe.get_property('start'), in_unit, out_unit, get_framerate(vd)), \
+        convert(timeframe.get_property('end'), in_unit, out_unit, get_framerate(vd))
+
 
 
 def framenum_to_second(video_doc: Document, frame: int):
