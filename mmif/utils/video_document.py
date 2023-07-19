@@ -78,34 +78,10 @@ def extract_mid_frame(vd: Document, tf: Annotation, as_PIL: bool = False) -> Ima
     """
     Extracts the middle frame from a video document
     """
-    midframe = (convert(tf.properties['start'], tf.properties['unit'], 'frame', get_framerate(vd)) +
-                convert(tf.properties['end'], tf.properties['unit'], 'frame', get_framerate(vd))) // 2
-    if as_PIL:
-        return extract_frames_as_images(vd, [midframe], as_PIL=True)[0]
-    return extract_frames_as_images(vd, [midframe])[0]
-
-
-def extract_frames(vd: Document, sample_ratio: int, frames_cutoff: int = math.inf, as_PIL: bool = False) -> List[
-                   np.ndarray]:
-    video_frames = []
-    video = capture(vd)
-    current_frame = 0
-    while video.isOpened() and len(video_frames) < frames_cutoff:
-        # Read the current frame
-        ret, frame = video.read()
-
-        if ret:
-            video_frames.append(Image.fromarray(frame[:, :, ::-1]) if as_PIL else frame)
-        else:
-            break
-
-        # Skip sampleRatio frames
-        current_frame += sample_ratio if sample_ratio is not None else 1
-        video.set(cv2.CAP_PROP_POS_FRAMES, current_frame)
-
-    # Potentially print some statistics like how many frames extracted, sampleRatio, cutoff
-    print(f'Extracted {len(video_frames)} frames from {vd.location}')
-    return video_frames
+    fps = get_framerate(vd)
+    timeunit = tf.get_property('timeUnit')
+    midframe = sum(convert(float(tf.get_property(timepoint_propkey)), timeunit, 'frame', fps) for timepoint_propkey in ('start', 'end')) // 2
+    return extract_frames_as_images(vd, [midframe], as_PIL=as_PIL)[0]
 
 
 def sample_frames(start_frame: int, end_frame: int, sample_ratio: int = 1) -> List[int]:
@@ -123,33 +99,6 @@ def sample_frames(start_frame: int, end_frame: int, sample_ratio: int = 1) -> Li
     for i in range(start_frame, end_frame, sample_ratio):
         frame_nums.append(i)
     return frame_nums
-
-
-def get_images_from_timeframe(video_doc: Document, timeframe: Annotation, frames: int) -> List[Image]:
-    video_frames = []
-    video_filename = video_doc.location_path()
-
-    # Open the video file
-    video = cv2.VideoCapture(video_filename)
-    # Get middle frame or frames spaced out based on frames
-    if frames == 1:
-        video.set(cv2.CAP_PROP_POS_FRAMES, int(timeframe.properties['start'] + timeframe.properties['end']) / 2)
-        ret, frame = video.read()
-        if not ret:
-            raise ValueError(
-                f'Could not read frame at {int(timeframe.properties["start"] + timeframe.properties["end"]) / 2}')
-        video_frames.append(Image.fromarray(frame[:, :, ::-1]))
-    else:
-        for i in range(frames):
-            video.set(cv2.CAP_PROP_POS_FRAMES,
-                      int(timeframe.properties['start'] + timeframe.properties['end']) / frames * i)
-            ret, frame = video.read()
-            if not ret:
-                raise ValueError(
-                    f'Could not read frame at {int(timeframe.properties["start"] + timeframe.properties["end"]) / frames * i}')
-            video_frames.append(Image.fromarray(frame[:, :, ::-1]))
-
-    return video_frames
 
 
 def convert(time: Union[int, float], in_unit: str, out_unit: str, fps: Union[int, float]) -> Union[int, float]:
