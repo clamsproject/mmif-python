@@ -1,4 +1,12 @@
 
+## releasing 1.0.5 (2023-07-19)
+### Overview
+This release contains a minor fix in video_document_helper module
+
+### Changes
+* fixed time unit normalization was missing some important string
+
+
 ## releasing 1.0.4 (2023-07-19)
 ### Overview
 This release fixes installation error in the previous version. 
