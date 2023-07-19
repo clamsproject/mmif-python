@@ -1,4 +1,3 @@
-import math
 from typing import List, Union, Tuple
 
 import numpy as np
@@ -52,7 +51,7 @@ def get_framerate(vd: Document) -> float:
     return vd.get_property(FPS_DOCPROP_KEY)
 
 
-def extract_frames_as_images(vd: Document, framenums: List[int], as_PIL: bool = False) -> List[np.ndarray]:
+def extract_frames_as_images(vd: Document, framenums: List[int], as_PIL: bool = False) -> List[Union[np.ndarray, PIL.Image.Image]]:
     """
     Extracts frames from a video document as a list of numpy arrays.
     Use `sample_frames` function in this module to get the list of frame numbers first. 
@@ -62,7 +61,7 @@ def extract_frames_as_images(vd: Document, framenums: List[int], as_PIL: bool = 
     :param as_PIL: use PIL.Image instead of numpy.ndarray
     :return: frames as a list of numpy arrays or PIL.Image objects
     """
-    frames: List[np.ndarray] = []
+    frames = []
     video = capture(vd)
     for framenum in framenums:
         video.set(cv2.CAP_PROP_POS_FRAMES, framenum)
@@ -74,12 +73,13 @@ def extract_frames_as_images(vd: Document, framenums: List[int], as_PIL: bool = 
     return frames
 
 
-def extract_mid_frame(vd: Document, tf: Annotation, as_PIL: bool = False) -> Image:
+def extract_mid_frame(mmif: Mmif, tf: Annotation, as_PIL: bool = False) -> Union[np.ndarray, PIL.Image.Image]:
     """
     Extracts the middle frame from a video document
     """
+    timeunit = get_annotation_property(mmif, tf, 'timeUnit')
+    vd = mmif[get_annotation_property(mmif, tf, 'document')]
     fps = get_framerate(vd)
-    timeunit = tf.get_property('timeUnit')
     midframe = sum(convert(float(tf.get_property(timepoint_propkey)), timeunit, 'frame', fps) for timepoint_propkey in ('start', 'end')) // 2
     return extract_frames_as_images(vd, [midframe], as_PIL=as_PIL)[0]
 
@@ -93,6 +93,7 @@ def sample_frames(start_frame: int, end_frame: int, sample_ratio: int = 1) -> Li
     :param end_frame: end frame of the interval
     :param sample_ratio: sample ratio or sample step, default is 1, meaning all consecutive frames are sampled
     """
+    sample_ratio = int(sample_ratio)
     if sample_ratio < 1:
         raise ValueError(f"Sample ratio must be greater than 1, but got {sample_ratio}")
     frame_nums: List[int] = []
@@ -101,7 +102,7 @@ def sample_frames(start_frame: int, end_frame: int, sample_ratio: int = 1) -> Li
     return frame_nums
 
 
-def convert(time: Union[int, float], in_unit: str, out_unit: str, fps: Union[int, float]) -> Union[int, float]:
+def convert(time: Union[int, float], in_unit: str, out_unit: str, fps: float) -> Union[int, float]:
     try:
         in_unit = UNIT_NORMALIZATION[in_unit]
     except KeyError:
@@ -110,27 +111,32 @@ def convert(time: Union[int, float], in_unit: str, out_unit: str, fps: Union[int
         out_unit = UNIT_NORMALIZATION[out_unit]
     except KeyError:
         raise ValueError(f"Not supported time unit: {out_unit}")
+    # s>s, ms>ms, f>f
     if in_unit == out_unit:
         return time
     elif out_unit == 'frame':
+        # ms>f
         if 'millisecond' == in_unit:
             return int(time / 1000 * fps)
+        # s>f
         elif 'second' == in_unit:
             return int(time * fps)
+    # s>ms
     elif in_unit == 'second':
         return time * 1000
+    # ms>s
     elif in_unit == 'millisecond':
         return time // 1000
+    # f>ms, f>s
     else:
-        time = time if out_unit == 'second' else time // 1000
-        return int(time * fps)
+        return (time / fps) if out_unit == 'second' else (time / fps * 1000)  # pytype: disable=bad-return-type
 
 def get_annotation_property(mmif, annotation, prop_name):
     # TODO (krim @ 7/18/23): this probably should be merged to the main mmif.serialize packge
     if prop_name in annotation:
         return annotation.get_property(prop_name)
     try:
-        return mmif[annotation.parent].metadata.contains[annotation.at_type].get_property(prop_name)
+        return mmif[annotation.parent].metadata.contains[annotation.at_type][prop_name]
     except KeyError:
         raise KeyError(f"Annotation {annotation.id} does not have {prop_name} property.")
 
@@ -145,7 +151,7 @@ def convert_timepoint(mmif: Mmif, timepoint: Annotation, out_unit: str) -> Union
     :return: frame number (integer) or second/millisecond (float) of input timepoint
     """
     in_unit = get_annotation_property(mmif, timepoint, 'timeUnit')
-    vd = get_annotation_property(mmif, timepoint, 'document')
+    vd = mmif[get_annotation_property(mmif, timepoint, 'document')]
     return convert(timepoint.get_property('timePoint'), in_unit, out_unit, get_framerate(vd))
 
 def convert_timeframe(mmif: Mmif, timeframe: Annotation, out_unit: str) -> Union[Tuple[int, int], Tuple[float, float]]:
@@ -158,7 +164,7 @@ def convert_timeframe(mmif: Mmif, timeframe: Annotation, out_unit: str) -> Union
     :return: tuple of frame numbers (integer) or seconds/milliseconds (float) of input start and end
     """
     in_unit = get_annotation_property(mmif, timeframe, 'timeUnit')
-    vd = get_annotation_property(mmif, timeframe, 'document')
+    vd = mmif[get_annotation_property(mmif, timeframe, 'document')]
     return convert(timeframe.get_property('start'), in_unit, out_unit, get_framerate(vd)), \
         convert(timeframe.get_property('end'), in_unit, out_unit, get_framerate(vd))
 
@@ -176,9 +182,9 @@ def framenum_to_millisecond(video_doc: Document, frame: int):
 
 def second_to_framenum(video_doc: Document, second) -> int:
     fps = get_framerate(video_doc)
-    return convert(second, 's', 'f', fps)
+    return int(convert(second, 's', 'f', fps))
 
 
 def millisecond_to_framenum(video_doc: Document, millisecond: float) -> int:
     fps = get_framerate(video_doc)
-    return convert(millisecond, 'ms', 'f', fps)
+    return int(convert(millisecond, 'ms', 'f', fps))

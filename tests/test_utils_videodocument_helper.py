@@ -1,9 +1,10 @@
 import unittest
+import pytest
 
 import numpy as np
 from PIL import Image
 
-from mmif import Mmif, Document
+from mmif import Mmif, Document, AnnotationTypes
 from mmif.utils import video_document_helper as vdh
 
 
@@ -27,31 +28,35 @@ class TestUtilsVideoDocuments(unittest.TestCase):
         self.assertAlmostEqual(29.97, vdh.get_framerate(self.video_doc), places=0)
 
     def test_frames_to_seconds(self):
-        self.assertAlmostEqual(3.337, vdh.frames_to_seconds(self.video_doc, 100, 1), places=0)
+        self.assertAlmostEqual(3.337, vdh.framenum_to_second(self.video_doc, 100), places=0)
 
     def test_frames_to_milliseconds(self):
-        self.assertAlmostEqual(3337.0, vdh.frames_to_milliseconds(self.video_doc, 100, 1), places=0)
+        self.assertAlmostEqual(3337.0, vdh.framenum_to_millisecond(self.video_doc, 100), places=0)
 
     def test_seconds_to_frames(self):
-        self.assertAlmostEqual(100, vdh.seconds_to_frames(self.video_doc, 3.337, 1), places=0)
+        self.assertAlmostEqual(100, vdh.second_to_framenum(self.video_doc, 3.337), places=0)
 
     def test_milliseconds_to_frames(self):
-        self.assertAlmostEqual(100, vdh.milliseconds_to_frames(self.video_doc, 3337.0, 1), places=0)
-
-    def test_extract_frames(self):
-        frames = vdh.extract_frames(self.video_doc, 1, frame_cutoff=20)
-        self.assertEqual(20, len(frames))
-        self.assertEqual((360, 480, 3), frames[0].shape)
-        self.assertEqual('uint8', frames[0].dtype)
-        self.assertIsInstance(frames[0], np.ndarray)
-
-    def test_extract_pil_images(self):
-        frames = mmif_utils_videodocuments.extract_pil_images(self.video_doc, 1, frame_cutoff=20)
-        self.assertEqual(20, len(frames))
-        self.assertEqual((480, 360), frames[0].size)
-        self.assertEqual('RGB', frames[0].mode)
-        self.assertIsInstance(frames[0], Image.Image)
-
+        self.assertAlmostEqual(100, vdh.millisecond_to_framenum(self.video_doc, 3337.0), places=0)
+    
+    def test_sample_frames(self):
+        s_frame = vdh.second_to_framenum(self.video_doc, 3)
+        e_frame = vdh.second_to_framenum(self.video_doc, 5.5)
+        # note that int(29.97) = 29
+        self.assertEqual(3, len(vdh.sample_frames(s_frame, e_frame, self.fps)))
+        s_frame = vdh.second_to_framenum(self.video_doc, 3)
+        e_frame = vdh.second_to_framenum(self.video_doc, 5)
+        self.assertEqual(1, len(vdh.sample_frames(s_frame, e_frame, 60)))
+        
+    def test_convert_timepoint(self):
+        timepoint_ann = self.a_view.new_annotation(AnnotationTypes.BoundingBox, timePoint=3, timeUnit='second', document='d1')
+        self.assertEqual(vdh.convert(3, 's', 'f', self.fps), vdh.convert_timepoint(self.mmif_obj, timepoint_ann, 'f'))
+    
+    def test_convert_timeframe(self):
+        self.a_view.metadata.new_contain(AnnotationTypes.TimeFrame, timeUnit='frame', document='d1')
+        timeframe_ann = self.a_view.new_annotation(AnnotationTypes.TimeFrame, start=100, end=200)
+        for times in zip((3.337, 6.674), vdh.convert_timeframe(self.mmif_obj, timeframe_ann, 's')):
+            self.assertAlmostEqual(*times, places=0)
 
 if __name__ == '__main__':
     unittest.main()
