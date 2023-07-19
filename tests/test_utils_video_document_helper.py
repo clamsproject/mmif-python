@@ -1,8 +1,4 @@
 import unittest
-import pytest
-
-import numpy as np
-from PIL import Image
 
 from mmif import Mmif, Document, AnnotationTypes
 from mmif.utils import video_document_helper as vdh
