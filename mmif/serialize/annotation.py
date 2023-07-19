@@ -136,6 +136,13 @@ class Annotation(MmifObject):
     def __getitem__(self, prop_name: str):
         return self.get(prop_name)
     
+    def __contains__(self, item):
+        try:
+            self.get(item)
+            return True
+        except KeyError:
+            return False
+    
     def is_document(self):
         return isinstance(self.at_type, DocumentTypesBase)
 
