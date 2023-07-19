@@ -1,4 +1,16 @@
 
+## releasing 1.0.3 (2023-07-19)
+### Overview
+This release is primarily about adding `mmif.utils` package and `mmif.utils.video_document_helper` module. The module provides many helper functions to handle frame-based and time-based documents and annotations. 
+
+### Additions
+* `mmif.utils` package and `mmif.utils.video_document_helper` module (#233) 
+
+### Changes
+* dropped support for `mmif-utils-` plugins (#230)
+* fixed bug in `Annotation.get_property` (#232)
+
+
 ## releasing 1.0.2 (2023-07-11)
 ### Overview
 This release includes support for plugins, and a "magic" helper for using `Annotation` annotations for documents in MMIF. 
