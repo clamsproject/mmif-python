@@ -62,6 +62,7 @@ $(artifact):
 test: devversion $(generatedcode)
 	pip install --upgrade -r requirements.dev
 	pip install -r requirements.txt
+	pip install -r requirements.cv
 	pytype $(packagename)
 	python3 -m pytest --doctest-modules --cov=$(packagename) --cov-report=xml
 

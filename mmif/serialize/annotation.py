@@ -8,6 +8,7 @@ of a view. For documentation on how views are represented, see
 """
 import importlib
 import itertools
+import os
 import pathlib
 import pkgutil
 import re
@@ -135,6 +136,13 @@ class Annotation(MmifObject):
     def __getitem__(self, prop_name: str):
         return self.get(prop_name)
     
+    def __contains__(self, item):
+        try:
+            self.get(item)
+            return True
+        except KeyError:
+            return False
+    
     def is_document(self):
         return isinstance(self.at_type, DocumentTypesBase)
 
@@ -219,7 +227,15 @@ class Document(Annotation):
         the three properties in a specific order so that the latest value is 
         returned, in case there are multiple values for the same key.
         """
-        if prop_name in self._props_temporary:
+        if prop_name == 'id':
+            # because all three dicts have `id` key as required field, we need
+            # this special case to return the correct value from the correct dict
+            return self.id
+        elif prop_name == 'location':
+            # because location is internally stored in self.location_,
+            # it doesn't work with regular __getitem__ method
+            return self.location
+        elif prop_name in self._props_temporary:
             return self._props_temporary[prop_name]
         elif prop_name in self._props_existing:
             return self._props_existing[prop_name]
@@ -378,7 +394,7 @@ class DocumentProperties(AnnotationProperties):
         if "location_" in serialized:
             serialized["location"] = serialized.pop("location_")
         return serialized
-
+    
     @property
     def text_language(self) -> str:
         return self.text.lang
@@ -438,7 +454,7 @@ class DocumentProperties(AnnotationProperties):
         warnings.warn('location_path() is deprecated. Use location_path_resolved() instead.', DeprecationWarning)
         return self.location_path_resolved()
     
-    def location_path_resolved(self) -> Optional[str]:
+    def location_path_resolved(self, nonexist_ok=True) -> Optional[str]:
         """
         Retrieves only path name of the document location (hostname is ignored), 
         and then try to resolve the path name in the local file system.
@@ -452,11 +468,15 @@ class DocumentProperties(AnnotationProperties):
             return None
         scheme = self.location_scheme()
         if scheme in ('', 'file'):
-            return urlparse(self.location).path
+            p = urlparse(self.location).path
         elif scheme in discovered_docloc_plugins:
-            return discovered_docloc_plugins[scheme].resolve(self.location)
+            p = discovered_docloc_plugins[scheme].resolve(self.location)
         else:
             raise ValueError(f'Cannot resolve location of scheme "{scheme}". Interested in developing mmif-locdoc-{scheme} plugin? See https://clams.ai/mmif-python/plugins')
+        if not nonexist_ok and not os.path.exists(p):
+            raise FileNotFoundError(f'Cannot find file "{p}"')
+        else:
+            return p
 
     def location_path_literal(self) -> Optional[str]:
         """

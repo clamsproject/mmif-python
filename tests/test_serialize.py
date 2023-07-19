@@ -751,6 +751,7 @@ class TestAnnotation(unittest.TestCase):
         self.assertEqual(a.get_property('prop1'), 'value1')
         self.assertEqual(a['prop1'], 'value1')
         self.assertEqual(a.id, a['id'])
+        self.assertEqual(a.id, a.get_property('id'))
 
     def test_id(self):
         anno_obj: Annotation = self.data['everything']['mmif']['v5:bb1']
@@ -798,7 +799,17 @@ class TestDocument(unittest.TestCase):
         self.assertIsNone(td2.location_address())
         td2.location = t.name
         self.assertEqual(new_text, td2.text_value)
-    
+        
+    def test_get_property(self):
+        d = Document()
+        d.at_type = DocumentTypes.TextDocument
+        d.id = 'd1'
+        d.location = 'file:///some/file.txt'
+        d.add_property('prop1', 'value1')
+        self.assertEqual(d.id, d.get_property('id'))
+        self.assertEqual(d.location, d.get_property('location'))
+        self.assertEqual('value1', d.get_property('prop1'))
+
     def test_nontext_document(self):
         ad = Document()
         ad.at_type = DocumentTypes.AudioDocument

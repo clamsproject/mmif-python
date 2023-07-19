@@ -269,6 +269,9 @@ with open('README.md') as readme:
 with open('requirements.txt') as requirements:
     requires = requirements.readlines()
 
+with open('requirements.cv') as requirements:
+    cv_requires = requirements.readlines()
+
 setuptools.setup(
     name=name,
     version=version,
@@ -287,6 +290,7 @@ setuptools.setup(
     },
     install_requires=requires,
     extras_require={
+        'cv': cv_requires,
         'dev': [
             'pytest',
             'pytest-pep8',
