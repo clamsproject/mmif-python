@@ -16,16 +16,20 @@ except ImportError as e:
 
 FPS_DOCPROP_KEY = 'fps'
 UNIT_NORMALIZATION = {
-    'ms': 'millisecond',
-    'msec': 'millisecond',
-    'millisecond': 'millisecond',
-    'milliseconds': 'millisecond',
-    's': 'second',
-    'sec': 'second',
-    'second': 'second',
-    'seconds': 'second',
-    'frame': 'frame',
-    'f': 'frame',
+    'm': 'milliseconds',
+    'ms': 'milliseconds',
+    'msec': 'milliseconds',
+    'millisecond': 'milliseconds',
+    'milliseconds': 'milliseconds',
+    's': 'seconds',
+    'se': 'seconds',
+    'sec': 'seconds',
+    'second': 'seconds',
+    'seconds': 'seconds',
+    'f': 'frames',
+    'fr': 'frames',
+    'frame': 'frames',
+    'frames': 'frames',
 }
 
 
