@@ -1,8 +1,9 @@
-import numpy as np
 import unittest
+
+import numpy as np
 from PIL import Image
 
-from mmif import Mmif, Document, View, Annotation, DocumentTypes, AnnotationTypes
+from mmif import Mmif, Document
 from mmif.utils import video_document_helper as vdh
 
 
@@ -18,8 +19,7 @@ class TestUtilsVideoDocuments(unittest.TestCase):
                 "id": "d1",
                 "location": "file:///home/snewman/Documents/test_vid.mp4"
             }
-        }
-        )
+        })
         self.video_doc.add_property('fps', self.fps)
         self.mmif_obj.add_document(self.video_doc)
 
