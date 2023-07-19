@@ -1,4 +1,12 @@
 
+## releasing 1.0.6 (2023-07-19)
+### Overview
+This release relaxes checks for optional CV dependencies in video utils module, so that users don't have install all of `[cv]` dependencies when they don't use them all. 
+
+### Changes
+* when any of `[cv]` dependencies is not found during `mmif.utils.video_document_helper` module is being loaded, instead of raising and an error, a warning is issued.
+
+
 ## releasing 1.0.5 (2023-07-19)
 ### Overview
 This release contains a minor fix in video_document_helper module
