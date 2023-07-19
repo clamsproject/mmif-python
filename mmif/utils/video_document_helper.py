@@ -1,18 +1,19 @@
+import importlib
+import warnings
 from typing import List, Union, Tuple
 
-import numpy as np
-from PIL import Image
-
+import mmif
 from mmif import Annotation, Document, Mmif
 from mmif.vocabulary import DocumentTypes
 
-try:
-    import cv2
-    import ffmpeg
-    import PIL
-except ImportError as e:
-    raise ImportError(
-        f"Optional package {e.name} not found. You might want to install Computer-Vision dependencies by running `pip install mmif-python[cv]`")
+for cv_dep in ('cv2', 'ffmpeg', 'PIL'):
+    try:
+        importlib.__import__(cv_dep)
+    except ImportError as e:
+        warnings.warn(f"Optional package \"{e.name}\" is not found. "
+                      f"You might want to install Computer-Vision dependencies "
+                      f"by running `pip install mmif-python[cv]=={mmif.__version__}`")
+
 
 FPS_DOCPROP_KEY = 'fps'
 UNIT_NORMALIZATION = {
@@ -33,7 +34,8 @@ UNIT_NORMALIZATION = {
 }
 
 
-def capture(vd: Document) -> cv2.VideoCapture:
+def capture(vd: Document):
+    import cv2  # pytype: disable=import-error
     if vd is None or vd.at_type != DocumentTypes.VideoDocument:
         raise ValueError(f'The document does not exist.')
 
@@ -55,7 +57,7 @@ def get_framerate(vd: Document) -> float:
     return vd.get_property(FPS_DOCPROP_KEY)
 
 
-def extract_frames_as_images(vd: Document, framenums: List[int], as_PIL: bool = False) -> List[Union[np.ndarray, PIL.Image.Image]]:
+def extract_frames_as_images(vd: Document, framenums: List[int], as_PIL: bool = False):
     """
     Extracts frames from a video document as a list of numpy arrays.
     Use `sample_frames` function in this module to get the list of frame numbers first. 
@@ -65,6 +67,9 @@ def extract_frames_as_images(vd: Document, framenums: List[int], as_PIL: bool = 
     :param as_PIL: use PIL.Image instead of numpy.ndarray
     :return: frames as a list of numpy arrays or PIL.Image objects
     """
+    import cv2  # pytype: disable=import-error
+    if as_PIL:
+        from PIL import Image
     frames = []
     video = capture(vd)
     for framenum in framenums:
@@ -77,7 +82,7 @@ def extract_frames_as_images(vd: Document, framenums: List[int], as_PIL: bool = 
     return frames
 
 
-def extract_mid_frame(mmif: Mmif, tf: Annotation, as_PIL: bool = False) -> Union[np.ndarray, PIL.Image.Image]:
+def extract_mid_frame(mmif: Mmif, tf: Annotation, as_PIL: bool = False):
     """
     Extracts the middle frame from a video document
     """
