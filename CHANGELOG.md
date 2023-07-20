@@ -1,4 +1,13 @@
 
+## releasing 1.0.7 (2023-07-20)
+### Overview
+Minor updates in VideoDucment helper module
+
+### Additions
+* when a VideoDocument is open, the total duration of the video is now recorded as a document property.
+
+
+
 ## releasing 1.0.6 (2023-07-19)
 ### Overview
 This release relaxes checks for optional CV dependencies in video utils module, so that users don't have install all of `[cv]` dependencies when they don't use them all. 
