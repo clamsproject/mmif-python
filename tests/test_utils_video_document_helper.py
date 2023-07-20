@@ -19,6 +19,14 @@ class TestUtilsVideoDocuments(unittest.TestCase):
         })
         self.video_doc.add_property('fps', self.fps)
         self.mmif_obj.add_document(self.video_doc)
+    
+    def test_extract_mid_frame(self):
+        tf = self.a_view.new_annotation(AnnotationTypes.TimeFrame, start=100, end=200, timeUnit='frame', document='d1')
+        self.assertEqual(150, vdh.get_mid_framenum(self.mmif_obj, tf))
+        tf = self.a_view.new_annotation(AnnotationTypes.TimeFrame, start=0, end=200, timeUnit='frame', document='d1')
+        self.assertEqual(100, vdh.get_mid_framenum(self.mmif_obj, tf))
+        tf = self.a_view.new_annotation(AnnotationTypes.TimeFrame, start=0, end=3, timeUnit='seconds', document='d1')
+        self.assertEqual(vdh.convert(1.5, 's', 'f', self.fps), vdh.get_mid_framenum(self.mmif_obj, tf))
 
     def test_get_framerate(self):
         self.assertAlmostEqual(29.97, vdh.get_framerate(self.video_doc), places=0)

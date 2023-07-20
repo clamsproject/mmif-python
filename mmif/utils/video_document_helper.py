@@ -16,6 +16,9 @@ for cv_dep in ('cv2', 'ffmpeg', 'PIL'):
 
 
 FPS_DOCPROP_KEY = 'fps'
+DURATION_DOCPROP_KEY = 'duration'
+DURATIONUNIT_DOCPROP_KEY = 'durationTimeUnit'
+                           
 UNIT_NORMALIZATION = {
     'm': 'millisecond',
     'ms': 'millisecond',
@@ -41,6 +44,8 @@ def capture(vd: Document):
 
     v = cv2.VideoCapture(vd.location_path())
     vd.add_property(FPS_DOCPROP_KEY, v.get(cv2.CAP_PROP_FPS))
+    vd.add_property(DURATION_DOCPROP_KEY, v.get(cv2.CAP_PROP_FRAME_COUNT))
+    vd.add_property(DURATIONUNIT_DOCPROP_KEY, 'frames')
     return v
 
 
@@ -82,15 +87,19 @@ def extract_frames_as_images(vd: Document, framenums: List[int], as_PIL: bool = 
     return frames
 
 
-def extract_mid_frame(mmif: Mmif, tf: Annotation, as_PIL: bool = False):
+def get_mid_framenum(mmif: Mmif, tf: Annotation):
     """
     Extracts the middle frame from a video document
     """
     timeunit = get_annotation_property(mmif, tf, 'timeUnit')
     vd = mmif[get_annotation_property(mmif, tf, 'document')]
     fps = get_framerate(vd)
-    midframe = sum(convert(float(tf.get_property(timepoint_propkey)), timeunit, 'frame', fps) for timepoint_propkey in ('start', 'end')) // 2
-    return extract_frames_as_images(vd, [midframe], as_PIL=as_PIL)[0]
+    return sum(convert(float(tf.get_property(timepoint_propkey)), timeunit, 'frame', fps) for timepoint_propkey in ('start', 'end')) // 2
+
+
+def extract_mid_frame(mmif: Mmif, tf: Annotation, as_PIL: bool = False):
+    vd = mmif[get_annotation_property(mmif, tf, 'document')]
+    return extract_frames_as_images(vd, [get_mid_framenum(mmif, tf)], as_PIL=as_PIL)[0]
 
 
 def sample_frames(start_frame: int, end_frame: int, sample_ratio: int = 1) -> List[int]:
