@@ -49,7 +49,7 @@ def capture(video_document: Document):
     if video_document is None or video_document.at_type != DocumentTypes.VideoDocument:
         raise ValueError(f'The document does not exist.')
 
-    v = cv2.VideoCapture(video_document.location_path())
+    v = cv2.VideoCapture(video_document.location_path(nonexist_ok=False))
     video_document.add_property(FPS_DOCPROP_KEY, v.get(cv2.CAP_PROP_FPS))
     video_document.add_property(DURATION_DOCPROP_KEY, v.get(cv2.CAP_PROP_FRAME_COUNT))
     video_document.add_property(DURATIONUNIT_DOCPROP_KEY, 'frames')

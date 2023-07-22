@@ -309,14 +309,16 @@ class Document(Annotation):
         """
         return self.properties.location_address()
 
-    def location_path(self) -> Optional[str]:
+    def location_path(self, nonexist_ok=True) -> Optional[str]:
         """
         Retrieves a path that's resolved to a pathname in the local file system.
         To obtain the original value of the "path" part in the location string
         (before resolving), use ``properties.location_path_literal`` method.
         Returns None when no location is set.
+        
+        :param nonexist_ok: if False, raise FileNotFoundError when the resolved path doesn't exist
         """
-        return self.properties.location_path_resolved()
+        return self.properties.location_path_resolved(nonexist_ok=nonexist_ok)
 
 
 class AnnotationProperties(MmifObject, MutableMapping[str, T]):
