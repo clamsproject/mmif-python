@@ -38,8 +38,12 @@ extensions = [
         'sphinx_rtd_theme',
         'sphinx.ext.linkcode',
         'm2r2',
-        "sphinx_multiversion"
 ]
+try: 
+    import sphinx_multiversion
+    extensions.append('sphinx_multiversion')
+except ImportError:
+    pass
 source_suffix = ['.rst', '.md']
 
 # Add any paths that contain templates here, relative to this directory.
@@ -64,11 +68,9 @@ html_theme = 'sphinx_rtd_theme'
 # so a file named "default.css" will overwrite the builtin "default.css".
 #  html_static_path = ['_static']
 
-
-
-
 # hide document source view link at the top
 html_show_sourcelink = False
+
 
 # function used by `linkcode` extension
 def linkcode_resolve(domain, info):
@@ -78,7 +80,11 @@ def linkcode_resolve(domain, info):
         return None
     filename = info['module'].replace('.', '/')
     # TODO (krim): it's not trivial to recover the file path from a module name
-    return f"https://github.com/clamsproject/mmif-python/tree/{version}/{filename}.py"
+    try:
+        return f"https://github.com/clamsproject/mmif-python/tree/{version}/{filename}.py"
+    except:
+        return f"https://github.com/clamsproject/mmif-python/tree/main/{filename}.py"
+
 
 
 # configuration for multiversion extension

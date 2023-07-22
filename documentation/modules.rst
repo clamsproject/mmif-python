@@ -8,3 +8,5 @@ mmif package
 
    autodoc/mmif.serialize
    autodoc/mmif.vocabulary
+   autodoc/mmif.utils
+
