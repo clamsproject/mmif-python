@@ -37,48 +37,64 @@ UNIT_NORMALIZATION = {
 }
 
 
-def capture(vd: Document):
+def capture(video_document: Document):
+    """
+    Captures a video file using OpenCV and adds fps, frame count, and duration as properties to the document.
+    Captures a video file using OpenCV and adds fps as a document property.
+
+    :param video_document: :py:class:`~mmif.serialize.annotation.Document` instance that holds a video document (``"@type": ".../VideoDocument/..."``)
+    :return: `OpenCV VideoCapture <https://docs.opencv.org/3.4/d8/dfe/classcv_1_1VideoCapture.html>`_ object
+    """
     import cv2  # pytype: disable=import-error
-    if vd is None or vd.at_type != DocumentTypes.VideoDocument:
+    if video_document is None or video_document.at_type != DocumentTypes.VideoDocument:
         raise ValueError(f'The document does not exist.')
 
-    v = cv2.VideoCapture(vd.location_path())
-    vd.add_property(FPS_DOCPROP_KEY, v.get(cv2.CAP_PROP_FPS))
-    vd.add_property(DURATION_DOCPROP_KEY, v.get(cv2.CAP_PROP_FRAME_COUNT))
-    vd.add_property(DURATIONUNIT_DOCPROP_KEY, 'frames')
+    v = cv2.VideoCapture(video_document.location_path())
+    video_document.add_property(FPS_DOCPROP_KEY, v.get(cv2.CAP_PROP_FPS))
+    video_document.add_property(DURATION_DOCPROP_KEY, v.get(cv2.CAP_PROP_FRAME_COUNT))
+    video_document.add_property(DURATIONUNIT_DOCPROP_KEY, 'frames')
     return v
 
 
-def get_framerate(vd: Document) -> float:
-    if vd is None or vd.at_type != DocumentTypes.VideoDocument:
+def get_framerate(video_document: Document) -> float:
+    """
+    Gets the frame rate of a video document. First by checking the fps property of the document, then by capturing the video.
+
+    :param video_document: :py:class:`~mmif.serialize.annotation.Document` instance that holds a video document (``"@type": ".../VideoDocument/..."``)
+    :return: frames per second as a float, rounded to 2 decimal places
+    """
+    if video_document is None or video_document.at_type != DocumentTypes.VideoDocument:
         raise ValueError(f'The document does not exist.')
 
-    framerate_keys = (FPS_DOCPROP_KEY, 'framerate')
+    framerate_keys = (FPS_DOCPROP_KEY, 
+                      'framerate', 'frameRate', 'frame_rate', 'frame-rate', 
+                      'framespersecond', 'framesPerSecond', 'frames_per_second', 'frames-per-second',
+                      'framepersecond', 'framePerSecond', 'frame_per_second', 'frame-per-second')
     for k in framerate_keys:
-        if k in vd:
-            fps = vd.get_property(k)
+        if k in video_document:
+            fps = round(video_document.get_property(k), 2)
             return fps
-    capture(vd)
-    return vd.get_property(FPS_DOCPROP_KEY)
+    capture(video_document)
+    return video_document.get_property(FPS_DOCPROP_KEY)
 
 
-def extract_frames_as_images(vd: Document, framenums: List[int], as_PIL: bool = False):
+def extract_frames_as_images(video_document: Document, framenums: List[int], as_PIL: bool = False):
     """
-    Extracts frames from a video document as a list of numpy arrays.
-    Use `sample_frames` function in this module to get the list of frame numbers first. 
+    Extracts frames from a video document as a list of :py:class:`numpy.ndarray`.
+    Use with :py:func:`sample_frames` function to get the list of frame numbers first. 
     
-    :param vd: VideoDocument object that holds the video file location
+    :param video_document: :py:class:`~mmif.serialize.annotation.Document` instance that holds a video document (``"@type": ".../VideoDocument/..."``)
     :param framenums: integers representing the frame numbers to extract
-    :param as_PIL: use PIL.Image instead of numpy.ndarray
-    :return: frames as a list of numpy arrays or PIL.Image objects
+    :param as_PIL: return :py:class:`PIL.Image.Image` instead of :py:class:`~numpy.ndarray`
+    :return: frames as a list of :py:class:`~numpy.ndarray` or :py:class:`~PIL.Image.Image`
     """
     import cv2  # pytype: disable=import-error
     if as_PIL:
         from PIL import Image
     frames = []
-    video = capture(vd)
+    video = capture(video_document)
     for framenum in framenums:
-        video.set(cv2.CAP_PROP_POS_FRAMES, framenum)
+        video.set(cv2.CAP_PROP_POS_FRAMES, framenum-1)
         ret, frame = video.read()
         if ret:
             frames.append(Image.fromarray(frame[:, :, ::-1]) if as_PIL else frame)
@@ -87,29 +103,43 @@ def extract_frames_as_images(vd: Document, framenums: List[int], as_PIL: bool = 
     return frames
 
 
-def get_mid_framenum(mmif: Mmif, tf: Annotation):
+def get_mid_framenum(mmif: Mmif, time_frame: Annotation):
+    # todo: do this with numpy.linspace
     """
-    Extracts the middle frame from a video document
+    Calculates the middle frame number of a time interval annotation.
+
+    :param mmif: :py:class:`~mmif.serialize.mmif.Mmif` instance
+    :param time_frame: :py:class:`~mmif.serialize.annotation.Annotation` instance that holds a time interval annotation (``"@type": ".../TimeFrame/..."``)
+    :return: middle frame number as an integer
     """
-    timeunit = get_annotation_property(mmif, tf, 'timeUnit')
-    vd = mmif[get_annotation_property(mmif, tf, 'document')]
-    fps = get_framerate(vd)
-    return sum(convert(float(tf.get_property(timepoint_propkey)), timeunit, 'frame', fps) for timepoint_propkey in ('start', 'end')) // 2
+    timeunit = get_annotation_property(mmif, time_frame, 'timeUnit')
+    video_document = mmif[get_annotation_property(mmif, time_frame, 'document')]
+    fps = get_framerate(video_document)
+    return sum(convert(float(time_frame.get_property(timepoint_propkey)), timeunit, 'frame', fps) for timepoint_propkey in ('start', 'end')) // 2
 
 
-def extract_mid_frame(mmif: Mmif, tf: Annotation, as_PIL: bool = False):
-    vd = mmif[get_annotation_property(mmif, tf, 'document')]
-    return extract_frames_as_images(vd, [get_mid_framenum(mmif, tf)], as_PIL=as_PIL)[0]
+def extract_mid_frame(mmif: Mmif, time_frame: Annotation, as_PIL: bool = False):
+    """
+    Extracts the middle frame of a time interval annotation as a numpy ndarray.
+
+    :param mmif: :py:class:`~mmif.serialize.mmif.Mmif` instance
+    :param time_frame: :py:class:`~mmif.serialize.annotation.Annotation` instance that holds a time interval annotation (``"@type": ".../TimeFrame/..."``)
+    :param as_PIL: return :py:class:`~PIL.Image.Image` instead of :py:class:`~numpy.ndarray`
+    :return: frame as a :py:class:`numpy.ndarray` or :py:class:`PIL.Image.Image`
+    """
+    vd = mmif[get_annotation_property(mmif, time_frame, 'document')]
+    return extract_frames_as_images(vd, [get_mid_framenum(mmif, time_frame)], as_PIL=as_PIL)[0]
 
 
 def sample_frames(start_frame: int, end_frame: int, sample_ratio: int = 1) -> List[int]:
     """
     Helper function to sample frames from a time interval.
-    When start_frame is 0 and end_frame is X, this function basically works as "cutoff". 
+    Can also be used as a "cutoff" function when used with ``start_frame==0`` and ``sample_ratio==1``.
     
     :param start_frame: start frame of the interval
     :param end_frame: end frame of the interval
-    :param sample_ratio: sample ratio or sample step, default is 1, meaning all consecutive frames are sampled
+    :param sample_ratio: sample ratio (or step) to configure how often to take a frame, default is 1, meaning all consecutive frames are sampled
+
     """
     sample_ratio = int(sample_ratio)
     if sample_ratio < 1:
@@ -121,6 +151,15 @@ def sample_frames(start_frame: int, end_frame: int, sample_ratio: int = 1) -> Li
 
 
 def convert(time: Union[int, float], in_unit: str, out_unit: str, fps: float) -> Union[int, float]:
+    """
+    Converts time from one unit to another. Works with ``frames``, ``seconds``, ``milliseconds``.
+
+    :param time: time value to convert
+    :param in_unit: input time unit, one of ``frames``, ``seconds``, ``milliseconds``
+    :param out_unit: output time unit, one of ``frames``, ``seconds``, ``milliseconds``
+    :param fps: frames per second
+    :return: converted time value
+    """
     try:
         in_unit = UNIT_NORMALIZATION[in_unit]
     except KeyError:
@@ -150,7 +189,11 @@ def convert(time: Union[int, float], in_unit: str, out_unit: str, fps: float) ->
         return (time / fps) if out_unit == 'second' else (time / fps * 1000)  # pytype: disable=bad-return-type
 
 def get_annotation_property(mmif, annotation, prop_name):
+    """
+    Get a property value from an annotation. If the property is not found in the annotation, it will look up the metadata of the annotation's parent view and return the value from there.
+    """
     # TODO (krim @ 7/18/23): this probably should be merged to the main mmif.serialize packge
+
     if prop_name in annotation:
         return annotation.get_property(prop_name)
     try:
@@ -164,45 +207,57 @@ def convert_timepoint(mmif: Mmif, timepoint: Annotation, out_unit: str) -> Union
     The input annotation must have ``timePoint`` property. 
 
     :param mmif: input MMIF to obtain fps and input timeunit
-    :param timepoint: annotation with ``timePoint`` property
-    :param out_unit: time unit to which the point is converted
+    :param timepoint: :py:class:`~mmif.serialize.annotation.Annotation` instance with ``timePoint`` property
+    :param out_unit: time unit to which the point is converted (``frames``, ``seconds``, ``milliseconds``)
     :return: frame number (integer) or second/millisecond (float) of input timepoint
     """
     in_unit = get_annotation_property(mmif, timepoint, 'timeUnit')
     vd = mmif[get_annotation_property(mmif, timepoint, 'document')]
     return convert(timepoint.get_property('timePoint'), in_unit, out_unit, get_framerate(vd))
 
-def convert_timeframe(mmif: Mmif, timeframe: Annotation, out_unit: str) -> Union[Tuple[int, int], Tuple[float, float]]:
+def convert_timeframe(mmif: Mmif, time_frame: Annotation, out_unit: str) -> Union[Tuple[int, int], Tuple[float, float]]:
     """
-    Converts start and end points in a TimeFrame annotation a different time unit.
+    Converts start and end points in a ``TimeFrame`` annotation a different time unit.
 
-    :param mmif: input MMIF to obtain fps and input timeunit
-    :param timeframe: ``TimeFrame` type annotation
+    :param mmif: :py:class:`~mmif.serialize.mmif.Mmif` instance
+    :param time_frame: :py:class:`~mmif.serialize.annotation.Annotation` instance that holds a time interval annotation (``"@type": ".../TimeFrame/..."``)
     :param out_unit: time unit to which the point is converted
     :return: tuple of frame numbers (integer) or seconds/milliseconds (float) of input start and end
     """
-    in_unit = get_annotation_property(mmif, timeframe, 'timeUnit')
-    vd = mmif[get_annotation_property(mmif, timeframe, 'document')]
-    return convert(timeframe.get_property('start'), in_unit, out_unit, get_framerate(vd)), \
-        convert(timeframe.get_property('end'), in_unit, out_unit, get_framerate(vd))
+    in_unit = get_annotation_property(mmif, time_frame, 'timeUnit')
+    vd = mmif[get_annotation_property(mmif, time_frame, 'document')]
+    return convert(time_frame.get_property('start'), in_unit, out_unit, get_framerate(vd)), \
+        convert(time_frame.get_property('end'), in_unit, out_unit, get_framerate(vd))
 
 
 
 def framenum_to_second(video_doc: Document, frame: int):
+    """
+    Converts a frame number to a second value.
+    """
     fps = get_framerate(video_doc)
     return convert(frame, 'f', 's', fps)
 
 
 def framenum_to_millisecond(video_doc: Document, frame: int):
+    """
+    Converts a frame number to a millisecond value.
+    """
     fps = get_framerate(video_doc)
     return convert(frame, 'f', 'ms', fps)
 
 
 def second_to_framenum(video_doc: Document, second) -> int:
+    """
+    Converts a second value to a frame number.
+    """
     fps = get_framerate(video_doc)
     return int(convert(second, 's', 'f', fps))
 
 
 def millisecond_to_framenum(video_doc: Document, millisecond: float) -> int:
+    """
+    Converts a millisecond value to a frame number.
+    """
     fps = get_framerate(video_doc)
     return int(convert(millisecond, 'ms', 'f', fps))
