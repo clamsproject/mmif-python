@@ -112,8 +112,8 @@ def get_mid_framenum(mmif: Mmif, time_frame: Annotation):
     :param time_frame: :py:class:`~mmif.serialize.annotation.Annotation` instance that holds a time interval annotation (``"@type": ".../TimeFrame/..."``)
     :return: middle frame number as an integer
     """
-    timeunit = get_annotation_property(mmif, time_frame, 'timeUnit')
-    video_document = mmif[get_annotation_property(mmif, time_frame, 'document')]
+    timeunit = time_frame.get_property('timeUnit')
+    video_document = mmif[time_frame.get_property('document')]
     fps = get_framerate(video_document)
     return sum(convert(float(time_frame.get_property(timepoint_propkey)), timeunit, 'frame', fps) for timepoint_propkey in ('start', 'end')) // 2
 
@@ -127,7 +127,7 @@ def extract_mid_frame(mmif: Mmif, time_frame: Annotation, as_PIL: bool = False):
     :param as_PIL: return :py:class:`~PIL.Image.Image` instead of :py:class:`~numpy.ndarray`
     :return: frame as a :py:class:`numpy.ndarray` or :py:class:`PIL.Image.Image`
     """
-    vd = mmif[get_annotation_property(mmif, time_frame, 'document')]
+    vd = mmif[time_frame.get_property('document')]
     return extract_frames_as_images(vd, [get_mid_framenum(mmif, time_frame)], as_PIL=as_PIL)[0]
 
 
@@ -188,18 +188,20 @@ def convert(time: Union[int, float], in_unit: str, out_unit: str, fps: float) ->
     else:
         return (time / fps) if out_unit == 'second' else (time / fps * 1000)  # pytype: disable=bad-return-type
 
+
 def get_annotation_property(mmif, annotation, prop_name):
     """
+    .. deprecated:: 1.0.8
+       Use :py:meth:`mmif.serialize.annotation.Annotation.get_property` method instead.
+    
     Get a property value from an annotation. If the property is not found in the annotation, it will look up the metadata of the annotation's parent view and return the value from there.
+    xisting
     """
-    # TODO (krim @ 7/18/23): this probably should be merged to the main mmif.serialize packge
+    warnings.warn(f'{__name__}() is deprecated. '
+                  f'Directly ask the annotation for a property by calling annotation.get_property() instead.',
+                  DeprecationWarning)
+    return annotation.get_property(prop_name)
 
-    if prop_name in annotation:
-        return annotation.get_property(prop_name)
-    try:
-        return mmif[annotation.parent].metadata.contains[annotation.at_type][prop_name]
-    except KeyError:
-        raise KeyError(f"Annotation {annotation.id} does not have {prop_name} property.")
 
 def convert_timepoint(mmif: Mmif, timepoint: Annotation, out_unit: str) -> Union[int, float]:
     """
@@ -211,9 +213,10 @@ def convert_timepoint(mmif: Mmif, timepoint: Annotation, out_unit: str) -> Union
     :param out_unit: time unit to which the point is converted (``frames``, ``seconds``, ``milliseconds``)
     :return: frame number (integer) or second/millisecond (float) of input timepoint
     """
-    in_unit = get_annotation_property(mmif, timepoint, 'timeUnit')
-    vd = mmif[get_annotation_property(mmif, timepoint, 'document')]
+    in_unit = timepoint.get_property('timeUnit')
+    vd = mmif[timepoint.get_property('document')]
     return convert(timepoint.get_property('timePoint'), in_unit, out_unit, get_framerate(vd))
+
 
 def convert_timeframe(mmif: Mmif, time_frame: Annotation, out_unit: str) -> Union[Tuple[int, int], Tuple[float, float]]:
     """
@@ -224,11 +227,10 @@ def convert_timeframe(mmif: Mmif, time_frame: Annotation, out_unit: str) -> Unio
     :param out_unit: time unit to which the point is converted
     :return: tuple of frame numbers (integer) or seconds/milliseconds (float) of input start and end
     """
-    in_unit = get_annotation_property(mmif, time_frame, 'timeUnit')
-    vd = mmif[get_annotation_property(mmif, time_frame, 'document')]
+    in_unit = time_frame.get_property('timeUnit')
+    vd = mmif[time_frame.get_property('document')]
     return convert(time_frame.get_property('start'), in_unit, out_unit, get_framerate(vd)), \
         convert(time_frame.get_property('end'), in_unit, out_unit, get_framerate(vd))
-
 
 
 def framenum_to_second(video_doc: Document, frame: int):
