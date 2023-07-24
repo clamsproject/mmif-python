@@ -93,24 +93,40 @@ class Mmif(MmifObject):
     def _deserialize(self, input_dict: dict) -> None:
         """
         Deserializes the MMIF JSON string into a Mmif object.
-        This will read in existing ``Annotation`` typed annotations and 
+        After *regular* deserialization, this method will perform the following 
+        *special* handling of Annotation.properties that allows apps to access 
+        Annotation/Document properties that are not encoded in the objects 
+        themselves. This is to allow apps to access in a more intuitive way, 
+        without having too much hassle to iterate views and manually collect the properties.
+        
+        1. This will read in existing *view*-scoped properties from *contains*
+        metadata and attach them to the corresponding ``Annotation`` objects.
+
+        1. This will read in existing ``Annotation`` typed annotations and 
         attach the document-level properties to the ``Document`` objects, 
-        using a volatile property dict. This will allow apps to access the
-        document-level properties without having too much hassle to iterate
-        views and manually collect the properties.
+        using an ephemeral property dict. 
+        
         """
         super()._deserialize(input_dict)
         for view in self.views:
-            doc_id = None
-            if AnnotationTypes.Annotation in view.metadata.contains:
-                if 'document' in view.metadata.contains[AnnotationTypes.Annotation]:
-                    doc_id = view.metadata.contains[AnnotationTypes.Annotation]['document']
+            # this dict will be populated with properties 
+            # that are not encoded in individual annotations objects themselves
+            extrinsic_props = defaultdict(dict)
+            for at_type, type_lv_props in view.metadata.contains.items():
+                for prop_key, prop_value in type_lv_props.items():
+                    extrinsic_props[at_type][prop_key] = prop_value
+            for ann in view.get_annotations():
+                # first add all extrinsic properties to the Annotation objects
+                # as "ephemeral" properties
+                for prop_key, prop_value in extrinsic_props[ann.at_type].items():
+                    ann._props_ephemeral[prop_key] = prop_value
+                # then, do the same to associated Document objects. Note that, 
                 # in a view, it is guaranteed that all Annotation objects are not duplicates
-                for ann in view.get_annotations(AnnotationTypes.Annotation):
-                    if doc_id is None:
-                        doc_id = ann.get_property('document')
+                if ann.at_type == AnnotationTypes.Annotation:
                     try:
-                        self.get_document_by_id(doc_id)._add_property_from_annotation(ann)
+                        doc_id = ann.get_property('document')
+                        for prop_key, prop_value in ann.properties.items():
+                            self.get_document_by_id(doc_id)._props_ephemeral[prop_key] = prop_value
                     except KeyError:
                         warnings.warn(f"Annotation {ann.id} has a document ID {doc_id} that does not exist in the MMIF object. Skipping.", RuntimeWarning)
 
@@ -143,9 +159,9 @@ class Mmif(MmifObject):
                             doc_id = ann.get_property('document')
                         existing_anns[doc_id].update(ann.properties)
                 for doc in view.get_documents():
-                    anns_to_write[doc.id].update(doc._props_temporary)
+                    anns_to_write[doc.id].update(doc._props_pending)
             for doc in self.documents:
-                anns_to_write[doc.id].update(doc._props_temporary)
+                anns_to_write[doc.id].update(doc._props_pending)
             # additional iteration of views, to find a proper view to add the 
             # generated annotations. If none found, use the last view as the kitchen sink
             last_view_for_docs = defaultdict(lambda: last_view)

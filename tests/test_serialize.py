@@ -716,6 +716,13 @@ class TestAnnotation(unittest.TestCase):
             self.assertTrue(k is not None)
             self.assertTrue(v is not None)
     
+    def test_annotation_ephemeral_properties(self):
+        mmif = self.data['everything']['mmif']
+        first_view_first_ann = mmif['v1']['s1']
+        self.assertFalse('document' in first_view_first_ann.properties.keys())
+        self.assertTrue('document' in first_view_first_ann._props_ephemeral.keys())
+        self.assertEqual('m1', first_view_first_ann.get_property('document'))
+    
     def test_property_types(self):
         ann = Annotation()
         ann.id = 'a1'
@@ -861,7 +868,7 @@ class TestDocument(unittest.TestCase):
         # finally, when deserialized back to a Mmif instance, the `Annotation` props should be added
         # as a property of the document 
         doc1_mmif_roundtrip = mmif_roundtrip.get_document_by_id('doc1')
-        self.assertEqual(0, len(doc1_mmif_roundtrip._props_temporary))
+        self.assertEqual(0, len(doc1_mmif_roundtrip._props_pending))
         self.assertEqual('me', doc1_mmif_roundtrip.get_property('author'))
         
     def test_document_adding_duplicate_properties(self):
@@ -878,12 +885,12 @@ class TestDocument(unittest.TestCase):
         doc1.add_property('publisher', 'they')
         
         # sanity checks
-        self.assertEqual(2, len(doc1._props_temporary))
+        self.assertEqual(2, len(doc1._props_pending))
         self.assertEqual('me', doc1.get_property('author'))
         
         # new value should overwrite the existing before being serialized
         doc1.add_property('author', 'you')
-        self.assertEqual(2, len(doc1._props_temporary))
+        self.assertEqual(2, len(doc1._props_pending))
         self.assertEqual('you', doc1.get_property('author'))
         
         # first round of serialization
@@ -897,7 +904,7 @@ class TestDocument(unittest.TestCase):
         doc1.add_property('author', 'you')  # duplicate value
         doc1.add_property('publisher', 'they')  # duplicate value
         ## stored in temporary props even when the value is the same
-        self.assertEqual(2, len(doc1._props_temporary))
+        self.assertEqual(2, len(doc1._props_pending))
         mmif_roundtrip2 = Mmif(mmif_roundtrip1.serialize())
         ## but not serialized
         self.assertEqual(0, len(list(mmif_roundtrip2.views.get_last().get_annotations(AnnotationTypes.Annotation))))
@@ -911,7 +918,7 @@ class TestDocument(unittest.TestCase):
         v.new_annotation(AnnotationTypes.Region, document=did)
         doc1.add_property('author', 'me')
         doc1.add_property('publisher', 'they')
-        self.assertEqual(2, len(doc1._props_temporary))
+        self.assertEqual(2, len(doc1._props_pending))
         mmif_roundtrip3 = Mmif(mmif_roundtrip2.serialize())
         r0_v_anns = list(mmif_roundtrip3.views[r0_vid].get_annotations(AnnotationTypes.Annotation))
         r1_v_anns = list(mmif_roundtrip3.views[r1_vid].get_annotations(AnnotationTypes.Annotation))
