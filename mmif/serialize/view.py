@@ -97,6 +97,8 @@ class View(MmifObject):
         self._set_id(new_annotation, aid)
         for propk, propv in properties.items():
             new_annotation.add_property(propk, propv)
+        for propk, propv in self.metadata.contains.get(at_type, {}).items():
+            new_annotation._props_ephemeral[propk] = propv
         return self.add_annotation(new_annotation, overwrite)
 
     def add_annotation(self, annotation: 'Annotation', overwrite=False) -> 'Annotation':

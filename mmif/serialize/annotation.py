@@ -40,7 +40,8 @@ class Annotation(MmifObject):
         self._type: ThingTypesBase = ThingTypesBase('')
         # to store the parent view ID
         self._parent_view_id = ''
-        self.reserved_names.add('_parent_view_id')
+        self._props_ephemeral: AnnotationProperties = AnnotationProperties()
+        self.reserved_names.update(('_parent_view_id', '_props_ephemeral'))
         if not hasattr(self, 'properties'):  # don't overwrite DocumentProperties on super() call
             self.properties: AnnotationProperties = AnnotationProperties()
             self._attribute_classes = {'properties': AnnotationProperties}
@@ -120,7 +121,9 @@ class Annotation(MmifObject):
         """
         A special getter for Annotation properties. This is to allow for
         directly accessing properties without having to go through the
-        properties object.
+        properties object, or view-level annotation properties encoded in the 
+        ``view.metadata.contains`` dict. Note that the regular props will take 
+        the priority over the ephemeral props when there are conflicts.
         """
         if prop_name in {'at_type', '@type'}:
             return str(self._type)
@@ -128,6 +131,8 @@ class Annotation(MmifObject):
             return self.properties
         elif prop_name in self.properties:
             return self.properties[prop_name]
+        elif prop_name in self._props_ephemeral:
+            return self._props_ephemeral[prop_name]
         else:
             raise KeyError(f"Property {prop_name} does not exist in this annotation.")
 
@@ -163,10 +168,10 @@ class Document(Annotation):
     def __init__(self, doc_obj: Optional[Union[bytes, str, dict]] = None) -> None:
         # see https://github.com/clamsproject/mmif-python/issues/226 for discussion
         # around the use of these three dictionaries
+        # (names changed since, `existing` >> `ephemeral` and `temporary` >> `pending`)
         self._props_original: DocumentProperties = DocumentProperties()
-        self._props_existing: AnnotationProperties = AnnotationProperties()
-        self._props_temporary: AnnotationProperties = AnnotationProperties()
-        self.reserved_names.update(('_props_original', '_props_existing', '_props_temporary'))
+        self._props_pending: AnnotationProperties = AnnotationProperties()
+        self.reserved_names.update(('_props_original', '_props_pending'))
         
         self._type: Union[ThingTypesBase, DocumentTypesBase] = ThingTypesBase('')
         self.properties = self._props_original
@@ -174,12 +179,6 @@ class Document(Annotation):
         self._attribute_classes = {'properties': DocumentProperties}
         super().__init__(doc_obj)
     
-    def _add_property_from_annotation(self, annotation: Annotation):
-        if annotation.at_type != AnnotationTypes.Annotation:
-            raise ValueError("Only `Annotation` type can be added as a property to a `Document` object.")
-        for prop_name, prop_value in annotation.properties.items():
-            self._props_existing[prop_name] = prop_value
-
     def add_property(self, name: str,
                      value: Union[JSON_PRMTV_TYPES, List[JSON_PRMTV_TYPES]]
                      ) -> None:
@@ -217,15 +216,19 @@ class Document(Annotation):
             self.location = value
         elif name not in self._props_original:
             if self.check_prop_value_is_simple_enough(value):
-                self._props_temporary[name] = value
+                self._props_pending[name] = value
             else:
                 super().add_property(name, value)
 
     def get(self, prop_name):
         """
-        A special getter for Document properties. This is to allow for reading 
-        the three properties in a specific order so that the latest value is 
-        returned, in case there are multiple values for the same key.
+        A special getter for Document properties. The major difference from
+        the super class's :py:meth:`Annotation.get` method is that Document 
+        class has one more set of *"pending"* properties, that are added after 
+        the Document object is created and will be serialized as a separate 
+        :py:class:`Annotation` object of which ``@type = Annotation``. The 
+        pending properties will take the priority over the regular properties 
+        when there are conflicts.
         """
         if prop_name == 'id':
             # because all three dicts have `id` key as required field, we need
@@ -235,10 +238,10 @@ class Document(Annotation):
             # because location is internally stored in self.location_,
             # it doesn't work with regular __getitem__ method
             return self.location
-        elif prop_name in self._props_temporary:
-            return self._props_temporary[prop_name]
-        elif prop_name in self._props_existing:
-            return self._props_existing[prop_name]
+        elif prop_name in self._props_pending:
+            return self._props_pending[prop_name]
+        elif prop_name in self._props_ephemeral:
+            return self._props_ephemeral[prop_name]
         else:
             return super().get(prop_name)
 
@@ -309,14 +312,16 @@ class Document(Annotation):
         """
         return self.properties.location_address()
 
-    def location_path(self) -> Optional[str]:
+    def location_path(self, nonexist_ok=True) -> Optional[str]:
         """
         Retrieves a path that's resolved to a pathname in the local file system.
         To obtain the original value of the "path" part in the location string
         (before resolving), use ``properties.location_path_literal`` method.
         Returns None when no location is set.
+        
+        :param nonexist_ok: if False, raise FileNotFoundError when the resolved path doesn't exist
         """
-        return self.properties.location_path_resolved()
+        return self.properties.location_path_resolved(nonexist_ok=nonexist_ok)
 
 
 class AnnotationProperties(MmifObject, MutableMapping[str, T]):
