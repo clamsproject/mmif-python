@@ -16,6 +16,7 @@ for cv_dep in ('cv2', 'ffmpeg', 'PIL'):
 
 
 FPS_DOCPROP_KEY = 'fps'
+FRAMECOUNT_DOCPROP_KEY = 'frameCount'
 DURATION_DOCPROP_KEY = 'duration'
 DURATIONUNIT_DOCPROP_KEY = 'durationTimeUnit'
                            
@@ -40,7 +41,6 @@ UNIT_NORMALIZATION = {
 def capture(video_document: Document):
     """
     Captures a video file using OpenCV and adds fps, frame count, and duration as properties to the document.
-    Captures a video file using OpenCV and adds fps as a document property.
 
     :param video_document: :py:class:`~mmif.serialize.annotation.Document` instance that holds a video document (``"@type": ".../VideoDocument/..."``)
     :return: `OpenCV VideoCapture <https://docs.opencv.org/3.4/d8/dfe/classcv_1_1VideoCapture.html>`_ object
@@ -50,9 +50,13 @@ def capture(video_document: Document):
         raise ValueError(f'The document does not exist.')
 
     v = cv2.VideoCapture(video_document.location_path(nonexist_ok=False))
-    video_document.add_property(FPS_DOCPROP_KEY, v.get(cv2.CAP_PROP_FPS))
-    video_document.add_property(DURATION_DOCPROP_KEY, v.get(cv2.CAP_PROP_FRAME_COUNT))
-    video_document.add_property(DURATIONUNIT_DOCPROP_KEY, 'frames')
+    fps = round(v.get(cv2.CAP_PROP_FPS), 2)
+    fc = v.get(cv2.CAP_PROP_FRAME_COUNT)
+    dur = round(fc / fps, 3) * 1000
+    video_document.add_property(FPS_DOCPROP_KEY, fps)
+    video_document.add_property(FRAMECOUNT_DOCPROP_KEY, fc)
+    video_document.add_property(DURATION_DOCPROP_KEY, dur)
+    video_document.add_property(DURATIONUNIT_DOCPROP_KEY, 'milliseconds')
     return v
 
 
@@ -94,6 +98,8 @@ def extract_frames_as_images(video_document: Document, framenums: List[int], as_
     frames = []
     video = capture(video_document)
     for framenum in framenums:
+        if framenum > video_document.get_property(FRAMECOUNT_DOCPROP_KEY):
+            raise ValueError(f'Frame number {framenum} is greater than the number of frames in the video.')
         video.set(cv2.CAP_PROP_POS_FRAMES, framenum-1)
         ret, frame = video.read()
         if ret:
@@ -104,7 +110,6 @@ def extract_frames_as_images(video_document: Document, framenums: List[int], as_
 
 
 def get_mid_framenum(mmif: Mmif, time_frame: Annotation):
-    # todo: do this with numpy.linspace
     """
     Calculates the middle frame number of a time interval annotation.
 
