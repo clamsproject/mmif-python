@@ -1,14 +1,9 @@
 """
-DELETE THIS MODULE STRING AND REPLACE IT WITH A DESCRIPTION OF YOUR APP.
-
-app.py Template
-
-The app.py script does several things:
-- import the necessary code
-- create a subclass of ClamsApp that defines the metadata and provides a method to run the wrapped NLP tool
-- provide a way to run the code as a RESTful Flask service 
-
-
+This app takes in a mmif which has been annotated with bounding boxes. 
+For each timepoint that has a bounding box, the app produces a larger bounding box
+using the outermost coordinates of the initial set. This produces a "concatenation"
+effect, wherein the box is guaranteed to contain every other bounding box. This
+is a useful bit of processing for downstream tasks.
 """
 # ====================================|
 # Import Statements
