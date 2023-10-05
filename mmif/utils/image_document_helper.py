@@ -57,8 +57,10 @@ class BoundingboxConcatenation(ClamsApp):
                     box_id = annotation.properties["target"]
                     timepoint_anno = anno_id_to_annotation[timepoint_id].properties["timePoint"]
                     box_anno = anno_id_to_annotation[box_id].properties["coordinates"]
-                    box_dict[timepoint_anno].append(box_anno)
-        
+                    if anno_id_to_annotation[box_id].properties["boxType"] == config["boxType"]:
+                        box_dict[timepoint_anno].append(box_anno)
+
+
         out_coords = self.make_boxes(box_dict)
         mmif_obj = self.annotate_boxes(mmif_obj, new_view, out_coords, **config)
 
@@ -96,7 +98,7 @@ class BoundingboxConcatenation(ClamsApp):
             tp_annotation.add_property("timeUnit", config["timeUnit"])
             tp_annotation.add_property("timePoint", time_point)
 
-            bb_annotation.add_property("boxType", "text")
+            bb_annotation.add_property("boxType", config["boxType"])
 
             bb_annotation.add_property("coordinates", box_coords)
 
