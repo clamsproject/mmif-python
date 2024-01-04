@@ -8,4 +8,3 @@ mmif.utils.video_document_helper module
    :members:
    :undoc-members:
    :show-inheritance:
-

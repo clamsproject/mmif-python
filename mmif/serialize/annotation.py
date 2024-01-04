@@ -19,16 +19,22 @@ from urllib.parse import urlparse
 
 from mmif.vocabulary import ThingTypesBase, DocumentTypesBase
 from .model import MmifObject, JSON_PRMTV_TYPES
+from .. import DocumentTypes, AnnotationTypes
+import mmif_docloc_http
 
 __all__ = ['Annotation', 'AnnotationProperties', 'Document', 'DocumentProperties', 'Text']
 
 T = TypeVar('T')
 
-from .. import DocumentTypes, AnnotationTypes
 
+# some built-in document location helpers
 discovered_docloc_plugins = {
-    name[len('mmif_docloc_'):]: importlib.import_module(name) for _, name, _ in pkgutil.iter_modules() if re.match(r'mmif[-_]docloc[-_]', name)
+    'http': mmif_docloc_http,
+    'https': mmif_docloc_http
 }
+discovered_docloc_plugins.update({
+    name[len('mmif_docloc_'):]: importlib.import_module(name) for _, name, _ in pkgutil.iter_modules() if re.match(r'mmif[-_]docloc[-_]', name)
+})
 
 
 class Annotation(MmifObject):

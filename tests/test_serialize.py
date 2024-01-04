@@ -2,6 +2,7 @@ import json
 import tempfile
 import unittest
 from io import StringIO
+from pathlib import Path
 from unittest.mock import patch
 
 import hypothesis_jsonschema
@@ -214,6 +215,23 @@ class TestMmif(unittest.TestCase):
             # because we don't have a handler for `ftp` scheme
             new_doc.location_path()
         self.assertEqual(new_doc.location_address(), f'localhost{file_path}')
+        # round_trip = Document(new_doc.serialize())
+        self.assertEqual(Document(new_doc.serialize()).serialize(), new_doc.serialize())
+    
+    def test_document_location_helpers_http(self):
+        new_doc = Document()
+        new_doc.id = "d1"
+        new_doc.location = f"https://www.gnu.org/licenses/gpl-3.0.txt"
+        self.assertEqual(new_doc.location_scheme(), 'https')
+        try:
+            path = new_doc.location_path()
+            self.assertTrue(Path(path).exists())
+            f = open(path)
+            content = f.read()
+            self.assertTrue(isinstance(content, str))
+            f.close()
+        except ValueError:
+            pytest.fail("failed to get path from https location")
         # round_trip = Document(new_doc.serialize())
         self.assertEqual(Document(new_doc.serialize()).serialize(), new_doc.serialize())
 
