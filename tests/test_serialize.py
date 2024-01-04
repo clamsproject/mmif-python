@@ -203,6 +203,8 @@ class TestMmif(unittest.TestCase):
         self.assertEqual(new_doc.properties.location_scheme(), 'file')
         self.assertEqual(new_doc.properties.location_path_literal(), file_path)
         self.assertEqual(new_doc.properties.location_path_resolved(), file_path)
+        # synonymous delegate method
+        self.assertEqual(new_doc.location_path(), file_path)
         new_doc.location = "/var/archive/video-003.mp4"
         self.assertEqual(new_doc.location_scheme(), 'file')
         self.assertEqual(new_doc.location_path(), file_path)

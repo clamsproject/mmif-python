@@ -265,14 +265,10 @@ class Document(Annotation):
     def text_value(self) -> str:
         if self.at_type == DocumentTypes.TextDocument:
             if self.location:
-                if self.location_scheme() == 'file':
-                    f = open(self.location_path(), 'r', encoding='utf8')
-                    textvalue = f.read()
-                    f.close()
-                    return textvalue
-                else: 
-                    # TODO (krim @ 7/11/21): add more handlers for other types of locations (e.g. s3, https, ...)
-                    return ''
+                f = open(self.location_path(nonexist_ok=False), 'r', encoding='utf8')
+                textvalue = f.read()
+                f.close()
+                return textvalue
             else:
                 return self.properties.text_value
         else:
