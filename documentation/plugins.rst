@@ -17,6 +17,7 @@ Developer can write simple plugins that can provide additional functionalities t
 
 This document contains information about how to write plugins for ``mmif-python``.
 
+.. _docloc_plugin:
 Document Location Scheme Plugins
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -73,3 +74,9 @@ And the plugin code.
            return f'/path/to/{doc_id}.{doc_types[doc_type]}'
        else:
            raise ValueError(f'cannot handle document location scheme: {docloc}')
+
+Bulit-in Document Location Scheme Plugins
+^^^^
+
+At the moment, ``mmif-python`` PyPI distribution ships a built-in *docloc* plugin that support both ``http`` and ``https`` schemes.
+Take a look at :mod:`mmif_docloc_http` module for details. 

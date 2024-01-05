@@ -19,16 +19,22 @@ from urllib.parse import urlparse
 
 from mmif.vocabulary import ThingTypesBase, DocumentTypesBase
 from .model import MmifObject, JSON_PRMTV_TYPES
+from .. import DocumentTypes, AnnotationTypes
+import mmif_docloc_http
 
 __all__ = ['Annotation', 'AnnotationProperties', 'Document', 'DocumentProperties', 'Text']
 
 T = TypeVar('T')
 
-from .. import DocumentTypes, AnnotationTypes
 
+# some built-in document location helpers
 discovered_docloc_plugins = {
-    name[len('mmif_docloc_'):]: importlib.import_module(name) for _, name, _ in pkgutil.iter_modules() if re.match(r'mmif[-_]docloc[-_]', name)
+    'http': mmif_docloc_http,
+    'https': mmif_docloc_http
 }
+discovered_docloc_plugins.update({
+    name[len('mmif_docloc_'):]: importlib.import_module(name) for _, name, _ in pkgutil.iter_modules() if re.match(r'mmif[-_]docloc[-_]', name)
+})
 
 
 class Annotation(MmifObject):
@@ -265,14 +271,10 @@ class Document(Annotation):
     def text_value(self) -> str:
         if self.at_type == DocumentTypes.TextDocument:
             if self.location:
-                if self.location_scheme() == 'file':
-                    f = open(self.location_path(), 'r', encoding='utf8')
-                    textvalue = f.read()
-                    f.close()
-                    return textvalue
-                else: 
-                    # TODO (krim @ 7/11/21): add more handlers for other types of locations (e.g. s3, https, ...)
-                    return ''
+                f = open(self.location_path(nonexist_ok=False), 'r', encoding='utf8')
+                textvalue = f.read()
+                f.close()
+                return textvalue
             else:
                 return self.properties.text_value
         else:
