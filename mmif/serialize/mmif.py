@@ -607,3 +607,8 @@ class ViewsList(DataList[View]):
         for view in reversed(self._items.values()):
             if 'error' not in view.metadata and 'warning' not in view.metadata:
                 return view
+
+    def __delete_last__(self, n: int) -> None:
+        list_reversed = list(reversed(self._items.keys()))[:n]
+        for key in list_reversed:
+            self._items.pop(key)
