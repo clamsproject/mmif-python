@@ -111,6 +111,14 @@ class TestMmif(unittest.TestCase):
         mmif_obj.new_view()  # just raise exception if this fails
         self.assertEqual(old_view_count+1, len(mmif_obj.views))
 
+    def test_delete_last_n_view(self):
+        mmif_obj = Mmif(self.mmif_examples_json['everything'])
+        original_view_count = len(mmif_obj.views)
+        original_last_view = mmif_obj.views.get_last().id
+        mmif_obj.views._delete_last(1)
+        self.assertEqual(original_view_count-1, len(mmif_obj.views))
+        self.assertTrue(mmif_obj.views.get_last().id != original_last_view)
+
     def test_document_text(self):
         text = "Karen flew to New York."
         en = 'en'
