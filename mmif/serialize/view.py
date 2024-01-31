@@ -10,7 +10,7 @@ from typing import Dict, Union, Optional, Generator, List, cast
 
 from mmif.vocabulary import ThingTypesBase, ClamsTypesBase
 from .annotation import Annotation, Document
-from .model import MmifObject, DataList, DataDict
+from .model import MmifObject, DataList, DataDict, JSON_PRMTV_TYPES
 
 __all__ = ['View', 'ViewMetadata', 'Contain']
 
@@ -243,7 +243,8 @@ class ViewMetadata(MmifObject):
         self.timestamp: Optional[datetime] = None
         self.app: str = ''
         self.contains: ContainsDict = ContainsDict()
-        self.parameters: dict = {}
+        self.parameters: Dict[str, str] = {}
+        self.refined_parameters: Dict[str, JSON_PRMTV_TYPES] = {}
         self.error: Union[dict, ErrorDict] = {}
         self.warnings: List[str] = []
         self._required_attributes = ["app"]
@@ -264,7 +265,16 @@ class ViewMetadata(MmifObject):
         # when no "contains", "errors", nor "warnings", at least add an empty contains back
         if not (self.contains.items() or self.error or self.warnings):
             serialized['contains'] = {}
+        # change casing of multi-word key
+        if 'refined_parameters' in serialized:
+            serialized['refinedParameters'] = serialized.pop('refined_parameters')
         return serialized
+    
+    def _deserialize(self, input_dict: dict) -> None:
+        if "refinedParameters" in input_dict:
+            self.refined_parameters = input_dict.pop("refinedParameters")
+        super()._deserialize(input_dict)
+
 
     def new_contain(self, at_type: Union[str, ThingTypesBase], **contains_metadata) -> Optional['Contain']:
         """
@@ -285,17 +295,20 @@ class ViewMetadata(MmifObject):
     def add_contain(self, contain: 'Contain', at_type: Union[str, ThingTypesBase]):
         self.contains[at_type] = contain
 
-    def add_parameters(self, **runtime_params):
-        self.parameters.update(dict(runtime_params))
+    def add_parameters(self, use_refined_param_dict=False, **runtime_params):
+        pd = self.refined_parameters if use_refined_param_dict else self.parameters
+        pd.update(dict(runtime_params))
 
-    def add_parameter(self, param_key, param_value):
-        self.parameters[param_key] = param_value
+    def add_parameter(self, param_key, param_value, use_refined_param_dict=False):
+        pd = self.refined_parameters if use_refined_param_dict else self.parameters
+        pd[param_key] = param_value
 
-    def get_parameter(self, param_key):
+    def get_parameter(self, param_key, use_refined_param_dict=False):
+        pd = self.refined_parameters if use_refined_param_dict else self.parameters
         try:
-            return self.parameters[param_key]
+            return pd[param_key]
         except KeyError:
-            raise KeyError(f"parameter \"{param_key}\" is not set in the view: {self.serialize()}")
+            raise KeyError(f"parameter \"{param_key}\"{f' (refined)' if use_refined_param_dict else ''} is not set in the view: {self.serialize()}")
     
     def set_error(self, message: str, stack_trace: str):
         self.error = ErrorDict({"message": message, "stackTrace": stack_trace})

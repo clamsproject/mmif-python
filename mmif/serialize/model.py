@@ -150,6 +150,7 @@ class MmifObject(object):
         If a subclass needs special treatment during the mapping, it needs to
         override this method.
 
+        :param alt_container: an alternative container to serialize
         :return: the prepared dictionary
         """
         container = alt_container if alt_container is not None else self._unnamed_attributes

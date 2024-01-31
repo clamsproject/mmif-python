@@ -560,9 +560,25 @@ class TestView(unittest.TestCase):
         vmeta = ViewMetadata()
         vmeta.add_parameters(pretty=True, validate=False)
         self.assertEqual(len(vmeta.parameters), 2)
+        self.assertEqual(len(vmeta.refined_parameters), 0)
         vmeta = ViewMetadata()
         vmeta.add_parameters(**{'pretty': True, 'validate': False})
-        
+        self.assertEqual(len(vmeta.parameters), 2)
+
+    def test_view_refined_parameters_batch_adding(self):
+        vmeta = ViewMetadata()
+        vmeta.add_parameters(use_refined_param_dict=True, pretty=True, validate=False)
+        self.assertEqual(len(vmeta.parameters), 0)
+        self.assertEqual(len(vmeta.refined_parameters), 2)
+        serialized = json.loads(vmeta.serialize())
+        self.assertFalse('refined_parameters' in serialized.keys())
+        self.assertTrue('refinedParameters' in serialized.keys())
+        round_trip = ViewMetadata(serialized)
+        self.assertTrue('refined_parameters' in round_trip.__dict__.keys())
+        self.assertFalse('refinedParameters' in round_trip.__dict__.keys())
+        self.assertEqual(len(round_trip.parameters), 0)
+        self.assertEqual(len(round_trip.refined_parameters), 2)
+
     def test_add_warning(self):
         vmeta = ViewMetadata()
         w1 = Warning('first_warning')
