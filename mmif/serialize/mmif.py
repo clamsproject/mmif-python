@@ -479,25 +479,11 @@ class Mmif(MmifObject):
                     return view
         return None
     
-    def get_annotation_by_id(self, view_id: str, ann_id: str) -> Annotation:
+    def _get_linear_anchor_point(self, ann: Annotation, start: bool = True) -> Union[int, float]:
+        # TODO (krim @ 2/5/24): Update the return type once timeunits are unified to `ms` as integers (https://github.com/clamsproject/mmif/issues/192)
         """
-        Finds an Annotation object with the given ID.
-        
-        :param view_id: the view ID to search for
-        :param ann_id: the annotation ID to search for
-        :return: the corresponding Annotation object, if it exists
-        :raises KeyError: when there is no corresponding Annotation object
-        """
-        try:
-            return self.get_view_by_id(view_id).get_annotation_by_id(ann_id)
-        except KeyError:
-            raise KeyError(f"`{view_id}:{ann_id}` annotation not found")
-
-    def get_anchor_point(self, ann: Annotation, start: bool = True) -> Union[int, float]:
-        # TODO (krim @ 2/5/24): Update the return type once timeunits are unified to `ms` as integers
-        # TODO (krim @ 2/5/24): consider adding `coordinate` anchors
-        """
-        Retrieves the anchor point of the annotation. Currently this method only supports time and text anchors, and not spatial anchors (polygons).
+        Retrieves the anchor point of the annotation. Currently, this method only supports linear anchors, 
+        namely time and text, hence does not work with spatial anchors (polygons or video-object).
         
         :param ann: An Annotation object that has a linear anchor point. Namely, some subtypes of `Region` vocabulary type.
         :param start: If True, returns the start anchor point. Otherwise, returns the end anchor point. N/A for `timePoint` anchors.
@@ -507,16 +493,16 @@ class Mmif(MmifObject):
         if 'timePoint' in props:
             return ann.get_property('timePoint')
         elif 'targets' in props:
-            # TODO (krim @ 2/5/24): not sure if this is the correct way to pick the "first" (or "last") target
-            # since the targets list is not guaranteed to be sorted
-            # However, due the recursive nature of this method, it is likely impossible
-            # to get all `start` (or `end`) values of the targets and then pick the first (or last) one
             target_id = ann.get_property('targets')[0 if start else -1]
+            # TODO (krim @ 2/5/24): not sure if this is the correct way to pick the "first" (or "last") target,
+            # since the targets list is not guaranteed to be sorted.
+            # However, due the recursive nature of this method, it is likely impossible
+            # to get all `start` (or `end`) values of the targets recursively and then pick the min (or max) value.
             if Mmif.id_delimiter in target_id:
-                target = self.get_annotation_by_id(*target_id.split(Mmif.id_delimiter))
+                target = self.__getitem__(target_id)
             else:
-                target = self.get_annotation_by_id(ann.parent, target_id)
-            return self.get_anchor_point(target, start=start)
+                target = self.__getitem__(Mmif.id_delimiter.join((ann.parent, target_id)))
+            return self._get_linear_anchor_point(target, start=start)
         elif (start and 'start' in props) or (not start and 'end' in props):
             return ann.get_property('start' if start else 'end')
         else:
@@ -526,13 +512,13 @@ class Mmif(MmifObject):
         """
         An alias to `get_anchor_point` method with `start=True`.
         """
-        return self.get_anchor_point(annotation, start=True)
+        return self._get_linear_anchor_point(annotation, start=True)
     
     def get_end(self, annotation: Annotation) -> Union[int, float]:
         """
         An alias to `get_anchor_point` method with `start=False`.
         """
-        return self.get_anchor_point(annotation, start=False)
+        return self._get_linear_anchor_point(annotation, start=False)
 
     # pytype: disable=bad-return-type
     def __getitem__(self, item: str) -> Union[Document, View, Annotation]:
