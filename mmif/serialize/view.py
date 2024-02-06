@@ -186,7 +186,7 @@ class View(MmifObject):
                            properties.items())):
                     yield annotation
     
-    def get_annotation_by_id(self, ann_id):
+    def get_annotation_by_id(self, ann_id) -> Annotation:
         ann_found = self.annotations.get(ann_id)
         if ann_found is None or not isinstance(ann_found, Annotation):
             raise KeyError(f"Annotation \"{ann_id}\" is not found in view {self.id}.")

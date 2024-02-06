@@ -411,6 +411,32 @@ class TestMmif(unittest.TestCase):
         self.assertTrue('views' in mmif_obj)
         self.assertTrue('v5' in mmif_obj)
         self.assertFalse('v432402' in mmif_obj)
+        
+    def test_get_annotation_by_id(self):
+        mmif_obj = Mmif(MMIF_EXAMPLES['everything'])
+        with self.assertRaises(KeyError):
+            _ = mmif_obj.get_annotation_by_id('xyz', 'abcd')
+        ann = mmif_obj.get_annotation_by_id('v5', 'bb1')
+        self.assertEqual(ann.id, 'bb1')
+        self.assertEqual(ann.parent, 'v5')
+        self.assertEqual(ann.at_type, AnnotationTypes.BoundingBox)
+        
+    def test_get_anchor_point(self):
+        mmif = Mmif(validate=False)
+        v1 = mmif.new_view()
+        v2 = mmif.new_view()
+        tf1_targets = []
+        for timepoint in range(5):
+            tp = v1.new_annotation(AnnotationTypes.TimePoint, timePoint=timepoint)
+            tf1_targets.append(f"{v1.id}{Mmif.id_delimiter}{tp.id}")
+        tf1 = v2.new_annotation(AnnotationTypes.TimeFrame, targets=tf1_targets)
+        tf2 = v2.new_annotation(AnnotationTypes.TimeFrame, start=100, end=200)
+        self.assertEqual(mmif.get_anchor_point(tf2, start=True), 100)
+        self.assertEqual(mmif.get_anchor_point(tf2, start=False), 200)
+        self.assertEqual(mmif.get_anchor_point(mmif.get_annotation_by_id(*tf1_targets[0].split(Mmif.id_delimiter)), start=True), 0)
+        self.assertEqual(mmif.get_anchor_point(mmif.get_annotation_by_id(*tf1_targets[0].split(Mmif.id_delimiter)), start=False), 0)
+        self.assertEqual(mmif.get_anchor_point(tf1, start=True), 0)
+        self.assertEqual(mmif.get_anchor_point(tf1, start=False), 4)
 
 
 class TestMmifObject(unittest.TestCase):

@@ -12,10 +12,10 @@ from datetime import datetime
 from typing import List, Union, Optional, Dict, ClassVar, cast
 
 import jsonschema.validators
-
 import mmif
 from mmif import ThingTypesBase
 from mmif.vocabulary import AnnotationTypes, DocumentTypes
+
 from .annotation import Annotation, Document
 from .model import MmifObject, DataList
 from .view import View
@@ -478,6 +478,61 @@ class Mmif(MmifObject):
                 if at_types in view.metadata.contains:
                     return view
         return None
+    
+    def get_annotation_by_id(self, view_id: str, ann_id: str) -> Annotation:
+        """
+        Finds an Annotation object with the given ID.
+        
+        :param view_id: the view ID to search for
+        :param ann_id: the annotation ID to search for
+        :return: the corresponding Annotation object, if it exists
+        :raises KeyError: when there is no corresponding Annotation object
+        """
+        try:
+            return self.get_view_by_id(view_id).get_annotation_by_id(ann_id)
+        except KeyError:
+            raise KeyError(f"`{view_id}:{ann_id}` annotation not found")
+
+    def get_anchor_point(self, ann: Annotation, start: bool = True) -> Union[int, float]:
+        # TODO (krim @ 2/5/24): Update the return type once timeunits are unified to `ms` as integers
+        # TODO (krim @ 2/5/24): consider adding `coordinate` anchors
+        """
+        Retrieves the anchor point of the annotation. Currently this method only supports time and text anchors, and not spatial anchors (polygons).
+        
+        :param ann: An Annotation object that has a linear anchor point. Namely, some subtypes of `Region` vocabulary type.
+        :param start: If True, returns the start anchor point. Otherwise, returns the end anchor point. N/A for `timePoint` anchors.
+        :return: the anchor point of the annotation. 1d for linear regions (time, text)
+        """
+        props = ann.properties
+        if 'timePoint' in props:
+            return ann.get_property('timePoint')
+        elif 'targets' in props:
+            # TODO (krim @ 2/5/24): not sure if this is the correct way to pick the "first" (or "last") target
+            # since the targets list is not guaranteed to be sorted
+            # However, due the recursive nature of this method, it is likely impossible
+            # to get all `start` (or `end`) values of the targets and then pick the first (or last) one
+            target_id = ann.get_property('targets')[0 if start else -1]
+            if Mmif.id_delimiter in target_id:
+                target = self.get_annotation_by_id(*target_id.split(Mmif.id_delimiter))
+            else:
+                target = self.get_annotation_by_id(ann.parent, target_id)
+            return self.get_anchor_point(target, start=start)
+        elif (start and 'start' in props) or (not start and 'end' in props):
+            return ann.get_property('start' if start else 'end')
+        else:
+            raise ValueError(f"{ann.id} ({ann.at_type}) does not have a valid anchor point. Is it a valid 'Region' type?")
+    
+    def get_start(self, annotation: Annotation) -> Union[int, float]:
+        """
+        An alias to `get_anchor_point` method with `start=True`.
+        """
+        return self.get_anchor_point(annotation, start=True)
+    
+    def get_end(self, annotation: Annotation) -> Union[int, float]:
+        """
+        An alias to `get_anchor_point` method with `start=False`.
+        """
+        return self.get_anchor_point(annotation, start=False)
 
     # pytype: disable=bad-return-type
     def __getitem__(self, item: str) -> Union[Document, View, Annotation]:
