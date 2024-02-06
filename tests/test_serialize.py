@@ -746,11 +746,12 @@ class TestAnnotation(unittest.TestCase):
     def test_property_types(self):
         ann = Annotation()
         ann.id = 'a1'
-        for a_type, a_value in zip([str, int, float, bool, type(None)],
-                                         ['str', '1', '1.1', False, None]):
+        for a_type, a_value in zip([str, int, float, bool, type(None)], ['str', '1', '1.1', False, None]):
             ann.add_property(a_type.__name__, a_value)
             ann.add_property(a_type.__name__ + '_list', [a_value])
+        ann.add_property("list_list", [[1], [2]])
         ann.add_property("dict", {"k1": "v1"})
+        ann.add_property("dict_list", {"k1": ["v1"]})
 
     def test_add_property(self):
         for i, datum in self.data.items():
