@@ -100,15 +100,15 @@ class Annotation(MmifObject):
         
     @staticmethod
     def check_prop_value_is_simple_enough(
-            value: Union[JSON_PRMTV_TYPES, List[JSON_PRMTV_TYPES], List[List[JSON_PRMTV_TYPES]]]):
+            value: Union[JSON_PRMTV_TYPES, List[JSON_PRMTV_TYPES], Dict[str, Union[JSON_PRMTV_TYPES, List[JSON_PRMTV_TYPES]]]]):
         def json_primitives(x): 
             return isinstance(x, typing.get_args(JSON_PRMTV_TYPES))
         return json_primitives(value) \
             or (isinstance(value, list) and all(map(json_primitives, value))) \
-            or (all(map(lambda elem: isinstance(elem, list), value)) and map(json_primitives, [subelem for elem in value for subelem in elem]))
+            or (isinstance(value, dict) and all(map(json_primitives, value.values())))
 
     def add_property(self, name: str,
-                     value: Union[JSON_PRMTV_TYPES, List[JSON_PRMTV_TYPES], List[List[JSON_PRMTV_TYPES]]]
+                     value: Union[JSON_PRMTV_TYPES, List[JSON_PRMTV_TYPES], Dict[str, Union[JSON_PRMTV_TYPES, List[JSON_PRMTV_TYPES]]]]
                      ) -> None:
         """
         Adds a property to the annotation's properties.
@@ -120,7 +120,8 @@ class Annotation(MmifObject):
             self.properties[name] = value
         else:
             raise ValueError("Property values cannot be a complex object. It must be "
-                             "either string, number, boolean, None, or a list of them."
+                             "either string, number, boolean, None, a JSON array of them, "
+                             "or a JSON object of them keyed by strings."
                              f"(\"{name}\": \"{str(value)}\"")
 
     def get(self, prop_name: str) -> Union['AnnotationProperties', JSON_PRMTV_TYPES, List[JSON_PRMTV_TYPES], List[List[JSON_PRMTV_TYPES]]]:
