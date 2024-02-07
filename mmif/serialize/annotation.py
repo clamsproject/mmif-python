@@ -25,6 +25,10 @@ import mmif_docloc_http
 __all__ = ['Annotation', 'AnnotationProperties', 'Document', 'DocumentProperties', 'Text']
 
 T = TypeVar('T')
+LIST_PRMTV = typing.List[JSON_PRMTV_TYPES]  # list of values (most cases for annotation props)
+LIST_LIST_PRMTV = typing.List[LIST_PRMTV]   # list of list of values (e.g. for coordinates)
+DICT_PRMTV = typing.Dict[str, JSON_PRMTV_TYPES]  # dict of values (`text` prop of `TextDocument` and other complex props)
+DICT_LIST_PRMTV = typing.Dict[str, LIST_PRMTV]  # dict of list of values (even more complex props)
 
 
 # some built-in document location helpers
@@ -100,31 +104,39 @@ class Annotation(MmifObject):
         
     @staticmethod
     def check_prop_value_is_simple_enough(
-            value: Union[JSON_PRMTV_TYPES, List[JSON_PRMTV_TYPES], Dict[str, Union[JSON_PRMTV_TYPES, List[JSON_PRMTV_TYPES]]]]):
+            value: Union[JSON_PRMTV_TYPES, LIST_PRMTV, LIST_LIST_PRMTV, DICT_PRMTV, DICT_LIST_PRMTV]) -> bool:
+        
         def json_primitives(x): 
             return isinstance(x, typing.get_args(JSON_PRMTV_TYPES))
+        
+        def json_primitives_list(x):
+            return isinstance(x, list) and all(map(json_primitives, x))
+        
+        def json_primitives_list_of_list(x):
+            return all(map(lambda elem: isinstance(elem, list), x) and map(json_primitives, [subelem for elem in x for subelem in elem]))
+
         return json_primitives(value) \
-            or (isinstance(value, list) and all(map(json_primitives, value))) \
-            or (isinstance(value, dict) and all(map(json_primitives, value.values())))
+            or json_primitives_list(value) \
+            or json_primitives_list_of_list(value) \
+            or (isinstance(value, dict) and all(map(lambda x: isinstance(x[0], str) and (json_primitives(x[1]) or json_primitives_list(x[1])), value.items())))
 
     def add_property(self, name: str,
-                     value: Union[JSON_PRMTV_TYPES, List[JSON_PRMTV_TYPES], Dict[str, Union[JSON_PRMTV_TYPES, List[JSON_PRMTV_TYPES]]]]
-                     ) -> None:
+                     value: Union[JSON_PRMTV_TYPES, LIST_PRMTV, LIST_LIST_PRMTV, DICT_PRMTV, DICT_LIST_PRMTV]) -> None:
         """
         Adds a property to the annotation's properties.
         :param name: the name of the property
         :param value: the property's desired value
         :return: None
         """
-        if self.check_prop_value_is_simple_enough(value):
-            self.properties[name] = value
-        else:
-            raise ValueError("Property values cannot be a complex object. It must be "
-                             "either string, number, boolean, None, a JSON array of them, "
-                             "or a JSON object of them keyed by strings."
-                             f"(\"{name}\": \"{str(value)}\"")
+        # if self.check_prop_value_is_simple_enough(value):
+        self.properties[name] = value
+        # else:
+        #     raise ValueError("Property values cannot be a complex object. It must be "
+        #                      "either string, number, boolean, None, a JSON array of them, "
+        #                      "or a JSON object of them keyed by strings."
+        #                      f"(\"{name}\": \"{str(value)}\"")
 
-    def get(self, prop_name: str) -> Union['AnnotationProperties', JSON_PRMTV_TYPES, List[JSON_PRMTV_TYPES], List[List[JSON_PRMTV_TYPES]]]:
+    def get(self, prop_name: str) -> Union['AnnotationProperties', JSON_PRMTV_TYPES, LIST_PRMTV, LIST_LIST_PRMTV, DICT_PRMTV, DICT_LIST_PRMTV]:
         """
         A special getter for Annotation properties. This is to allow for
         directly accessing properties without having to go through the
@@ -187,7 +199,7 @@ class Document(Annotation):
         super().__init__(doc_obj)
     
     def add_property(self, name: str,
-                     value: Union[JSON_PRMTV_TYPES, List[JSON_PRMTV_TYPES]]
+                     value: Union[JSON_PRMTV_TYPES, LIST_PRMTV]
                      ) -> None:
         """
         Adds a property to the document's properties.

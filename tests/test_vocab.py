@@ -35,11 +35,12 @@ class TestAnnotationTypes(unittest.TestCase):
     def test_serialize_within_mmif(self):
         mmif_obj = Mmif(MMIF_EXAMPLES['everything'])
         view_obj = mmif_obj.get_view_by_id('v5')
-        view_obj.annotations._items.pop('bb25')
-        anno_obj = view_obj.new_annotation(AnnotationTypes.BoundingBox, 'bb25')
-        anno_obj.add_property('coordinates', [[150, 810], [1120, 810], [150, 870], [1120, 870]])
-        anno_obj.add_property('timePoint', 21000)
-        anno_obj.add_property('boxType', 'text')
+        popped_ann = view_obj.annotations._items.pop('bb25')
+        new_ann = view_obj.new_annotation(AnnotationTypes.BoundingBox, 'bb25')
+        for propk, propv in popped_ann.properties.items():
+            if propk == 'id':
+                continue
+            new_ann.add_property(propk, propv)
         expected = json.loads(Mmif(MMIF_EXAMPLES['everything']).serialize())
         actual = json.loads(mmif_obj.serialize())
         bb_type = str(AnnotationTypes.BoundingBox)
