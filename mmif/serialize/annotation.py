@@ -128,13 +128,13 @@ class Annotation(MmifObject):
         :param value: the property's desired value
         :return: None
         """
-        if self.check_prop_value_is_simple_enough(value):
-            self.properties[name] = value
-        else:
-            raise ValueError("Property values cannot be a complex object. It must be "
-                             "either string, number, boolean, None, a JSON array of them, "
-                             "or a JSON object of them keyed by strings."
-                             f"(\"{name}\": \"{str(value)}\"")
+        # if self.check_prop_value_is_simple_enough(value):
+        self.properties[name] = value
+        # else:
+        #     raise ValueError("Property values cannot be a complex object. It must be "
+        #                      "either string, number, boolean, None, a JSON array of them, "
+        #                      "or a JSON object of them keyed by strings."
+        #                      f"(\"{name}\": \"{str(value)}\"")
 
     def get(self, prop_name: str) -> Union['AnnotationProperties', JSON_PRMTV_TYPES, LIST_PRMTV, LIST_LIST_PRMTV, DICT_PRMTV, DICT_LIST_PRMTV]:
         """
