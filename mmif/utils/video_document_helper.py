@@ -120,7 +120,7 @@ def get_mid_framenum(mmif: Mmif, time_frame: Annotation):
     timeunit = time_frame.get_property('timeUnit')
     video_document = mmif[time_frame.get_property('document')]
     fps = get_framerate(video_document)
-    return sum(convert(float(time_frame.get_property(timepoint_propkey)), timeunit, 'frame', fps) for timepoint_propkey in ('start', 'end')) // 2
+    return convert(mmif.get_start(time_frame) + mmif.get_end(time_frame), timeunit, 'frame', fps) // 2
 
 
 def extract_mid_frame(mmif: Mmif, time_frame: Annotation, as_PIL: bool = False):
@@ -234,8 +234,8 @@ def convert_timeframe(mmif: Mmif, time_frame: Annotation, out_unit: str) -> Unio
     """
     in_unit = time_frame.get_property('timeUnit')
     vd = mmif[time_frame.get_property('document')]
-    return convert(time_frame.get_property('start'), in_unit, out_unit, get_framerate(vd)), \
-        convert(time_frame.get_property('end'), in_unit, out_unit, get_framerate(vd))
+    return convert(mmif.get_start(time_frame), in_unit, out_unit, get_framerate(vd)), \
+        convert(mmif.get_end(time_frame), in_unit, out_unit, get_framerate(vd))
 
 
 def framenum_to_second(video_doc: Document, frame: int):
