@@ -1,10 +1,23 @@
 import unittest
 
 from mmif import Mmif, Document, AnnotationTypes
+from mmif.utils import timeunit_helper as tuh
 from mmif.utils import video_document_helper as vdh
 
 
-class TestUtilsVideoDocuments(unittest.TestCase):
+class TestTimeunitHelper(unittest.TestCase):
+    
+    FPS = 30
+    
+    def test_convert(self):
+        self.assertEqual(1000, tuh.convert(1, 's', 'ms', self.FPS))
+        self.assertEqual(1.1, tuh.convert(1100, 'ms', 's', self.FPS))
+        self.assertEqual('00:01:30.000', tuh.convert(90, 's', 'i', self.FPS))
+        self.assertEqual(3300, tuh.convert('00:00:03.300', 'i', 'ms', self.FPS))
+        self.assertEqual(7.77, tuh.convert('00:00:07.770', 'i', 's', self.FPS))
+
+
+class TestVideoDocumentHelper(unittest.TestCase):
     def setUp(self):
         self.fps = 29.97
         self.mmif_obj = Mmif(validate=False)
