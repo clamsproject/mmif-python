@@ -137,7 +137,7 @@ class ClamsTypesBase(TypesBase):
         return True
 
     def __hash__(self):
-        return hash(str(self))
+        return hash(f'{self.base_uri}::{self.shortname}')
     
     def normalize_attype_vers(self):
         if '.' in self.version and self._check_legacy_version(self.version):
