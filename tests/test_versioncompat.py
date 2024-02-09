@@ -2,6 +2,7 @@ import unittest
 
 import pytest
 
+from mmif.serialize.view import ContainsDict, View
 from mmif.vocabulary import DocumentTypes
 from mmif.vocabulary.base_types import TypesBase
 
@@ -20,6 +21,14 @@ class TestMMIFVersionCompatibility(unittest.TestCase):
         tdv1_2 = TypesBase.from_str(f'{attype_prefix}/TextDocument/v1')
         tdv2_1 = TypesBase.from_str(f'{attype_prefix}/TextDocument/v2')
         self.assertEqual(tdv1_1, tdv1_2)
+        d = {tdv1_1: 0, tdv1_2: 1}
+        with pytest.warns(UserWarning, match='version difference'):
+            self.assertIn(tdv2_1, d)
+        view = View()
+        view.new_contain(tdv1_1)
+        with pytest.warns(UserWarning, match='version difference'):
+            self.assertIn(tdv2_1, view.metadata.contains)
+        
         with pytest.warns(UserWarning, match='version difference'):
             self.assertEqual(tdv1_1, tdv2_1)
         # disable fuzzy matching
