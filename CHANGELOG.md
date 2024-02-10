@@ -1,4 +1,32 @@
 
+## releasing 1.0.8 (2023-07-24)
+### Overview
+This release includes polishing and bug fixes around the `mmif.utils.video_document_helper` module.
+
+### Changes
+* API documentation for the module is now included in the public documentation website (#242) 
+* when opening a video file using `vdhelper.capture` function, an error is now raised the video file is not found in the local file system (#243)
+* `frameCount` and `duration` of a video are recorded as document properties #244)
+* `Annotation.get_property` now provide more intuitive access to "view-level" annotation properties found in `view.metadata.contains.some_at_type` dict 
+
+
+## releasing 1.0.7 (2023-07-20)
+### Overview
+Minor updates in VideoDucment helper module
+
+### Additions
+* when a VideoDocument is open, the total duration of the video is now recorded as a document property.
+
+
+
+## releasing 1.0.6 (2023-07-19)
+### Overview
+This release relaxes checks for optional CV dependencies in video utils module, so that users don't have install all of `[cv]` dependencies when they don't use them all. 
+
+### Changes
+* when any of `[cv]` dependencies is not found during `mmif.utils.video_document_helper` module is being loaded, instead of raising and an error, a warning is issued.
+
+
 ## releasing 1.0.5 (2023-07-19)
 ### Overview
 This release contains a minor fix in video_document_helper module
