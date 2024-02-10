@@ -1,4 +1,19 @@
 
+## releasing 1.0.9 (2024-02-10)
+### Overview
+This is a feature-packed release.
+
+### Additions
+* Based on MMIF 1.0.1 
+* Added a default handler for `http://`/`https://` document locations
+* Added `get_start` and `get_end` methods to `Mmif` class to help getting start and end points of `Interval` and `Timepoint` vocabulrary types (https://github.com/clamsproject/mmif-python/issues/253)
+* Added a conversion helper for ISO-format time strings (https://github.com/clamsproject/mmif-python/issues/258)
+
+### Changes
+* Fixed `Document.text_value()` was only working with `file://` location (https://github.com/clamsproject/mmif-python/issues/246)
+* `Annotation` objects' `properties` attribute is no longer limited to primitives and list of primitives (https://github.com/clamsproject/mmif/issues/215)
+* Fixed annotation URI equivalence checker wasn't working in set-like collections (https://github.com/clamsproject/mmif-python/issues/257)
+
 ## releasing 1.0.8 (2023-07-24)
 ### Overview
 This release includes polishing and bug fixes around the `mmif.utils.video_document_helper` module.
