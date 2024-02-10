@@ -13,9 +13,10 @@ import datetime
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 #
 import os
+from pathlib import Path
 import sys
-rootdir = os.getenv("SPHINX_MULTIVERSION_SOURCEDIR", default=os.path.dirname(__file__))
-sys.path.insert(0, os.path.dirname(rootdir))
+doc_src_dir = os.getenv("SPHINX_MULTIVERSION_SOURCEDIR", default=Path(__file__).parent)
+sys.path.insert(0, doc_src_dir.parent.as_posix())
 
 
 # -- Project information -----------------------------------------------------
@@ -23,6 +24,8 @@ sys.path.insert(0, os.path.dirname(rootdir))
 project = 'mmif-python'
 copyright = f'{datetime.date.today().year}, Brandeis LLC'
 author = 'Brandeis LLC'
+version = open(doc_src_dir.parent / 'VERSION').read().strip()
+
 
 # The full version, including alpha/beta/rc tags
 #  release = '0.1.0'

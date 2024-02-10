@@ -4,6 +4,7 @@ from typing import List, Union, Tuple
 
 import mmif
 from mmif import Annotation, Document, Mmif
+from mmif.utils.timeunit_helper import convert
 from mmif.vocabulary import DocumentTypes
 
 for cv_dep in ('cv2', 'ffmpeg', 'PIL'):
@@ -19,23 +20,6 @@ FPS_DOCPROP_KEY = 'fps'
 FRAMECOUNT_DOCPROP_KEY = 'frameCount'
 DURATION_DOCPROP_KEY = 'duration'
 DURATIONUNIT_DOCPROP_KEY = 'durationTimeUnit'
-                           
-UNIT_NORMALIZATION = {
-    'm': 'millisecond',
-    'ms': 'millisecond',
-    'msec': 'millisecond',
-    'millisecond': 'millisecond',
-    'milliseconds': 'millisecond',
-    's': 'second',
-    'se': 'second',
-    'sec': 'second',
-    'second': 'second',
-    'seconds': 'second',
-    'f': 'frame',
-    'fr': 'frame',
-    'frame': 'frame',
-    'frames': 'frame',
-}
 
 
 def capture(video_document: Document):
@@ -120,7 +104,7 @@ def get_mid_framenum(mmif: Mmif, time_frame: Annotation):
     timeunit = time_frame.get_property('timeUnit')
     video_document = mmif[time_frame.get_property('document')]
     fps = get_framerate(video_document)
-    return sum(convert(float(time_frame.get_property(timepoint_propkey)), timeunit, 'frame', fps) for timepoint_propkey in ('start', 'end')) // 2
+    return convert(mmif.get_start(time_frame) + mmif.get_end(time_frame), timeunit, 'frame', fps) // 2
 
 
 def extract_mid_frame(mmif: Mmif, time_frame: Annotation, as_PIL: bool = False):
@@ -155,45 +139,6 @@ def sample_frames(start_frame: int, end_frame: int, sample_ratio: int = 1) -> Li
     return frame_nums
 
 
-def convert(time: Union[int, float], in_unit: str, out_unit: str, fps: float) -> Union[int, float]:
-    """
-    Converts time from one unit to another. Works with ``frames``, ``seconds``, ``milliseconds``.
-
-    :param time: time value to convert
-    :param in_unit: input time unit, one of ``frames``, ``seconds``, ``milliseconds``
-    :param out_unit: output time unit, one of ``frames``, ``seconds``, ``milliseconds``
-    :param fps: frames per second
-    :return: converted time value
-    """
-    try:
-        in_unit = UNIT_NORMALIZATION[in_unit]
-    except KeyError:
-        raise ValueError(f"Not supported time unit: {in_unit}")
-    try:
-        out_unit = UNIT_NORMALIZATION[out_unit]
-    except KeyError:
-        raise ValueError(f"Not supported time unit: {out_unit}")
-    # s>s, ms>ms, f>f
-    if in_unit == out_unit:
-        return time
-    elif out_unit == 'frame':
-        # ms>f
-        if 'millisecond' == in_unit:
-            return int(time / 1000 * fps)
-        # s>f
-        elif 'second' == in_unit:
-            return int(time * fps)
-    # s>ms
-    elif in_unit == 'second':
-        return time * 1000
-    # ms>s
-    elif in_unit == 'millisecond':
-        return time // 1000
-    # f>ms, f>s
-    else:
-        return (time / fps) if out_unit == 'second' else (time / fps * 1000)  # pytype: disable=bad-return-type
-
-
 def get_annotation_property(mmif, annotation, prop_name):
     """
     .. deprecated:: 1.0.8
@@ -208,7 +153,7 @@ def get_annotation_property(mmif, annotation, prop_name):
     return annotation.get_property(prop_name)
 
 
-def convert_timepoint(mmif: Mmif, timepoint: Annotation, out_unit: str) -> Union[int, float]:
+def convert_timepoint(mmif: Mmif, timepoint: Annotation, out_unit: str) -> Union[int, float, str]:
     """
     Converts a time point included in an annotation to a different time unit.
     The input annotation must have ``timePoint`` property. 
@@ -223,7 +168,7 @@ def convert_timepoint(mmif: Mmif, timepoint: Annotation, out_unit: str) -> Union
     return convert(timepoint.get_property('timePoint'), in_unit, out_unit, get_framerate(vd))
 
 
-def convert_timeframe(mmif: Mmif, time_frame: Annotation, out_unit: str) -> Union[Tuple[int, int], Tuple[float, float]]:
+def convert_timeframe(mmif: Mmif, time_frame: Annotation, out_unit: str) -> Union[Tuple[Union[int, float, str], Union[int, float, str]]]:
     """
     Converts start and end points in a ``TimeFrame`` annotation a different time unit.
 
@@ -234,8 +179,8 @@ def convert_timeframe(mmif: Mmif, time_frame: Annotation, out_unit: str) -> Unio
     """
     in_unit = time_frame.get_property('timeUnit')
     vd = mmif[time_frame.get_property('document')]
-    return convert(time_frame.get_property('start'), in_unit, out_unit, get_framerate(vd)), \
-        convert(time_frame.get_property('end'), in_unit, out_unit, get_framerate(vd))
+    return convert(mmif.get_start(time_frame), in_unit, out_unit, get_framerate(vd)), \
+        convert(mmif.get_end(time_frame), in_unit, out_unit, get_framerate(vd))
 
 
 def framenum_to_second(video_doc: Document, frame: int):

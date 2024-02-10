@@ -19,16 +19,26 @@ from urllib.parse import urlparse
 
 from mmif.vocabulary import ThingTypesBase, DocumentTypesBase
 from .model import MmifObject, JSON_PRMTV_TYPES
+from .. import DocumentTypes, AnnotationTypes
+import mmif_docloc_http
 
 __all__ = ['Annotation', 'AnnotationProperties', 'Document', 'DocumentProperties', 'Text']
 
 T = TypeVar('T')
+LIST_PRMTV = typing.List[JSON_PRMTV_TYPES]  # list of values (most cases for annotation props)
+LIST_LIST_PRMTV = typing.List[LIST_PRMTV]   # list of list of values (e.g. for coordinates)
+DICT_PRMTV = typing.Dict[str, JSON_PRMTV_TYPES]  # dict of values (`text` prop of `TextDocument` and other complex props)
+DICT_LIST_PRMTV = typing.Dict[str, LIST_PRMTV]  # dict of list of values (even more complex props)
 
-from .. import DocumentTypes, AnnotationTypes
 
+# some built-in document location helpers
 discovered_docloc_plugins = {
-    name[len('mmif_docloc_'):]: importlib.import_module(name) for _, name, _ in pkgutil.iter_modules() if re.match(r'mmif[-_]docloc[-_]', name)
+    'http': mmif_docloc_http,
+    'https': mmif_docloc_http
 }
+discovered_docloc_plugins.update({
+    name[len('mmif_docloc_'):]: importlib.import_module(name) for _, name, _ in pkgutil.iter_modules() if re.match(r'mmif[-_]docloc[-_]', name)
+})
 
 
 class Annotation(MmifObject):
@@ -94,30 +104,39 @@ class Annotation(MmifObject):
         
     @staticmethod
     def check_prop_value_is_simple_enough(
-            value: Union[JSON_PRMTV_TYPES, List[JSON_PRMTV_TYPES], List[List[JSON_PRMTV_TYPES]]]):
+            value: Union[JSON_PRMTV_TYPES, LIST_PRMTV, LIST_LIST_PRMTV, DICT_PRMTV, DICT_LIST_PRMTV]) -> bool:
+        
         def json_primitives(x): 
             return isinstance(x, typing.get_args(JSON_PRMTV_TYPES))
+        
+        def json_primitives_list(x):
+            return isinstance(x, list) and all(map(json_primitives, x))
+        
+        def json_primitives_list_of_list(x):
+            return all(map(lambda elem: isinstance(elem, list), x) and map(json_primitives, [subelem for elem in x for subelem in elem]))
+
         return json_primitives(value) \
-            or (isinstance(value, list) and all(map(json_primitives, value))) \
-            or (all(map(lambda elem: isinstance(elem, list), value)) and map(json_primitives, [subelem for elem in value for subelem in elem]))
+            or json_primitives_list(value) \
+            or json_primitives_list_of_list(value) \
+            or (isinstance(value, dict) and all(map(lambda x: isinstance(x[0], str) and (json_primitives(x[1]) or json_primitives_list(x[1])), value.items())))
 
     def add_property(self, name: str,
-                     value: Union[JSON_PRMTV_TYPES, List[JSON_PRMTV_TYPES], List[List[JSON_PRMTV_TYPES]]]
-                     ) -> None:
+                     value: Union[JSON_PRMTV_TYPES, LIST_PRMTV, LIST_LIST_PRMTV, DICT_PRMTV, DICT_LIST_PRMTV]) -> None:
         """
         Adds a property to the annotation's properties.
         :param name: the name of the property
         :param value: the property's desired value
         :return: None
         """
-        if self.check_prop_value_is_simple_enough(value):
-            self.properties[name] = value
-        else:
-            raise ValueError("Property values cannot be a complex object. It must be "
-                             "either string, number, boolean, None, or a list of them."
-                             f"(\"{name}\": \"{str(value)}\"")
+        # if self.check_prop_value_is_simple_enough(value):
+        self.properties[name] = value
+        # else:
+        #     raise ValueError("Property values cannot be a complex object. It must be "
+        #                      "either string, number, boolean, None, a JSON array of them, "
+        #                      "or a JSON object of them keyed by strings."
+        #                      f"(\"{name}\": \"{str(value)}\"")
 
-    def get(self, prop_name: str) -> Union['AnnotationProperties', JSON_PRMTV_TYPES, List[JSON_PRMTV_TYPES], List[List[JSON_PRMTV_TYPES]]]:
+    def get(self, prop_name: str) -> Union['AnnotationProperties', JSON_PRMTV_TYPES, LIST_PRMTV, LIST_LIST_PRMTV, DICT_PRMTV, DICT_LIST_PRMTV]:
         """
         A special getter for Annotation properties. This is to allow for
         directly accessing properties without having to go through the
@@ -180,7 +199,7 @@ class Document(Annotation):
         super().__init__(doc_obj)
     
     def add_property(self, name: str,
-                     value: Union[JSON_PRMTV_TYPES, List[JSON_PRMTV_TYPES]]
+                     value: Union[JSON_PRMTV_TYPES, LIST_PRMTV]
                      ) -> None:
         """
         Adds a property to the document's properties.
@@ -265,14 +284,10 @@ class Document(Annotation):
     def text_value(self) -> str:
         if self.at_type == DocumentTypes.TextDocument:
             if self.location:
-                if self.location_scheme() == 'file':
-                    f = open(self.location_path(), 'r', encoding='utf8')
-                    textvalue = f.read()
-                    f.close()
-                    return textvalue
-                else: 
-                    # TODO (krim @ 7/11/21): add more handlers for other types of locations (e.g. s3, https, ...)
-                    return ''
+                f = open(self.location_path(nonexist_ok=False), 'r', encoding='utf8')
+                textvalue = f.read()
+                f.close()
+                return textvalue
             else:
                 return self.properties.text_value
         else:

@@ -2,6 +2,7 @@ import json
 import tempfile
 import unittest
 from io import StringIO
+from pathlib import Path
 from unittest.mock import patch
 
 import hypothesis_jsonschema
@@ -203,6 +204,8 @@ class TestMmif(unittest.TestCase):
         self.assertEqual(new_doc.properties.location_scheme(), 'file')
         self.assertEqual(new_doc.properties.location_path_literal(), file_path)
         self.assertEqual(new_doc.properties.location_path_resolved(), file_path)
+        # synonymous delegate method
+        self.assertEqual(new_doc.location_path(), file_path)
         new_doc.location = "/var/archive/video-003.mp4"
         self.assertEqual(new_doc.location_scheme(), 'file')
         self.assertEqual(new_doc.location_path(), file_path)
@@ -212,6 +215,23 @@ class TestMmif(unittest.TestCase):
             # because we don't have a handler for `ftp` scheme
             new_doc.location_path()
         self.assertEqual(new_doc.location_address(), f'localhost{file_path}')
+        # round_trip = Document(new_doc.serialize())
+        self.assertEqual(Document(new_doc.serialize()).serialize(), new_doc.serialize())
+    
+    def test_document_location_helpers_http(self):
+        new_doc = Document()
+        new_doc.id = "d1"
+        new_doc.location = f"https://www.gnu.org/licenses/gpl-3.0.txt"
+        self.assertEqual(new_doc.location_scheme(), 'https')
+        try:
+            path = new_doc.location_path()
+            self.assertTrue(Path(path).exists())
+            f = open(path)
+            content = f.read()
+            self.assertTrue(isinstance(content, str))
+            f.close()
+        except ValueError:
+            pytest.fail("failed to get path from https location")
         # round_trip = Document(new_doc.serialize())
         self.assertEqual(Document(new_doc.serialize()).serialize(), new_doc.serialize())
 
@@ -391,6 +411,37 @@ class TestMmif(unittest.TestCase):
         self.assertTrue('views' in mmif_obj)
         self.assertTrue('v5' in mmif_obj)
         self.assertFalse('v432402' in mmif_obj)
+        
+    def test_get_anchor_point(self):
+        mmif = Mmif(validate=False)
+        v1 = mmif.new_view()
+        v2 = mmif.new_view()
+        tps = []
+        tf1_targets_wo_vid = []
+        tf2_targets_with_vid = []
+        for timepoint in range(5):
+            tp = v1.new_annotation(AnnotationTypes.TimePoint, timePoint=timepoint)
+            tps.append(tp)
+            tf1_targets_wo_vid.append(f"{tp.id}")
+            tf2_targets_with_vid.append(f"{v1.id}{Mmif.id_delimiter}{tp.id}")
+        tf1 = v1.new_annotation(AnnotationTypes.TimeFrame, targets=tf1_targets_wo_vid)
+        tf2 = v2.new_annotation(AnnotationTypes.TimeFrame, targets=tf2_targets_with_vid)
+        tf3 = v2.new_annotation(AnnotationTypes.TimeFrame, start=100, end=200)
+        self.assertEqual(mmif.get_start(tf3), 100)
+        self.assertEqual(mmif.get_end(tf3), 200)
+        self.assertEqual(mmif._get_linear_anchor_point(tf3, start=True), 100)
+        self.assertEqual(mmif._get_linear_anchor_point(tf3, start=False), 200)
+        self.assertEqual(mmif._get_linear_anchor_point(tf1, start=True), 0)
+        self.assertEqual(mmif._get_linear_anchor_point(tf1, start=False), 4)
+        self.assertEqual(mmif._get_linear_anchor_point(tf2, start=True), 0)
+        self.assertEqual(mmif._get_linear_anchor_point(tf2, start=False), 4)
+        self.assertEqual(mmif._get_linear_anchor_point(mmif[tf2_targets_with_vid[0]], start=True), 0)
+        self.assertEqual(mmif._get_linear_anchor_point(mmif[tf2_targets_with_vid[-1]], start=False), 4)
+        self.assertEqual(mmif._get_linear_anchor_point(tps[0], start=True), 0)
+        self.assertEqual(mmif._get_linear_anchor_point(tps[-1], start=False), 4)
+        non_region_ann = v2.new_annotation(AnnotationTypes.Alignment)
+        with self.assertRaises(ValueError):
+            _ = mmif._get_linear_anchor_point(non_region_ann, start=True)
 
 
 class TestMmifObject(unittest.TestCase):
@@ -726,11 +777,12 @@ class TestAnnotation(unittest.TestCase):
     def test_property_types(self):
         ann = Annotation()
         ann.id = 'a1'
-        for a_type, a_value in zip([str, int, float, bool, type(None)],
-                                         ['str', '1', '1.1', False, None]):
+        for a_type, a_value in zip([str, int, float, bool, type(None)], ['str', '1', '1.1', False, None]):
             ann.add_property(a_type.__name__, a_value)
-        with self.assertRaises(ValueError):
-            ann.add_property("dict", {"k1": "v1"})
+            ann.add_property(a_type.__name__ + '_list', [a_value])
+        ann.add_property("list_list", [[1], [2]])
+        ann.add_property("dict", {"k1": "v1"})
+        ann.add_property("dict_list", {"k1": ["v1"]})
 
     def test_add_property(self):
         for i, datum in self.data.items():

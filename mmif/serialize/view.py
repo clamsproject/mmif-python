@@ -186,7 +186,7 @@ class View(MmifObject):
                            properties.items())):
                     yield annotation
     
-    def get_annotation_by_id(self, ann_id):
+    def get_annotation_by_id(self, ann_id) -> Annotation:
         ann_found = self.annotations.get(ann_id)
         if ann_found is None or not isinstance(ann_found, Annotation):
             raise KeyError(f"Annotation \"{ann_id}\" is not found in view {self.id}.")
@@ -367,7 +367,10 @@ class AnnotationsList(DataList[Union[Annotation, Document]]):
 class ContainsDict(DataDict[ThingTypesBase, Contain]):
 
     def _deserialize(self, input_dict: dict) -> None:
-        self._items = {ThingTypesBase.from_str(key): Contain(value) for key, value in input_dict.items()}
+        for key, value in input_dict.items():
+            if isinstance(key, str):
+                key = ThingTypesBase.from_str(key)
+            self._items[key] = Contain(value)
 
     def update(self, other: Union[dict, 'ContainsDict'], overwrite=False):
         for k, v in other.items():

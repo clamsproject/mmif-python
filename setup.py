@@ -296,7 +296,6 @@ setuptools.setup(
             'pytest-pep8',
             'pytest-cov',
             'pytype',
-            'sphinx'
         ]
     },
     python_requires='>=3.8',
