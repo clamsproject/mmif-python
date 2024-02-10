@@ -15,8 +15,9 @@ import datetime
 import os
 from pathlib import Path
 import sys
-doc_src_dir = os.getenv("SPHINX_MULTIVERSION_SOURCEDIR", default=Path(__file__).parent)
-sys.path.insert(0, doc_src_dir.parent.as_posix())
+doc_src_dir = Path(os.getenv("SPHINX_MULTIVERSION_SOURCEDIR", default=__file__))
+proj_root_dir = doc_src_dir.parent.parent if doc_src_dir.is_file() else doc_src_dir.parent
+sys.path.insert(0, proj_root_dir.as_posix())
 
 
 # -- Project information -----------------------------------------------------
@@ -24,7 +25,7 @@ sys.path.insert(0, doc_src_dir.parent.as_posix())
 project = 'mmif-python'
 copyright = f'{datetime.date.today().year}, Brandeis LLC'
 author = 'Brandeis LLC'
-version = open(doc_src_dir.parent / 'VERSION').read().strip()
+version = open(proj_root_dir / 'VERSION').read().strip()
 
 
 # The full version, including alpha/beta/rc tags
