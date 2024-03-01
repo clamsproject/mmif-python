@@ -1,4 +1,16 @@
 
+## releasing 1.0.10 (2024-03-01)
+### Overview
+This version includes minor bug fixes and support for MMIF spec 1.0.2. 
+
+### Additions
+* support for _aliases_ for annotation properties. This is due to MMIF spec 1.0.2's introduction of the general `label` property that replaces `frameType` and `boxType` properties  in `TimeFrame` and `BoundingBox` respectively. Specifically, for example, the value of `label` or `frameType` property of a `TimeFrame` annotation object is accessible either via `timeframe.get_property("label")` or `timeframe.get_property("frameType")`. **This is primarily only for backward-compatibility** , and for the future, using `frameType`/`boxType` is NOT recommended in preference to the more general `label` property. 
+
+### Changes
+* The `mmif-python` SDK website no longer holds API docs for old versions.
+* ISO-like time unit conversion now consistently returns only to third decimal place.
+
+
 ## releasing 1.0.9 (2024-02-10)
 ### Overview
 This is a feature-packed release.
