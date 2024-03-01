@@ -268,6 +268,11 @@ class TestMmif(unittest.TestCase):
         mmif_obj = Mmif(MMIF_EXAMPLES['everything'])
         views = mmif_obj.get_all_views_contain(AnnotationTypes.TimeFrame)
         self.assertEqual(4, len(views))
+        # there is not such thing as `v0` of this type
+        # but when you query views with a string (not by the AnnotationType object)
+        # it should not perfomr "fuzzy" match and instead should do full string to string match
+        views = mmif_obj.get_all_views_contain('http://mmif.clams.ai/vocabulary/TimeFrame/v0')
+        self.assertEqual(0, len(views))
         views = mmif_obj.get_views_contain(DocumentTypes.TextDocument)
         self.assertEqual(2, len(views))
         views = mmif_obj.get_all_views_contain('http://vocab.lappsgrid.org/SemanticTag')
