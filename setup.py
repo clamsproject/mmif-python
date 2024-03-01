@@ -162,15 +162,19 @@ def generate_vocabulary(spec_version, clams_types_vers):
 
 
 def get_latest_mmif_gittag():
-    cur_p = 1
-    body = [None]
-    tags = []
-    while len(body) > 0:
-        # for when we have more than 30 (default pagination size) tags
-        res = request.urlopen(f'https://api.github.com/repos/clamsproject/mmif/tags?per_page=100&page={cur_p}')
-        body = json.loads(res.read())
-        tags.extend([tag['name'] for tag in body])
-        cur_p += 1
+    if LOCALMMIF is not None:
+        tags = subprocess.run(f'git --git-dir {LOCALMMIF}/.git --no-pager tag'.split(), 
+                              capture_output=True).stdout.decode('utf-8').split('\n')
+    else:
+        cur_p = 1
+        body = [None]
+        tags = []
+        while len(body) > 0:
+            # for when we have more than 30 (default pagination size) tags
+            res = request.urlopen(f'https://api.github.com/repos/clamsproject/mmif/tags?per_page=100&page={cur_p}')
+            body = json.loads(res.read())
+            tags.extend([tag['name'] for tag in body])
+            cur_p += 1
     # sort and return highest version
     print(tags)
     mmif_ver_format = lambda x: re.match(r'\d+\.\d+\.\d$', x)
@@ -209,7 +213,7 @@ def prep_ext_files(setuptools_cmd):
         latest_mmif_gittag = get_latest_mmif_gittag()
         spec_file_gitref = latest_mmif_gittag if '.dev' not in version else 'develop'
         # legacy version tags were formatted as xx-a.b.c (e.g., vocab-0.0.1)
-        spec_version = latest_mmif_gittag.split('-')[-1]
+        spec_version = latest_mmif_gittag.split('-')[-1].strip()
         # making resources into a python package so that `pkg_resources` can access resource files
         res_dir = generate_subpack(mmif_name, mmif_res_pkg)
 

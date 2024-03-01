@@ -66,7 +66,32 @@ class Annotation(MmifObject):
         # here is the place to parse formatted IDs and store prefixes in the parent mmif object. 
         # (see https://github.com/clamsproject/mmif/issues/64#issuecomment-849241309 for discussion)
         super()._deserialize(input_dict)
-        
+        for k, v in self.properties.items():
+            self._add_prop_aliases(k, v)
+                            
+    def _add_prop_aliases(self, key_to_add, val_to_add):
+        """
+        Method to handle aliases of the same property.
+        Annotation property aliases were first introduced in MMIF 1.0.2, 
+        with addition of general `label` property to all `Annotation` 
+        subtypes, and effectively deprecated `frameType` and `boxType`
+        in `TimeFrame` and `BoundingBox` respectively.
+        """
+        prop_aliases = AnnotationTypes.prop_aliases.get(self._type.shortname, {})
+        for alias_reprep, alias_group in prop_aliases.items():
+            if key_to_add in alias_group:
+                for alias in alias_group:
+                    if alias != key_to_add:
+                        self._props_ephemeral[alias] = val_to_add
+                        if alias in self.properties.keys():
+                            warning_msg = f'Found both "{key_to_add}" and "{alias}" in the properties of "{self.id}" annotation in "{self.parent}" view. '
+                            if alias == alias_reprep:
+                                warning_msg += f'However "{key_to_add}" is an alias of "{alias_reprep}".'
+                            else:
+                                warning_msg += f'However "{key_to_add}" and "{alias}" are boath aliases of "{alias_reprep}".'
+                            warning_msg += f'Having two synonyms in the same annotation can cause unexpected behavior. '
+                            warnings.warn(warning_msg, UserWarning)
+
     def is_type(self, at_type: Union[str, ThingTypesBase]) -> bool:
         """
         Check if the @type of this object matches.
@@ -135,6 +160,7 @@ class Annotation(MmifObject):
         #                      "either string, number, boolean, None, a JSON array of them, "
         #                      "or a JSON object of them keyed by strings."
         #                      f"(\"{name}\": \"{str(value)}\"")
+        self._add_prop_aliases(name, value)
 
     def get(self, prop_name: str) -> Union['AnnotationProperties', JSON_PRMTV_TYPES, LIST_PRMTV, LIST_LIST_PRMTV, DICT_PRMTV, DICT_LIST_PRMTV]:
         """
@@ -167,8 +193,25 @@ class Annotation(MmifObject):
         except KeyError:
             return False
     
+    def _get_label(self) -> str:
+        """
+        Another prototypical method to handle property aliases.
+        See :meth:`.Annotation._add_prop_aliases` for more details on 
+        what property aliases are.
+        Not recommended to use this method as `_add_prop_aliases` method 
+        is preferred. 
+        """
+        if 'label' in self:
+            return str(self.get('label'))
+        elif self._type.shortname == 'TimeFrame' and 'frameType' in self:
+            return str(self.get('frameType'))
+        elif self._type.shortname == 'BoundingBox' and 'boxType' in self:
+            return str(self.get('boxType'))
+        else:
+            raise KeyError("No label found in this annotation.")
+    
     def is_document(self):
-        return isinstance(self.at_type, DocumentTypesBase)
+        return isinstance(self._type, DocumentTypesBase)
 
 
 class Document(Annotation):
@@ -268,21 +311,21 @@ class Document(Annotation):
     
     @property
     def text_language(self) -> str:
-        if self.at_type == DocumentTypes.TextDocument:
+        if self._type == DocumentTypes.TextDocument:
             return self.properties.text_language
         else:
             raise ValueError("Only TextDocument can have `text` field.")
 
     @text_language.setter
     def text_language(self, lang_code: str) -> None:
-        if self.at_type == DocumentTypes.TextDocument:
+        if self._type == DocumentTypes.TextDocument:
             self.properties.text_language = lang_code
         else:
             raise ValueError("Only TextDocument can have `text` field.")
 
     @property
     def text_value(self) -> str:
-        if self.at_type == DocumentTypes.TextDocument:
+        if self._type == DocumentTypes.TextDocument:
             if self.location:
                 f = open(self.location_path(nonexist_ok=False), 'r', encoding='utf8')
                 textvalue = f.read()
@@ -295,7 +338,7 @@ class Document(Annotation):
 
     @text_value.setter
     def text_value(self, text_value: str) -> None:
-        if self.at_type == DocumentTypes.TextDocument:
+        if self._type == DocumentTypes.TextDocument:
             self.properties.text_value = text_value
         else:
             raise ValueError("Only TextDocument can have `text` field.")

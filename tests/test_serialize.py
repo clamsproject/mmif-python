@@ -1,6 +1,7 @@
 import json
 import tempfile
 import unittest
+import warnings
 from io import StringIO
 from pathlib import Path
 from unittest.mock import patch
@@ -411,7 +412,21 @@ class TestMmif(unittest.TestCase):
         self.assertTrue('views' in mmif_obj)
         self.assertTrue('v5' in mmif_obj)
         self.assertFalse('v432402' in mmif_obj)
-        
+    
+    def test_get_label(self):
+        v = View()
+        a = v.new_annotation(AnnotationTypes.TimeFrame, label="speech")
+        self.assertEqual(a._get_label(), "speech")
+        a = v.new_annotation(AnnotationTypes.TimeFrame, frameType="speech")
+        self.assertEqual(a._get_label(), "speech")
+        a = v.new_annotation(AnnotationTypes.BoundingBox, label="text")
+        self.assertEqual(a._get_label(), "text")
+        a = v.new_annotation(AnnotationTypes.BoundingBox, boxType="text")
+        self.assertEqual(a._get_label(), "text")
+        with self.assertRaises(KeyError):
+            a = v.new_annotation(AnnotationTypes.BoundingBox)
+            _ = a._get_label()
+
     def test_get_anchor_point(self):
         mmif = Mmif(validate=False)
         v1 = mmif.new_view()
@@ -811,6 +826,25 @@ class TestAnnotation(unittest.TestCase):
         self.assertEqual(a['prop1'], 'value1')
         self.assertEqual(a.id, a['id'])
         self.assertEqual(a.id, a.get_property('id'))
+    
+    def test_get_property_with_alias(self):
+        v = View()
+        tf1 = v.new_annotation(AnnotationTypes.TimeFrame, start=0, end=10, label="speech")
+        # tf3 = v.new_annotation(AnnotationTypes.TimeFrame, start=20, end=30, frameType="speech")
+        self.assertEqual(tf1.get_property('label'), "speech")
+        self.assertEqual(tf1.get_property('frameType'), "speech")
+        with warnings.catch_warnings(record=True) as caught_warnings:
+            # should throw a warning for alias collision
+            tf2 = v.new_annotation(AnnotationTypes.BoundingBox, start=10, end=20,
+                                   label="nonspeech", boxType="nonspeech")
+            # again, should throw a warning for alias collision for frameType and label, 
+            # but not for frameLabel
+            tf3 = v.new_annotation(AnnotationTypes.TimeFrame, start=10, end=20, 
+                                   frameType="nonspeech", label="nonspeech", frameLabel="speech")
+            self.assertEqual(2, len(caught_warnings))
+            self.assertTrue("nonspeech", tf3.get_property('frameType'))
+            self.assertTrue("nonspeech", tf3.get_property('label'))
+            self.assertTrue("speech", tf3.get_property('frameLabel'))
 
     def test_id(self):
         anno_obj: Annotation = self.data['everything']['mmif']['v5:bb1']
@@ -1201,9 +1235,6 @@ class TestSchema(unittest.TestCase):
     def setUp(self) -> None:
         if DEBUG:
             self.hypos = []
-        # TODO (krim @ 6/21/23): remove this ignore filter once hypothesis-jsonschema is updated with jsonschema 4.18
-        import warnings
-        warnings.simplefilter("ignore")
 
     def tearDown(self) -> None:
         if DEBUG:

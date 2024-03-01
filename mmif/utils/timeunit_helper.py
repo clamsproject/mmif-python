@@ -30,7 +30,7 @@ def _isoformat_to_millisecond(isoformat: str) -> int:
 
 def _millisecond_to_isoformat(millisecond: int) -> str:
     t = datetime.utcfromtimestamp(millisecond / 1000)
-    return t.strftime('%H:%M:%S.%f')
+    return t.strftime('%H:%M:%S.%f')[:-3]
 
 
 def _second_to_isoformat(second: float) -> str:

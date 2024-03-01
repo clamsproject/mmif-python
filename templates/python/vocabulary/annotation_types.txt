@@ -9,3 +9,12 @@ class AnnotationTypes(AnnotationTypesBase):
     This class contains the CLAMS annotation types 
     defined in the spec version $VERSION as class variables. 
     """
+    
+    # prpoerty aliases, first added in MMIF 1.0.2
+    # map from type short name to a dictionary of property aliases
+    # where nested dictionary maps from representative name to its aliases
+    prop_aliases = {
+        'TimeFrame': {'label': {'frameType', 'label'}},
+        'BoundingBox': {'label': {'boxType', 'label'}},
+    }
+
