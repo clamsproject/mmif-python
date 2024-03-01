@@ -209,7 +209,7 @@ def prep_ext_files(setuptools_cmd):
         latest_mmif_gittag = get_latest_mmif_gittag()
         spec_file_gitref = latest_mmif_gittag if '.dev' not in version else 'develop'
         # legacy version tags were formatted as xx-a.b.c (e.g., vocab-0.0.1)
-        spec_version = latest_mmif_gittag.split('-')[-1]
+        spec_version = latest_mmif_gittag.split('-')[-1].strip()
         # making resources into a python package so that `pkg_resources` can access resource files
         res_dir = generate_subpack(mmif_name, mmif_res_pkg)
 
