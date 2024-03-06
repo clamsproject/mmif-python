@@ -135,7 +135,7 @@ class TestMmif(unittest.TestCase):
     def test_document_empty_text(self):
         document = Document()
         document.id = 'm997'
-        document.at_type = f"http://mmif.clams.ai/vocabulary/TextDocument/{DocumentTypes.typevers['TextDocument']}"
+        document.at_type = f"http://mmif.clams.ai/vocabulary/TextDocument/{DocumentTypes._typevers['TextDocument']}"
         serialized = document.serialize()
         deserialized = Document(serialized)
         self.assertEqual(deserialized.properties.text_value, '')
@@ -181,7 +181,7 @@ class TestMmif(unittest.TestCase):
         mmif_obj = Mmif(MMIF_EXAMPLES['everything'])
         self.assertEqual(len(mmif_obj.get_documents_by_app(tesseract_appid)), 25)
         self.assertEqual(len(mmif_obj.get_documents_by_app('xxx')), 0)
-        new_document = Document({'@type': f"http://mmif.clams.ai/vocabulary/TextDocument/{DocumentTypes.typevers['TextDocument']}",
+        new_document = Document({'@type': f"http://mmif.clams.ai/vocabulary/TextDocument/{DocumentTypes._typevers['TextDocument']}",
                                  'properties': {'id': 'td999', 'text': {"@value": "HI"}}})
         mmif_obj['v6'].add_document(new_document)
         self.assertEqual(len(mmif_obj.get_documents_by_app(tesseract_appid)), 26)

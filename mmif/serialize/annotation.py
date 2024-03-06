@@ -77,7 +77,7 @@ class Annotation(MmifObject):
         subtypes, and effectively deprecated `frameType` and `boxType`
         in `TimeFrame` and `BoundingBox` respectively.
         """
-        prop_aliases = AnnotationTypes.prop_aliases.get(self._type.shortname, {})
+        prop_aliases = AnnotationTypes._prop_aliases.get(self._type.shortname, {})
         for alias_reprep, alias_group in prop_aliases.items():
             if key_to_add in alias_group:
                 for alias in alias_group:

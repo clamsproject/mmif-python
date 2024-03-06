@@ -69,7 +69,7 @@ def generate_vocab_enum(spec_version, clams_types_vers, mod_name) -> str:
     for type_name, type_ver in clams_types_vers:
         vocab_url = f'http://mmif.clams.ai/vocabulary/{type_name}/{type_ver}'
         file_out.write(f"    {type_name} = {base_class_name}('{vocab_url}')\n")
-    file_out.write(f"    typevers = {dict(clams_types_vers)}\n")
+    file_out.write(f"    _typevers = {dict(clams_types_vers)}\n")
 
     string_out = file_out.getvalue()
     file_out.close()
@@ -134,7 +134,7 @@ def generate_vocabulary(spec_version, clams_types_vers):
             f"from .{mod_name} import {class_name}"
             for mod_name, classes in types.items()
             for class_name in classes
-        ) + '\n\n' + "typevers = {**ThingType.typevers, **AnnotationTypes.typevers, **DocumentTypes.typevers}" + '\n'
+        ) + '\n\n' + "_typevers = {**ThingType._typevers, **AnnotationTypes._typevers, **DocumentTypes._typevers}" + '\n'
     )
     document_types = []
     annotation_types = []

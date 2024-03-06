@@ -14,7 +14,8 @@ class TestAnnotationTypes(unittest.TestCase):
 
     def test_encode(self):
         list_of_two = [AnnotationTypes.Annotation, AnnotationTypes.Chapter]
-        string_of_two = f'[\"http://mmif.clams.ai/vocabulary/Annotation/{AnnotationTypes.typevers["Annotation"]}\", \"http://mmif.clams.ai/vocabulary/Chapter/{AnnotationTypes.typevers["Chapter"]}\"]'
+        string_of_two = (f'[\"http://mmif.clams.ai/vocabulary/Annotation/{AnnotationTypes._typevers["Annotation"]}\", '
+                         f'\"http://mmif.clams.ai/vocabulary/Chapter/{AnnotationTypes._typevers["Chapter"]}\"]')
         string_out = json.dumps(list_of_two, indent=None, cls=MmifObjectEncoder)
         self.assertEqual(string_of_two, string_out)
 
@@ -23,7 +24,9 @@ class TestAnnotationTypes(unittest.TestCase):
         view_obj: View = mmif_obj.get_view_by_id('v1')
         view_obj.new_annotation(AnnotationTypes.Polygon, 'p1')
         view_obj.new_annotation(AnnotationTypes.TimeFrame, 'bb2')
-        self.assertEqual(list(view_obj.metadata.contains.keys()), [f'http://mmif.clams.ai/vocabulary/TimeFrame/{AnnotationTypes.typevers["TimeFrame"]}', f'http://mmif.clams.ai/vocabulary/Polygon/{AnnotationTypes.typevers["Polygon"]}'])
+        self.assertEqual(list(view_obj.metadata.contains.keys()),
+                         [f'http://mmif.clams.ai/vocabulary/TimeFrame/{AnnotationTypes._typevers["TimeFrame"]}',
+                          f'http://mmif.clams.ai/vocabulary/Polygon/{AnnotationTypes._typevers["Polygon"]}'])
 
     def test_type_checking(self):
         mmif_obj = Mmif(MMIF_EXAMPLES['everything'])
