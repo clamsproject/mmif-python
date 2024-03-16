@@ -1,7 +1,23 @@
+"""
+This module provides helpers for handling sequence labeling. Specifically, it provides
+
+* a generalized label re-mapper for "post-binning" of labels
+* conversion from a list of CLAMS annotations (with ``classifications`` props) into a list of reals (scores by labels), can be combined with the label re-mapper mentioned above
+* :py:meth:`mmif.utils.sequence_helper.smooth_short_intervals`: a simple smoothing algorithm by trimming "short" peaks or valleys
+
+However, it DOES NOT provide 
+
+* direct conversion between CLAMS annotations. For example, it does not directly handle stitching of ``TimePoint`` into ``TimeFrames``. 
+* support for multi-class scenario, such as handling of _competing_ subsequence or overlapping labels.
+
+Some functions can use optional external libraries (e.g., ``numpy``) for better performance. 
+Hence, if you see a warning about missing optional packages, you might want to install them by running ``pip install mmif-python[seq]``.
+"""
+
 import importlib
 import itertools
 import warnings
-from typing import List, Tuple, Dict, Union, Iterable
+from typing import List, Tuple, Dict, Union, Iterable, Callable
 
 import mmif
 from mmif import Annotation
@@ -28,65 +44,77 @@ def smooth_short_intervals(scores: List[float],
     From a list of scores and a score threshold, identify the intervals of
     "positive" scores by smoothing the short gaps and peaks. 
     
-    Here's examples of smoothing a list of binary scores (threshold=0.5)
+    Here are examples of smoothing a list of binary scores (threshold=0.5)
     into intervals:
     
-    1. with params ``min_peak_width==1``, ``min_gap_width==4``
-    t is unit index (e.g. time index)
-    S is the list of binary scores (zeros and ones)
-    I is the list of intervals after stitching
+    .. note::
+       legends: 
+       
+       * ``t`` is unit index (e.g. time index)
+       * ``S`` is the list of binary scores (zeros and ones)
+       * ``I`` is the list of intervals after stitching
+       
+    #. with params ``min_peak_width==1``, ``min_gap_width==4``
+        
+        .. code-block:: javascript
+        
+           t: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+           S: [0, 1, 1, 1, 1, 1, 1, 0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 1]
+           I: [0, 1--1--1--1--1--1--1--1--1--1--1--1, 0--0--0--0--0--0, 1]
+        
+        Explanation: ``min_gap_width`` is used to smooth negative 
+        predictions. In this, zeros from t[7:10] are smoothed into "one" I, 
+        while zeros from t[13:19] are kept as "zero" I. Note that the 
+        "short" negatives at the either ends (t[0:1]) are never smoothed.
+        
+    #. with params ``min_peak_width==4``, ``min_gap_width==2``
     
-    t: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
-    S: [0, 1, 1, 1, 1, 1, 1, 0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 1]
-    I: [0, 1--1--1--1--1--1--1--1--1--1--1--1, 0--0--0--0--0--0, 1]
-    
-    Explanation: `min_gap_width` is used to smooth negative predictions.
-                 In this, zeros from t[7:10] are smoothed into "one" I,
-                 while zeros from t[13:19] are kept as "zero" I. Note that
-                 the "short" negative gaps at the either ends (t[0:1])
-                 is never smoothed.
-    
-    2. with params ``min_peak_width==4``, ``min_gap_width==2``
-    
-    t: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
-    S: [0, 1, 1, 1, 1, 1, 1, 0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 1]
-    I: [0, 1--1--1--1--1--1, 0--0--0--0--0--0--0--0--0--0--0--0--0]
-    
-    Explanation: `min_peak_width` is used to smooth short peaks of
-                 positive predictions. In this example, the peak of ones
-                 from both t[10:13] and t[19:20] are smoothed. Note that
-                 the "short" positive peaks at the either ends (t[19:20])
-                 is always smoothed.
+        .. code-block:: javascript
+        
+           t: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+           S: [0, 1, 1, 1, 1, 1, 1, 0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 1]
+           I: [0, 1--1--1--1--1--1, 0--0--0--0--0--0--0--0--0--0--0--0--0]
+        
+        Explanation: ``min_peak_width`` is used to smooth short peaks of
+        positive predictions. In this example, the peak of ones from both 
+        t[10:13] and t[19:20] are smoothed. Note that the "short" positive 
+        peaks at the either ends (t[19:20]) are always smoothed.
                 
-    3. with params ``min_peak_width==4``, ``min_gap_width==4``
+    #. with params ``min_peak_width==4``, ``min_gap_width==4``
     
-    t: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
-    S: [0, 1, 1, 1, 1, 1, 1, 0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 1]
-    I: [0, 1--1--1--1--1--1--1--1--1--1--1--1--0--0--0--0--0--0--0]
+        .. code-block:: javascript
+        
+           t: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+           S: [0, 1, 1, 1, 1, 1, 1, 0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 1]
+           I: [0, 1--1--1--1--1--1--1--1--1--1--1--1--0--0--0--0--0--0--0]
+        
+        Explanation: When two threshold parameters are working together,
+        the algorithm will prioritize the smoothing of the gaps over the 
+        smoothing of the peaks. Thus, in this example, the valley t[7:10] 
+        is first smoothed "up" before the peak t[10:13] is smoothed "down", 
+        resulting in a long final I.
     
-    Explanation: When two threshold parameters are working together,
-                 the algorithm will prioritize the smoothing of the gaps
-                 over the smoothing of the peaks. Thus, in this example, 
-                 the valley t[7:10] is first smoothed "up" before the peak
-                 t[10:13] is smoothed "down", resulting in a long final I.
+    #. with params ``min_peak_width==4``, ``min_gap_width==4``
     
-    4. with params ``min_peak_width==4``, ``min_gap_width==4``
+        .. code-block:: javascript
+        
+           t: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+           S: [1, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 1, 1]
+           I: [1--1--1--1--1--1--1, 0--0--0--0, 1--1--1--1--1--1--1--1--1]
+        
+        Explanation: Since smoothing of gaps is prioritized, short peaks at 
+        the beginning or the end can be kept. 
     
-    t: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
-    S: [1, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 1, 1]
-    I: [1--1--1--1--1--1--1, 0--0--0--0, 1--1--1--1--1--1--1--1--1]
+    #. with params ``min_peak_width==1``, ``min_gap_width==1``
     
-    Explanation: Since smoothing of the gaps is prioritized, short peaks
-                 at the beginning or the end can be kept. 
-    
-    5. with params ``min_peak_width==1``, ``min_gap_width==1``
-    
-    t: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
-    S: [0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 1, 1]
-    I: [0--0--0, 1--1--1--1, 0--0--0--0, 1--1--1--1, 0--0--0, 1--1]
-    
-    Explanation: When both width thresholds are set to 1, the algorithm
-                 works essentially in the "stitching" only mode.
+        .. code-block:: javascript
+        
+           t: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+           S: [0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 1, 1]
+           I: [0--0--0, 1--1--1--1, 0--0--0--0, 1--1--1--1, 0--0--0, 1--1]
+        
+        Explanation: When both width thresholds are set to 1, the algorithm
+        works essentially in the "stitching" only mode.
                  
     :param scores: **SORTED** list of annotations to be stitched. 
                    Annotations in the list must "exhaust" the entire time 
@@ -113,6 +141,10 @@ def smooth_short_intervals(scores: List[float],
         When ``always_trim_ends``, the first and the last subsequences are 
         always converted to ¬target, regardless of their length.
         """
+        try:
+            assert min_width > 0
+        except AssertionError:
+            raise ValueError(f"minimum width threshold must be a positive number, but got {min_width}")
         group_gen = itertools.groupby(elems)
         last_membership = None
         last_membersnum = 0
@@ -159,7 +191,14 @@ def _sequence_to_intervals(seq: Iterable[bool]) -> List[Tuple[int, int]]:
     return pos_ints
 
 
-def _validate_labelset(annotations: List[Annotation]):
+def validate_labelset(annotations: List[Annotation]) -> List[str]:
+    """
+    Simple check for a list of annotations to see if they have the same label set.
+    
+    :raise: AttributeError if an element in the input list doesn't have the ``labelset`` property
+    :raise: ValueError if different ``labelset`` values are found
+    :return: a list of the common ``labelset`` value (list of label names)
+    """
     # first, grab the label set from the source annotations
     try:
         src_labels = [annotations[0].get_property('labelset')]
@@ -183,7 +222,7 @@ def build_label_remapper(src_labels: List[str], dst_labels: Dict[str, PRMTV_TYPE
     
     :param src_labels: a list of all labels on the source side
     :param dst_labels: a dict from source labels to destination labels. 
-                       Source labels not in this dict will be remapped to a negative label.
+                       Source labels not in this dict will be remapped to a negative label (``-``).
     :return: a dict that exhaustively maps source labels to destination labels
     """
     if len(dst_labels) == 0:
@@ -192,23 +231,24 @@ def build_label_remapper(src_labels: List[str], dst_labels: Dict[str, PRMTV_TYPE
         return {**dst_labels, **dict((k, NEG_LABEL) for k in src_labels if k not in dst_labels)}
 
 
-def build_score_lists(classsificationses: List[dict], label_remapper, score_remap_op=max, as_numpy: bool = False) \
+def build_score_lists(classificationses: List[Dict], label_remapper: Dict, 
+                      score_remap_op: Callable[[float, float], float] =max, as_numpy: bool = False)\
         -> Tuple[Dict[str, int], Union[Dict[str, List[float]], "np.ndarray"]]:
     """
     Build lists of scores indexed by the label names. 
 
-    :param: classsificationses: list of dictionaries of classifications results
-    :param: label_remapper: a dictionary that maps source label names to destination label names (formerly "postbin")
-    :param: score_remap_op: a function to remap the scores from multiple source labels binned to a destination label
+    :param classificationses: list of dictionaries of classifications results, taken from input annotation objects
+    :param label_remapper: a dictionary that maps source label names to destination label names (formerly "postbin")
+    :param score_remap_op: a function to remap the scores from multiple source labels binned to a destination label
                             common choices are ``max``, ``min``, or ``sum``
-    :param: as_numpy: whether to return the scores as a numpy array
+    :param as_numpy: whether to return the scores as a numpy array
     :return: 1. a dictionary that maps label names to their index in the score list
              2. a dictionary that maps label names to their list of scores 
                 OR a numpy array of scores, of which rows are indexed by label map dict (first return value)
     """
     import numpy as np
     scores = {lbl: [] for lbl in label_remapper.values()}
-    for c_idx, classifications in enumerate(classsificationses):
+    for c_idx, classifications in enumerate(classificationses):
         for src_label, src_score in classifications.items():
             dst_label = label_remapper[src_label]
             if len(scores[dst_label]) == c_idx:  # means this is the first score for this label for this loop iter
