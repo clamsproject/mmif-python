@@ -258,3 +258,68 @@ def build_score_lists(classifications: List[Dict], label_remapper: Dict,
     score_lists = list(scores.values())
 
     return label_idx, np.array(score_lists) if as_numpy else score_lists
+
+
+def _example_stitch_from_swt4(annotations: List[Annotation],
+                              postbin: Dict[str, str],
+                              min_timeframe_length: int = 2,
+                              min_tp_score: float = 0.01,
+                              min_tf_score: float = 0.5
+                              ) -> List[Annotation]:
+    """
+    Reference implementation of the sequence stitching algorithm, replicating "stitcher" in 
+    https://apps.clams.ai/swt-detection/v4.2/
+    THIS FUNCTION IS NOT PART OF THE OFFICIAL API. USE AT YOUR OWN RISK.
+    
+    :param annotations: ``TimePoint`` annotations
+    :param postbin: post-binning dict
+    :param min_timeframe_length: required number of consecutive TP to be stitched into a TF
+    :param min_tp_score: required score of TP to be considered as "positive" label
+    :param min_tf_score: average score of TPs in a TF to make the TF significant (i.e., not to be discarded)
+    :return: list of ``TimeFrame`` annotations
+    """
+    from mmif.vocabulary import AnnotationTypes
+    # first, validate the input annotations
+    src_labels = validate_labelset(annotations)
+    # and build the label remapper
+    label_remapper = build_label_remapper(src_labels, postbin)
+    # then, build the score lists
+    label_idx, scores = build_score_lists([a.get_property('classification') for a in annotations], 
+                                          label_remapper=label_remapper, score_remap_op=sum, as_numpy=True)
+    # and stitch the scores
+    tf_annotations = []
+    for label, lidx in label_idx.items():
+        if label == NEG_LABEL:
+            continue
+        stitched = smooth_short_intervals(scores[lidx], min_timeframe_length, 1, min_tp_score)
+        for positive_interval in stitched:
+            tp_scores = scores[lidx][positive_interval[0]:positive_interval[1]]
+            tf_score = tp_scores.mean()
+            rep_idx = tp_scores.argmax() + positive_interval[0]
+            if tf_score > min_tf_score:
+                tf = Annotation()
+                tf.at_type = AnnotationTypes.TimeFrame
+                # tf.add_property('labelset', list(label_remapper.values()))
+                tf.add_property('classification', {label: tf_score})
+                tf.add_property('targets', [a.id for a in annotations[positive_interval[0]:positive_interval[1]]])
+                tf.add_property('representatives', [annotations[rep_idx].id])
+                tf_annotations.append(tf)
+    return tf_annotations
+
+if __name__ == '__main__':
+    # EXPERIMENTAL code to use the reference re-implementation of the "stitcher" in swt 3.x and 4.x
+    # THIS PART IS NOT PART OF THE OFFICIAL API. USE AT YOUR OWN RISK.
+    import sys
+    from mmif import Mmif
+    from mmif.vocabulary import AnnotationTypes
+    m = Mmif(open(sys.argv[1]).read())
+    if len(sys.argv) > 2:
+        tf_min_dur = int(sys.argv[2])
+    else:
+        tf_min_dur = 2
+    anns = m.get_view_contains(AnnotationTypes.TimePoint).get_annotations(AnnotationTypes.TimePoint)
+    example_postbin = {"B": "bars", "S": "slate", "S:H": "slate", "S:C": "slate", "S:D": "slate", "S:G": "slate", "I": "chyron", "N": "chyron", "Y": "chyron", "C": "credits",}
+    tfs = _example_stitch_from_swt4(list(anns), example_postbin, min_timeframe_length=tf_min_dur)
+    for tf in tfs:
+        print(tf.serialize(pretty=True))
+    
