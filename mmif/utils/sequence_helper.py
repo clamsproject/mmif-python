@@ -2,7 +2,7 @@
 This module provides helpers for handling sequence labeling. Specifically, it provides
 
 * a generalized label re-mapper for "post-binning" of labels
-* conversion from a list of CLAMS annotations (with ``classifications`` props) into a list of reals (scores by labels), can be combined with the label re-mapper mentioned above
+* conversion from a list of CLAMS annotations (with ``classification`` props) into a list of reals (scores by labels), can be combined with the label re-mapper mentioned above
 * :py:meth:`mmif.utils.sequence_helper.smooth_short_intervals`: a simple smoothing algorithm by trimming "short" peaks or valleys
 
 However, it DOES NOT provide 
@@ -30,7 +30,6 @@ for seq_dep in ['numpy']:
         warnings.warn(f"Optional package \"{e.name}\" is not found. "
                       f"You might want to install Sequence Helper dependencies "
                       f"by running `pip install mmif-python[seq]=={mmif.__version__}`")
-
 
 NEG_LABEL = '-'
 
@@ -133,6 +132,7 @@ def smooth_short_intervals(scores: List[float],
              of the "positive" labels intervals. Negative-labeled
              intervals are not included in the output.
     """
+
     def trimmer(elems, min_width, target=False, keep_short_ends=False):
         """
         This will loop through a list of bools and convert short ``target`` 
@@ -172,21 +172,20 @@ def smooth_short_intervals(scores: List[float],
 
     # first pass to smooth short gaps first
     pass1 = trimmer(
-        map(lambda x: x >= min_score, scores), 
+        map(lambda x: x >= min_score, scores),
         min_gap_width, target=False, keep_short_ends=True)
     pass2 = trimmer(
         pass1, min_peak_width, target=True, keep_short_ends=False)
     return _sequence_to_intervals(pass2)
-        
-        
+
+
 def _sequence_to_intervals(seq: Iterable[bool]) -> List[Tuple[int, int]]:
-    
     pos_ints = []
     cur = 0
     for positivity, members in itertools.groupby(seq):
         l = len(list(members))
         if positivity:
-            pos_ints.append((cur, cur+l))
+            pos_ints.append((cur, cur + l))
         cur += l
     return pos_ints
 
@@ -201,7 +200,7 @@ def validate_labelset(annotations: List[Annotation]) -> List[str]:
     """
     # first, grab the label set from the source annotations
     try:
-        src_labels = [annotations[0].get_property('labelset')]
+        src_labels = set(annotations[0].get_property('labelset'))
     except KeyError:
         raise AttributeError("The annotation in the list doesn't have "
                              "'labelset' property. Are they annotated by"
@@ -209,7 +208,7 @@ def validate_labelset(annotations: List[Annotation]) -> List[str]:
 
     # and validate that all annotations have the same label set
     for a in annotations:
-        if a.get_property('labelset') != src_labels[0]:
+        if set(a.get_property('labelset')) != src_labels:
             raise ValueError("All annotations must have the same label set, "
                              f"but found {a.get_property('labelset')}, "
                              f"different from {src_labels}")
@@ -231,13 +230,13 @@ def build_label_remapper(src_labels: List[str], dst_labels: Dict[str, PRMTV_TYPE
         return {**dst_labels, **dict((k, NEG_LABEL) for k in src_labels if k not in dst_labels)}
 
 
-def build_score_lists(classificationses: List[Dict], label_remapper: Dict, 
-                      score_remap_op: Callable[[float, float], float] =max, as_numpy: bool = False)\
-        -> Tuple[Dict[str, int], Union[Dict[str, List[float]], "np.ndarray"]]:
+def build_score_lists(classifications: List[Dict], label_remapper: Dict,
+                      score_remap_op: Callable[[Iterable[float]], float] = max, as_numpy: bool = False) \
+        -> Tuple[Dict[str, int], Union[List[List[float]], "np.ndarray"]]:
     """
     Build lists of scores indexed by the label names. 
 
-    :param classificationses: list of dictionaries of classifications results, taken from input annotation objects
+    :param classifications: list of dictionaries of classification results, taken from input annotation objects
     :param label_remapper: a dictionary that maps source label names to destination label names (formerly "postbin")
     :param score_remap_op: a function to remap the scores from multiple source labels binned to a destination label
                             common choices are ``max``, ``min``, or ``sum``
@@ -248,13 +247,14 @@ def build_score_lists(classificationses: List[Dict], label_remapper: Dict,
     """
     import numpy as np
     scores = {lbl: [] for lbl in label_remapper.values()}
-    for c_idx, classifications in enumerate(classificationses):
-        for src_label, src_score in classifications.items():
+    for c_idx, classification in enumerate(classifications):
+        for src_label, src_score in classification.items():
             dst_label = label_remapper[src_label]
             if len(scores[dst_label]) == c_idx:  # means this is the first score for this label for this loop iter
                 scores[dst_label].append(src_score)
             else:
                 scores[dst_label][-1] = score_remap_op((scores[dst_label][-1], src_score))
     label_idx = {label: i for i, label in enumerate(scores.keys())}
+    score_lists = list(scores.values())
 
-    return label_idx, np.array(list(scores.values())) if as_numpy else scores
+    return label_idx, np.array(score_lists) if as_numpy else score_lists
