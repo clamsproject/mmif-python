@@ -108,7 +108,7 @@ def get_mid_framenum(mmif: Mmif, time_frame: Annotation):
     timeunit = time_frame.get_property('timeUnit')
     video_document = mmif[time_frame.get_property('document')]
     fps = get_framerate(video_document)
-    return convert(mmif.get_start(time_frame) + mmif.get_end(time_frame), timeunit, 'frame', fps) // 2
+    return convert(time_frame.get_property('start') + time_frame.get_property('end'), timeunit, 'frame', fps) // 2
 
 
 def extract_mid_frame(mmif: Mmif, time_frame: Annotation, as_PIL: bool = False):
