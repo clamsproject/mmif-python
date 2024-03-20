@@ -2,4 +2,5 @@
 include ./VERSION
 include ./requirements.txt
 include ./requirements.cv
+include ./requirements.seq
 

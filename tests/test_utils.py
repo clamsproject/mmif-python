@@ -1,6 +1,9 @@
 import unittest
 
+import pytest
+
 from mmif import Mmif, Document, AnnotationTypes
+from mmif.utils import sequence_helper as sqh
 from mmif.utils import timeunit_helper as tuh
 from mmif.utils import video_document_helper as vdh
 
@@ -74,6 +77,75 @@ class TestVideoDocumentHelper(unittest.TestCase):
         timeframe_ann = self.a_view.new_annotation(AnnotationTypes.TimeFrame, start=100, end=200)
         for times in zip((3.337, 6.674), vdh.convert_timeframe(self.mmif_obj, timeframe_ann, 's')):
             self.assertAlmostEqual(*times, places=0)
+
+
+class TestSequenceHelper(unittest.TestCase):
+    
+    def test_validate_labelset(self):
+        mmif_obj = Mmif(validate=False)
+        view = mmif_obj.new_view()
+        anns = [view.new_annotation(AnnotationTypes.TimePoint, labelset=['a', 'b', 'c']) for _ in range(3)]
+        self.assertTrue(sqh.validate_labelset(anns))
+        anns.append(view.new_annotation(AnnotationTypes.TimePoint, labelset=['a', 'b', 'c', 'd']))
+        with pytest.raises(ValueError):
+            self.assertFalse(sqh.validate_labelset(anns))
+        anns.pop()
+        anns.append(view.new_annotation(AnnotationTypes.TimePoint))
+        with pytest.raises(KeyError):
+            self.assertFalse(sqh.validate_labelset(anns))
+
+    def test_build_remapper(self):
+        self.assertEqual({'a': 'a', 'b': 'b', 'c': 'c', 'd': 'd', 'e': 'e', 'f': 'f'},
+                         sqh.build_label_remapper(list('abcdef'), {}))
+        self.assertEqual({'a': 1, 'b': 2, 'c': 1, 'd': '-', 'e': '-', 'f': '-'},
+                         sqh.build_label_remapper(list('abcdef'), {'a': 1, 'b': 2, 'c': 1}))
+
+    def test_build_score_lists(self):
+        c1 = {'a': 0.1, 'b': 0.2, 'c': 0.3}
+        c2 = {'a': 0.6, 'b': 0.5, 'c': 0.4}
+        remap = {'a': 'x', 'b': 'y', 'c': 'x'}
+        lblmap, scores = sqh.build_score_lists([c1, c2], remap)
+        self.assertEqual(2, len(scores.shape))
+        self.assertEqual(2, scores.shape[0])
+        self.assertEqual(2, scores.shape[1])
+        self.assertEqual({'x': [0.3, 0.6], 'y': [0.2, 0.5]}, {lbl: list(scores[idx]) for lbl, idx in lblmap.items()})
+        _, scores = sqh.build_score_lists([c1, c2], remap, score_remap_op=min)
+        self.assertEqual({'x': [0.1, 0.4], 'y': [0.2, 0.5]}, {lbl: list(scores[idx]) for lbl, idx in lblmap.items()})
+
+    def test_width_based_smoothing(self):
+        scores = [0, 1, 1, 1, 1, 1, 1, 0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 1]
+        # idx = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+        # res = [0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 1],
+        # cannot pass non-positive threshold for sequence sizes
+        with pytest.raises(ValueError):
+            sqh.smooth_short_intervals(scores, 1, 0)
+        with pytest.raises(ValueError):
+            sqh.smooth_short_intervals(scores, 0, 1)
+        with pytest.raises(ValueError):
+            sqh.smooth_short_intervals(scores, 0, 0)
+        self.assertEqual([(1, 13), (19, 20)],
+                         sqh.smooth_short_intervals(scores, 1, 4))
+        # idx = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+        # res = [0, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        self.assertEqual([(1, 7)],
+                         sqh.smooth_short_intervals(scores, 4, 2))
+        # idx = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+        # res = [0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0],
+        self.assertEqual([(1, 13)],
+                         sqh.smooth_short_intervals(scores, 4, 4))
+        # special test case for not trimming short end peaks adjacent to short gaps
+        scores = [1, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 1, 1]
+        # idx = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+        # res = [1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+        self.assertEqual([(0, 7), (11, 20)],
+                         sqh.smooth_short_intervals(scores, 4, 4))
+        # special test case for stitching only mode
+        scores = [0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 1, 1]
+        # idx = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+        # res = [0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 1, 1],
+        self.assertEqual([(3, 7), (11, 15), (18, 20)],
+                         sqh.smooth_short_intervals(scores, 1, 1))
+
 
 if __name__ == '__main__':
     unittest.main()
