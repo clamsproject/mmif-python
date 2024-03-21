@@ -34,16 +34,16 @@ for seq_dep in ['numpy']:
 NEG_LABEL = '-'
 
 
-def smooth_short_intervals(scores: List[float],
-                           min_pseq_size: int,
-                           min_nseq_size: int,
-                           min_score: float = 0.5,
-                           ):
+def smooth_outlying_short_intervals(scores: List[float],
+                                    min_spseq_size: int,
+                                    min_snseq_size: int,
+                                    min_score: float = 0.5,
+                                    ):
     """
-    From a list of scores, a score threshold, and smoothing parameters, 
-    identify the intervals of "positive" scores by smoothing the short 
-    positive sequences ("pseq") and negative sequences ("nseq"). To decide 
-    the positivity, first step is binarization of the scores by the 
+    Given a list of scores, a score threshold, and smoothing parameters, 
+    identify the intervals of "positive" scores by "trimming" the short 
+    positive sequences ("spseq") and short negative sequences ("snseq"). To 
+    decide the positivity, first step is binarization of the scores by the 
     ``min_score`` threshold. Given ``Sr`` as "raw" input real-number scores 
     list, and ``min_score=0.5``, 
     
@@ -53,8 +53,8 @@ def smooth_short_intervals(scores: List[float],
 
 
     
-    the binarization is done by simply comparing each score with the threshold
-    to get ``S`` list of binary scores
+    the binarization is done by simply comparing each score to the 
+    threshold to get ``S`` list of binary scores
     
         .. code-block:: javascript
         
@@ -72,20 +72,21 @@ def smooth_short_intervals(scores: List[float],
             raw :.3 .6 .2 .8 .2 .9 .8 .5 .1 .5 .8 .3 1. .7 .5 .5 .5 .8 .3 .6
              S  : 0  1  0  1  0  1  1  0  0  0  1  0  1  1  0  1  1  1  0  1 
             
-    Note that these positive or negative sequences can be simpley singleton
-    lists, meaning their size can be as small as 1. 
+    Note that the size of a positive or negative sequence can be as small 
+    as 1.
        
     Then, here are examples of smoothing a list of binary scores into 
-    intervals:
+    intervals, by trimming "very short" (under thresholds) sequences of 
+    positive or negative:
     
     .. note::
        legends: 
        
        * ``t`` is unit index (e.g. time index)
        * ``S`` is the list of binary scores (zeros and ones)
-       * ``I`` is the list of intervals after stitching
+       * ``I`` is the list of intervals after smoothing
     
-    #. with params ``min_pseq_size==1``, ``min_nseq_size==4``
+    #. with params ``min_spseq_size==1``, ``min_snseq_size==4``
         
         .. code-block:: javascript
         
@@ -93,12 +94,13 @@ def smooth_short_intervals(scores: List[float],
            S: [0, 1, 1, 1, 1, 1, 1, 0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 1]
            I: [0, 1--1--1--1--1--1--1--1--1--1--1--1, 0--0--0--0--0--0, 1]
         
-        Explanation: ``min_nseq_size`` is used to smooth short sequences of 
-        negative predictions. In this, zeros from t[7:10] are smoothed into 
-        "one" I, while zeros from t[13:19] are kept as "zero" I. Note that 
-        the "short" nseqs at the either ends (t[0:1]) are never smoothed.
+        Explanation: ``min_snseq_size`` is used to smooth short sequences 
+        of negative predictions. In this, zeros from t[7:10] are smoothed 
+        into "one" I, while zeros from t[13:19] are kept as "zero" I. Note 
+        that the "short" snseqs at the either ends (t[0:1]) are never 
+        smoothed.
         
-    #. with params ``min_pseq_size==4``, ``min_nseq_size==2``
+    #. with params ``min_spseq_size==4``, ``min_snseq_size==2``
     
         .. code-block:: javascript
         
@@ -106,12 +108,12 @@ def smooth_short_intervals(scores: List[float],
            S: [0, 1, 1, 1, 1, 1, 1, 0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 1]
            I: [0, 1--1--1--1--1--1, 0--0--0--0--0--0--0--0--0--0--0--0--0]
         
-        Explanation: ``min_pseq_size`` is used to smooth short sequences of
-        positive predictions. In this example, the pseqs of ones from both 
-        t[10:13] and t[19:20] are smoothed. Note that the "short" pseqs at 
-        the either ends (t[19:20]) are always smoothed.
+        Explanation: ``min_spseq_size`` is used to smooth short sequences 
+        of positive predictions. In this example, the spseqs of ones from 
+        both t[10:13] and t[19:20] are smoothed. Note that the "short" 
+        spseqs at the either ends (t[19:20]) are always smoothed.
                 
-    #. with params ``min_pseq_size==4``, ``min_nseq_size==4``
+    #. with params ``min_spseq_size==4``, ``min_snseq_size==4``
     
         .. code-block:: javascript
         
@@ -120,12 +122,12 @@ def smooth_short_intervals(scores: List[float],
            I: [0, 1--1--1--1--1--1--1--1--1--1--1--1--0--0--0--0--0--0--0]
         
         Explanation: When two threshold parameters are working together,
-        the algorithm will prioritize the smoothing of the nseqs over the 
-        smoothing of the pseqs. Thus, in this example, the nseq t[7:10] 
-        is first smoothed "up" before the pseq t[10:13] is smoothed "down", 
-        resulting in a long final I.
+        the algorithm will prioritize the smoothing of the snseqs over the 
+        smoothing of the spseqs. Thus, in this example, the snseq t[7:10] 
+        gets first smoothed "up" before the spseq t[10:13] is smoothed 
+        "down", resulting in a long final I.
     
-    #. with params ``min_pseq_size==4``, ``min_nseq_size==4``
+    #. with params ``min_spseq_size==4``, ``min_snseq_size==4``
     
         .. code-block:: javascript
         
@@ -133,10 +135,10 @@ def smooth_short_intervals(scores: List[float],
            S: [1, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 1, 1]
            I: [1--1--1--1--1--1--1, 0--0--0--0, 1--1--1--1--1--1--1--1--1]
         
-        Explanation: Since smoothing of nseqs is prioritized, short pseqs at 
-        the beginning or the end can be kept. 
+        Explanation: Since smoothing of snseqs is prioritized, short spseqs 
+        at the beginning or the end can be kept. 
     
-    #. with params ``min_pseq_size==1``, ``min_nseq_size==1``
+    #. with params ``min_spseq_size==1``, ``min_snseq_size==1``
     
         .. code-block:: javascript
         
@@ -147,15 +149,15 @@ def smooth_short_intervals(scores: List[float],
         Explanation: When both width thresholds are set to 1, the algorithm
         works essentially in the "stitching" only mode.
                  
-    :param scores: **SORTED** list of scores to be stitched. The score list
+    :param scores: **SORTED** list of scores to be smoothed. The score list
                    is assumed to be "exhaust" the entire time or space of 
                    the underlying document segment.
                    (Sorted by the start, and then by the end of anchors)
     :param min_score: minimum threshold to use to discard 
                       low-scored units (strictly less than)
-    :param min_pseq_size: minimum size of a positive sequence not to be 
+    :param min_spseq_size: minimum size of a positive sequence not to be 
                           smoothed (greater or equal to)
-    :param min_nseq_size: minimum size of a negative sequence not to be
+    :param min_snseq_size: minimum size of a negative sequence not to be
                           smoothed (greater or equal to)
     :return: list of tuples of start(inclusive)/end(exclusive) indices
              of the "positive" sequences. Negative sequences (regardless of 
@@ -203,9 +205,9 @@ def smooth_short_intervals(scores: List[float],
     # first pass to smooth short gaps first
     pass1 = trimmer(
         map(lambda x: x >= min_score, scores),
-        min_nseq_size, target=False, keep_short_ends=True)
+        min_snseq_size, target=False, keep_short_ends=True)
     pass2 = trimmer(
-        pass1, min_pseq_size, target=True, keep_short_ends=False)
+        pass1, min_spseq_size, target=True, keep_short_ends=False)
     return _sequence_to_intervals(pass2)
 
 
@@ -320,7 +322,7 @@ def _example_stitch_from_swt4(annotations: List[Annotation],
     for label, lidx in label_idx.items():
         if label == NEG_LABEL:
             continue
-        stitched = smooth_short_intervals(scores[lidx], min_timeframe_length, 1, min_tp_score)
+        stitched = smooth_outlying_short_intervals(scores[lidx], min_timeframe_length, 1, min_tp_score)
         for positive_interval in stitched:
             tp_scores = scores[lidx][positive_interval[0]:positive_interval[1]]
             tf_score = tp_scores.mean()

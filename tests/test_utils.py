@@ -118,33 +118,33 @@ class TestSequenceHelper(unittest.TestCase):
         # res = [0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 1],
         # cannot pass non-positive threshold for sequence sizes
         with pytest.raises(ValueError):
-            sqh.smooth_short_intervals(scores, 1, 0)
+            sqh.smooth_outlying_short_intervals(scores, 1, 0)
         with pytest.raises(ValueError):
-            sqh.smooth_short_intervals(scores, 0, 1)
+            sqh.smooth_outlying_short_intervals(scores, 0, 1)
         with pytest.raises(ValueError):
-            sqh.smooth_short_intervals(scores, 0, 0)
+            sqh.smooth_outlying_short_intervals(scores, 0, 0)
         self.assertEqual([(1, 13), (19, 20)],
-                         sqh.smooth_short_intervals(scores, 1, 4))
+                         sqh.smooth_outlying_short_intervals(scores, 1, 4))
         # idx = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
         # res = [0, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
         self.assertEqual([(1, 7)],
-                         sqh.smooth_short_intervals(scores, 4, 2))
+                         sqh.smooth_outlying_short_intervals(scores, 4, 2))
         # idx = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
         # res = [0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0],
         self.assertEqual([(1, 13)],
-                         sqh.smooth_short_intervals(scores, 4, 4))
+                         sqh.smooth_outlying_short_intervals(scores, 4, 4))
         # special test case for not trimming short end peaks adjacent to short gaps
         scores = [1, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 1, 1]
         # idx = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
         # res = [1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1],
         self.assertEqual([(0, 7), (11, 20)],
-                         sqh.smooth_short_intervals(scores, 4, 4))
+                         sqh.smooth_outlying_short_intervals(scores, 4, 4))
         # special test case for stitching only mode
         scores = [0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 1, 1]
         # idx = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
         # res = [0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 1, 1],
         self.assertEqual([(3, 7), (11, 15), (18, 20)],
-                         sqh.smooth_short_intervals(scores, 1, 1))
+                         sqh.smooth_outlying_short_intervals(scores, 1, 1))
 
 
 if __name__ == '__main__':
