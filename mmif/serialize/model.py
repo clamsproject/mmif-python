@@ -20,14 +20,14 @@ from deepdiff import DeepDiff
 
 T = TypeVar('T')
 S = TypeVar('S')
-JSON_PRMTV_TYPES: Type = Union[str, int, float, bool, None]
+PRMTV_TYPES: Type = Union[str, int, float, bool, None]
 
 __all__ = [
     'MmifObject',
     'MmifObjectEncoder',
     'DataList',
     'DataDict',
-    'JSON_PRMTV_TYPES'
+    'PRMTV_TYPES'
 ]
 
 

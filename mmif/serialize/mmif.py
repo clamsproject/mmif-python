@@ -6,6 +6,7 @@ See the specification docs and the JSON Schema file for more information.
 """
 
 import json
+import math
 import warnings
 from collections import defaultdict
 from datetime import datetime
@@ -123,12 +124,20 @@ class Mmif(MmifObject):
                 # then, do the same to associated Document objects. Note that, 
                 # in a view, it is guaranteed that all Annotation objects are not duplicates
                 if ann.at_type == AnnotationTypes.Annotation:
+                    doc_id = ann.get_property('document')
                     try:
-                        doc_id = ann.get_property('document')
                         for prop_key, prop_value in ann.properties.items():
                             self.get_document_by_id(doc_id)._props_ephemeral[prop_key] = prop_value
                     except KeyError:
-                        warnings.warn(f"Annotation {ann.id} has a document ID {doc_id} that does not exist in the MMIF object. Skipping.", RuntimeWarning)
+                        warnings.warn(f"Annotation {ann.id} (in view {view.id}) has a document ID {doc_id} that "
+                                      f"does not exist in the MMIF object. Skipping.", RuntimeWarning)
+                # lastly, add quick access to `start` and `end` values if the annotation is using `targets` property
+                if 'targets' in ann.properties:
+                    if 'start' in ann.properties or 'end' in ann.properties:
+                        raise ValueError(f"Annotation {ann.id} (in view {view.id}) has `targes` and `start`/`end/` "
+                                         f"properties at the same time. Annotation anchors are ambiguous.")
+                    ann._props_ephemeral['start'] = self._get_linear_anchor_point(ann, start=True)
+                    ann._props_ephemeral['end'] = self._get_linear_anchor_point(ann, start=False)
 
     def generate_capital_annotations(self):
         """
@@ -427,7 +436,8 @@ class Mmif(MmifObject):
                 next(annotations)
                 views.append(view)
             except StopIteration:
-                # search failed by the full doc_id string, now try trimming the view_id from the string and re-do the search
+                # means search failed by the full doc_id string, 
+                # now try trimming the view_id from the string and re-do the search
                 if Mmif.id_delimiter in doc_id:
                     vid, did = doc_id.split(Mmif.id_delimiter)
                     if view.id == vid:
@@ -479,7 +489,7 @@ class Mmif(MmifObject):
                     return view
         return None
     
-    def _get_linear_anchor_point(self, ann: Annotation, start: bool = True) -> Union[int, float]:
+    def _get_linear_anchor_point(self, ann: Annotation, targets_sorted=False, start: bool = True) -> Union[int, float]:
         # TODO (krim @ 2/5/24): Update the return type once timeunits are unified to `ms` as integers (https://github.com/clamsproject/mmif/issues/192)
         """
         Retrieves the anchor point of the annotation. Currently, this method only supports linear anchors, 
@@ -487,21 +497,28 @@ class Mmif(MmifObject):
         
         :param ann: An Annotation object that has a linear anchor point. Namely, some subtypes of `Region` vocabulary type.
         :param start: If True, returns the start anchor point. Otherwise, returns the end anchor point. N/A for `timePoint` anchors.
+        :param targets_sorted: If True, the method will assume that the targets are sorted in the order of the anchor points.
         :return: the anchor point of the annotation. 1d for linear regions (time, text)
         """
         props = ann.properties
         if 'timePoint' in props:
             return ann.get_property('timePoint')
         elif 'targets' in props:
+            
+            def get_target_ann(cur_ann, target_id):
+                if Mmif.id_delimiter not in target_id:
+                    target_id = Mmif.id_delimiter.join((cur_ann.parent, target_id))
+                return self.__getitem__(target_id)
+            
+            if not targets_sorted:
+                point = math.inf if start else -1
+                comp = min if start else max
+                for target_id in ann.get_property('targets'):
+                    target = get_target_ann(ann, target_id)
+                    point = comp(point, self._get_linear_anchor_point(target, start=start))
+                return point
             target_id = ann.get_property('targets')[0 if start else -1]
-            # TODO (krim @ 2/5/24): not sure if this is the correct way to pick the "first" (or "last") target,
-            # since the targets list is not guaranteed to be sorted.
-            # However, due the recursive nature of this method, it is likely impossible
-            # to get all `start` (or `end`) values of the targets recursively and then pick the min (or max) value.
-            if Mmif.id_delimiter in target_id:
-                target = self.__getitem__(target_id)
-            else:
-                target = self.__getitem__(Mmif.id_delimiter.join((ann.parent, target_id)))
+            target = get_target_ann(ann, target_id)
             return self._get_linear_anchor_point(target, start=start)
         elif (start and 'start' in props) or (not start and 'end' in props):
             return ann.get_property('start' if start else 'end')
