@@ -38,11 +38,12 @@ $(generatedcode): dist/$(sdistname)*.tar.gz
 docs: latest := $(shell git tag | sort -r | head -n 1)
 docs: VERSION $(generatedcode)
 	rm -rf docs
-	# sphinx-multiversion documentation docs -b html -a -vvv
-	sphinx-build documentation docs -b html -a
+	pip install --upgrade -r requirements.txt
+	pip install --upgrade -r requirements.old
+	sphinx-multiversion documentation docs -b html -a -vvv
 	touch docs/.nojekyll
-	# ln -sf $(latest) docs/latest
-	# echo "<!DOCTYPE html> <html> <head> <title>Redirect to latest version</title> <meta charset=\"utf-8\"> <meta http-equiv=\"refresh\" content=\"0; url=./latest/index.html\"> </head> </html>" > docs/index.html
+	ln -sf $(latest) docs/latest
+	echo "<!DOCTYPE html> <html> <head> <title>Redirect to latest version</title> <meta charset=\"utf-8\"> <meta http-equiv=\"refresh\" content=\"0; url=./latest/index.html\"> </head> </html>" > docs/index.html
 
 doc: VERSION $(generatedcode) # for single version sphinx - only use when developing
 	rm -rf docs

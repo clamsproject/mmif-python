@@ -43,6 +43,11 @@ extensions = [
         'sphinx.ext.linkcode',
         'm2r2',
 ]
+try: 
+    import sphinx_multiversion
+    extensions.append('sphinx_multiversion')
+except ImportError:
+    pass
 source_suffix = ['.rst', '.md']
 
 # Add any paths that contain templates here, relative to this directory.
@@ -84,3 +89,25 @@ def linkcode_resolve(domain, info):
     except:
         return f"https://github.com/clamsproject/mmif-python/tree/main/{filename}.py"
 
+
+
+# configuration for multiversion extension
+# Whitelist pattern for tags (set to None to ignore all tags)
+smv_tag_whitelist = r'^[0-9]+\.[0-9]+\.[0-9]+.*$' 
+# Whitelist pattern for branches (set to None to ignore all branches)
+smv_branch_whitelist = None
+# Whitelist pattern for remotes (set to None to use local branches only)
+smv_remote_whitelist = 'origin'
+# Pattern for released versions
+smv_released_pattern = r'^tags/[0-9]+\.[0-9]+\.[0-9]+.*$'
+# Format for versioned output directories inside the build directory
+smv_outputdir_format = '{ref.name}'
+# Determines whether remote or local git branches/tags are preferred if their output dirs conflict
+smv_prefer_remote_refs = True
+
+# TODO (krim @ 6/13/21): maybe there's a way to re-write what I wrote in the 
+# fork of sphinx-multiversion here in conf.py. Issues I can think of as of now; 
+# 1. sphinx-mv/main.py know current version of the library by git tag, 
+#    but conf.py has no way to know that... 
+# 2. target-versions.csv file can be read once and used in the for loop 
+#    in sphinx-mv/main.py, but here it should be read in for each `docs` bulid. 
