@@ -14,7 +14,17 @@ class AnnotationTypes(AnnotationTypesBase):
     # map from type short name to a dictionary of property aliases
     # where nested dictionary maps from representative name to its aliases
     _prop_aliases = {
-        'TimeFrame': {'label': {'frameType', 'label'}},
-        'BoundingBox': {'label': {'boxType', 'label'}},
+        'TimeFrame': {'label': {'frameType', 'label'},
+                      'classification': {'classifications', 'classification'}},
+        'BoundingBox': {'label': {'boxType', 'label'}, 
+                        'classification': {'classifications', 'classification'}},
+        'Annotation': {'classification': {'classifications', 'classification'}},
+        'Region': {'classification': {'classifications', 'classification'}},
+        'Interval': {'classification': {'classifications', 'classification'}},
+        'Span': {'classification': {'classifications', 'classification'}},
+        'Chapter': {'classification': {'classifications', 'classification'}},
+        'Polygon': {'classification': {'classifications', 'classification'}},
+        'VideoObject': {'classification': {'classifications', 'classification'}},
+        'Relation': {'classification': {'classifications', 'classification'}},
     }
 
