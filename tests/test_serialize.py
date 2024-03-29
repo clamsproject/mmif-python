@@ -601,19 +601,28 @@ class TestView(unittest.TestCase):
 
     def test_view_parameters(self):
         vmeta = ViewMetadata()
-        vmeta.add_parameter('pretty', False)
+        vmeta.add_parameter('pretty', str(False))
         self.assertEqual(len(vmeta.parameters), 1)
-        self.assertEqual(vmeta.get_parameter('pretty'), False)
+        self.assertEqual(vmeta.get_parameter('pretty'), str(False))
         with pytest.raises(KeyError):
             vmeta.get_parameter('not_exist')
+            
+    def test_view_configuration(self):
+        vmeta = ViewMetadata()
+        vmeta.add_app_configuration('pretty', False)
+        self.assertEqual(len(vmeta.app_configuration), 1)
+        self.assertEqual(vmeta.get_app_configuration('pretty'), False)
+        with pytest.raises(KeyError):
+            vmeta.get_app_configuration('not_exist')
 
     def test_view_parameters_batch_adding(self):
         vmeta = ViewMetadata()
-        vmeta.add_parameters(pretty=True, validate=False)
+        vmeta.add_parameters(pretty=str(True), validate=str(False))
         self.assertEqual(len(vmeta.parameters), 2)
         vmeta = ViewMetadata()
-        vmeta.add_parameters(**{'pretty': True, 'validate': False})
-        
+        vmeta.add_parameters(**{'pretty': str(True), 'validate': str(False)})
+        self.assertEqual(len(vmeta.parameters), 2)
+
     def test_add_warning(self):
         vmeta = ViewMetadata()
         w1 = Warning('first_warning')

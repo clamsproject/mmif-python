@@ -3,7 +3,7 @@ This module provides helpers for handling sequence labeling. Specifically, it pr
 
 * a generalized label re-mapper for "post-binning" of labels
 * conversion from a list of CLAMS annotations (with ``classification`` props) into a list of reals (scores by labels), can be combined with the label re-mapper mentioned above
-* :py:meth:`mmif.utils.sequence_helper.smooth_short_intervals`: a simple smoothing algorithm by trimming "short" ridges or valleys
+* :py:meth:`mmif.utils.sequence_helper.smooth_outlying_short_intervals`: a simple smoothing algorithm by trimming "short" outlier sequences
 
 However, it DOES NOT provide 
 
