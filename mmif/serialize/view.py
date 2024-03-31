@@ -313,7 +313,8 @@ class ViewMetadata(MmifObject):
         """
         Add a single runtime parameter to the view metadata. Note that parameter value must be a string.
         """
-        assert isinstance(param_value, str), "Parameter value must be a string."
+        assert isinstance(param_value, str), \
+                f"Parameter value must be a string, \"{param_value}\" ({type(param_value)}) is given for key \"{param_key}\"."
         self.parameters[param_key] = param_value
 
     def get_parameter(self, param_key: str) -> str:
