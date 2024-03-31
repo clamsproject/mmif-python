@@ -18,16 +18,16 @@ from typing import Union, Dict, List, Optional, Iterator, MutableMapping, TypeVa
 from urllib.parse import urlparse
 
 from mmif.vocabulary import ThingTypesBase, DocumentTypesBase
-from .model import MmifObject, JSON_PRMTV_TYPES
+from .model import MmifObject, PRMTV_TYPES
 from .. import DocumentTypes, AnnotationTypes
 import mmif_docloc_http
 
 __all__ = ['Annotation', 'AnnotationProperties', 'Document', 'DocumentProperties', 'Text']
 
 T = TypeVar('T')
-LIST_PRMTV = typing.List[JSON_PRMTV_TYPES]  # list of values (most cases for annotation props)
+LIST_PRMTV = typing.List[PRMTV_TYPES]  # list of values (most cases for annotation props)
 LIST_LIST_PRMTV = typing.List[LIST_PRMTV]   # list of list of values (e.g. for coordinates)
-DICT_PRMTV = typing.Dict[str, JSON_PRMTV_TYPES]  # dict of values (`text` prop of `TextDocument` and other complex props)
+DICT_PRMTV = typing.Dict[str, PRMTV_TYPES]  # dict of values (`text` prop of `TextDocument` and other complex props)
 DICT_LIST_PRMTV = typing.Dict[str, LIST_PRMTV]  # dict of list of values (even more complex props)
 
 
@@ -77,7 +77,7 @@ class Annotation(MmifObject):
         subtypes, and effectively deprecated `frameType` and `boxType`
         in `TimeFrame` and `BoundingBox` respectively.
         """
-        prop_aliases = AnnotationTypes.prop_aliases.get(self._type.shortname, {})
+        prop_aliases = AnnotationTypes._prop_aliases.get(self._type.shortname, {})
         for alias_reprep, alias_group in prop_aliases.items():
             if key_to_add in alias_group:
                 for alias in alias_group:
@@ -129,10 +129,10 @@ class Annotation(MmifObject):
         
     @staticmethod
     def check_prop_value_is_simple_enough(
-            value: Union[JSON_PRMTV_TYPES, LIST_PRMTV, LIST_LIST_PRMTV, DICT_PRMTV, DICT_LIST_PRMTV]) -> bool:
+            value: Union[PRMTV_TYPES, LIST_PRMTV, LIST_LIST_PRMTV, DICT_PRMTV, DICT_LIST_PRMTV]) -> bool:
         
         def json_primitives(x): 
-            return isinstance(x, typing.get_args(JSON_PRMTV_TYPES))
+            return isinstance(x, typing.get_args(PRMTV_TYPES))
         
         def json_primitives_list(x):
             return isinstance(x, list) and all(map(json_primitives, x))
@@ -146,7 +146,7 @@ class Annotation(MmifObject):
             or (isinstance(value, dict) and all(map(lambda x: isinstance(x[0], str) and (json_primitives(x[1]) or json_primitives_list(x[1])), value.items())))
 
     def add_property(self, name: str,
-                     value: Union[JSON_PRMTV_TYPES, LIST_PRMTV, LIST_LIST_PRMTV, DICT_PRMTV, DICT_LIST_PRMTV]) -> None:
+                     value: Union[PRMTV_TYPES, LIST_PRMTV, LIST_LIST_PRMTV, DICT_PRMTV, DICT_LIST_PRMTV]) -> None:
         """
         Adds a property to the annotation's properties.
         :param name: the name of the property
@@ -162,7 +162,7 @@ class Annotation(MmifObject):
         #                      f"(\"{name}\": \"{str(value)}\"")
         self._add_prop_aliases(name, value)
 
-    def get(self, prop_name: str) -> Union['AnnotationProperties', JSON_PRMTV_TYPES, LIST_PRMTV, LIST_LIST_PRMTV, DICT_PRMTV, DICT_LIST_PRMTV]:
+    def get(self, prop_name: str) -> Union['AnnotationProperties', PRMTV_TYPES, LIST_PRMTV, LIST_LIST_PRMTV, DICT_PRMTV, DICT_LIST_PRMTV]:
         """
         A special getter for Annotation properties. This is to allow for
         directly accessing properties without having to go through the
@@ -242,7 +242,7 @@ class Document(Annotation):
         super().__init__(doc_obj)
     
     def add_property(self, name: str,
-                     value: Union[JSON_PRMTV_TYPES, LIST_PRMTV]
+                     value: Union[PRMTV_TYPES, LIST_PRMTV]
                      ) -> None:
         """
         Adds a property to the document's properties.

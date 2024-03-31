@@ -135,7 +135,7 @@ class TestMmif(unittest.TestCase):
     def test_document_empty_text(self):
         document = Document()
         document.id = 'm997'
-        document.at_type = f"http://mmif.clams.ai/vocabulary/TextDocument/{DocumentTypes.typevers['TextDocument']}"
+        document.at_type = f"http://mmif.clams.ai/vocabulary/TextDocument/{DocumentTypes._typevers['TextDocument']}"
         serialized = document.serialize()
         deserialized = Document(serialized)
         self.assertEqual(deserialized.properties.text_value, '')
@@ -181,7 +181,7 @@ class TestMmif(unittest.TestCase):
         mmif_obj = Mmif(MMIF_EXAMPLES['everything'])
         self.assertEqual(len(mmif_obj.get_documents_by_app(tesseract_appid)), 25)
         self.assertEqual(len(mmif_obj.get_documents_by_app('xxx')), 0)
-        new_document = Document({'@type': f"http://mmif.clams.ai/vocabulary/TextDocument/{DocumentTypes.typevers['TextDocument']}",
+        new_document = Document({'@type': f"http://mmif.clams.ai/vocabulary/TextDocument/{DocumentTypes._typevers['TextDocument']}",
                                  'properties': {'id': 'td999', 'text': {"@value": "HI"}}})
         mmif_obj['v6'].add_document(new_document)
         self.assertEqual(len(mmif_obj.get_documents_by_app(tesseract_appid)), 26)
@@ -268,6 +268,11 @@ class TestMmif(unittest.TestCase):
         mmif_obj = Mmif(MMIF_EXAMPLES['everything'])
         views = mmif_obj.get_all_views_contain(AnnotationTypes.TimeFrame)
         self.assertEqual(4, len(views))
+        # there is not such thing as `v0` of this type
+        # but when you query views with a string (not by the AnnotationType object)
+        # it should not perfomr "fuzzy" match and instead should do full string to string match
+        views = mmif_obj.get_all_views_contain('http://mmif.clams.ai/vocabulary/TimeFrame/v0')
+        self.assertEqual(0, len(views))
         views = mmif_obj.get_views_contain(DocumentTypes.TextDocument)
         self.assertEqual(2, len(views))
         views = mmif_obj.get_all_views_contain('http://vocab.lappsgrid.org/SemanticTag')
@@ -596,19 +601,28 @@ class TestView(unittest.TestCase):
 
     def test_view_parameters(self):
         vmeta = ViewMetadata()
-        vmeta.add_parameter('pretty', False)
+        vmeta.add_parameter('pretty', str(False))
         self.assertEqual(len(vmeta.parameters), 1)
-        self.assertEqual(vmeta.get_parameter('pretty'), False)
+        self.assertEqual(vmeta.get_parameter('pretty'), str(False))
         with pytest.raises(KeyError):
             vmeta.get_parameter('not_exist')
+            
+    def test_view_configuration(self):
+        vmeta = ViewMetadata()
+        vmeta.add_app_configuration('pretty', False)
+        self.assertEqual(len(vmeta.app_configuration), 1)
+        self.assertEqual(vmeta.get_app_configuration('pretty'), False)
+        with pytest.raises(KeyError):
+            vmeta.get_app_configuration('not_exist')
 
     def test_view_parameters_batch_adding(self):
         vmeta = ViewMetadata()
-        vmeta.add_parameters(pretty=True, validate=False)
+        vmeta.add_parameters(pretty=str(True), validate=str(False))
         self.assertEqual(len(vmeta.parameters), 2)
         vmeta = ViewMetadata()
-        vmeta.add_parameters(**{'pretty': True, 'validate': False})
-        
+        vmeta.add_parameters(**{'pretty': str(True), 'validate': str(False)})
+        self.assertEqual(len(vmeta.parameters), 2)
+
     def test_add_warning(self):
         vmeta = ViewMetadata()
         w1 = Warning('first_warning')

@@ -81,15 +81,19 @@ def extract_frames_as_images(video_document: Document, framenums: List[int], as_
         from PIL import Image
     frames = []
     video = capture(video_document)
-    for framenum in framenums:
-        if framenum > video_document.get_property(FRAMECOUNT_DOCPROP_KEY):
-            raise ValueError(f'Frame number {framenum} is greater than the number of frames in the video.')
-        video.set(cv2.CAP_PROP_POS_FRAMES, framenum-1)
-        ret, frame = video.read()
-        if ret:
-            frames.append(Image.fromarray(frame[:, :, ::-1]) if as_PIL else frame)
-        else:
+    cur_f = 0
+    while True:
+        if not framenums or cur_f > video_document.get_property(FRAMECOUNT_DOCPROP_KEY):
             break
+        ret, frame = video.read()
+        if cur_f == framenums[0]:
+            if not ret:
+                sec = convert(cur_f, 'f', 's', video_document.get_property(FPS_DOCPROP_KEY))
+                warnings.warn(f'Frame #{cur_f} ({sec}s) could not be read from the video {video_document.id}.')
+                continue
+            frames.append(Image.fromarray(frame[:, :, ::-1]) if as_PIL else frame)
+            framenums.pop(0)
+        cur_f += 1
     return frames
 
 
@@ -104,7 +108,7 @@ def get_mid_framenum(mmif: Mmif, time_frame: Annotation):
     timeunit = time_frame.get_property('timeUnit')
     video_document = mmif[time_frame.get_property('document')]
     fps = get_framerate(video_document)
-    return convert(mmif.get_start(time_frame) + mmif.get_end(time_frame), timeunit, 'frame', fps) // 2
+    return convert(time_frame.get_property('start') + time_frame.get_property('end'), timeunit, 'frame', fps) // 2
 
 
 def extract_mid_frame(mmif: Mmif, time_frame: Annotation, as_PIL: bool = False):

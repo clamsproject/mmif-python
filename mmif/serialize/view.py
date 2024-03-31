@@ -8,6 +8,7 @@ data that was previously present in the MMIF file.
 from datetime import datetime
 from typing import Dict, Union, Optional, Generator, List, cast
 
+from mmif.serialize.model import PRMTV_TYPES
 from mmif.vocabulary import ThingTypesBase, ClamsTypesBase
 from .annotation import Annotation, Document
 from .model import MmifObject, DataList, DataDict
@@ -243,7 +244,8 @@ class ViewMetadata(MmifObject):
         self.timestamp: Optional[datetime] = None
         self.app: str = ''
         self.contains: ContainsDict = ContainsDict()
-        self.parameters: dict = {}
+        self.parameters: Dict[str, str] = {}
+        self.app_configuration: Dict[str, Union[PRMTV_TYPES, List[PRMTV_TYPES]]] = {}
         self.error: Union[dict, ErrorDict] = {}
         self.warnings: List[str] = []
         self._required_attributes = ["app"]
@@ -282,16 +284,43 @@ class ViewMetadata(MmifObject):
             self.add_contain(new_contain, at_type)
             return new_contain
     
-    def add_contain(self, contain: 'Contain', at_type: Union[str, ThingTypesBase]):
+    def add_contain(self, contain: 'Contain', at_type: Union[str, ThingTypesBase]) -> None:
         self.contains[at_type] = contain
 
-    def add_parameters(self, **runtime_params):
-        self.parameters.update(dict(runtime_params))
+    def add_app_configuration(self, config_key: str, config_value: Union[PRMTV_TYPES, List[PRMTV_TYPES]]) -> None:
+        """
+        Add a configuration key-value pair to the app_configuration dictionary.
+        """
+        self.app_configuration[config_key] = config_value
 
-    def add_parameter(self, param_key, param_value):
+    def get_app_configuration(self, config_key: str) -> Union[PRMTV_TYPES, List[PRMTV_TYPES]]:
+        """
+        Get a configuration value from the app_configuration dictionary.
+        """
+        try:
+            return self.app_configuration[config_key]
+        except KeyError:
+            raise KeyError(f"app is not configured for \"{config_key}\" key in the view: {self.serialize()}")
+
+    def add_parameters(self, **runtime_params: str):
+        """
+        Add runtime parameters as a batch (dict) to the view metadata. Note that parameter values must be strings.
+        """
+        for k, v in runtime_params.items():
+            self.add_parameter(k, v)
+
+    def add_parameter(self, param_key: str, param_value: str):
+        """
+        Add a single runtime parameter to the view metadata. Note that parameter value must be a string.
+        """
+        assert isinstance(param_value, str), \
+                f"Parameter value must be a string, \"{param_value}\" ({type(param_value)}) is given for key \"{param_key}\"."
         self.parameters[param_key] = param_value
 
-    def get_parameter(self, param_key):
+    def get_parameter(self, param_key: str) -> str:
+        """
+        Get a runtime parameter from the view metadata.
+        """
         try:
             return self.parameters[param_key]
         except KeyError:
@@ -384,7 +413,11 @@ class ContainsDict(DataDict[ThingTypesBase, Contain]):
         return self._items.get(key, default)
     
     def __contains__(self, item: Union[str, ThingTypesBase]):
-        return item in self._items
+        if isinstance(item, str):
+            string_keys = [str(k) for k in self._items.keys()]
+            return item in string_keys
+        else:
+            return item in self._items
 
     def pop(self, key):
         self._items.pop(key)

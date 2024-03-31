@@ -17,7 +17,8 @@ EVERYTHING_JSON = res.read().decode('utf-8')
 
 # for keys and values in chain all typevers in mmif.vocabulary.*_types modules
 # merge into a single dict 
-attypevers = {f'{k}_VER': v for k, v in itertools.chain.from_iterable(map(lambda x: x.typevers.items(), [AnnotationTypes, DocumentTypes]))}
+attypevers = {f'{k}_VER': v for k, v in itertools.chain.from_iterable(
+    map(lambda x: x._typevers.items(), [AnnotationTypes, DocumentTypes]))}
 attypevers['VERSION'] = __specver__
 
 MMIF_EXAMPLES = {
