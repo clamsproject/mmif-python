@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>mmif.utils module &mdash; mmif-python  documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=80d5e7a1" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=19f00094" />
+
+  
+  <!--[if lt IE 9]>
+    <script src="../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="../_static/jquery.js?v=5d32c60e"></script>
+        <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js?v=b3ba4146"></script>
+        <script src="../_static/doctools.js?v=888ff710"></script>
+        <script src="../_static/sphinx_highlight.js?v=4825356b"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="prev" title="mmif.vocabulary module" href="mmif.vocabulary.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            mmif-python
+          </a>
+              <div class="version">
+                1.0.8
+              </div>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../introduction.html">Getting Started</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../plugins.html">Developing plugins for MMIF Python SDK</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../target-versions.html">Target MMIF Versions</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">API documentation:</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="../modules.html">mmif package</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="mmif.serialize.html">mmif.serialize module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="mmif.vocabulary.html">mmif.vocabulary module</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">mmif.utils module</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#module-mmif.utils.video_document_helper">mmif.utils.video_document_helper module</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#mmif.utils.video_document_helper.capture"><code class="docutils literal notranslate"><span class="pre">capture()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#mmif.utils.video_document_helper.convert"><code class="docutils literal notranslate"><span class="pre">convert()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#mmif.utils.video_document_helper.convert_timeframe"><code class="docutils literal notranslate"><span class="pre">convert_timeframe()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#mmif.utils.video_document_helper.convert_timepoint"><code class="docutils literal notranslate"><span class="pre">convert_timepoint()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#mmif.utils.video_document_helper.extract_frames_as_images"><code class="docutils literal notranslate"><span class="pre">extract_frames_as_images()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#mmif.utils.video_document_helper.extract_mid_frame"><code class="docutils literal notranslate"><span class="pre">extract_mid_frame()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#mmif.utils.video_document_helper.framenum_to_millisecond"><code class="docutils literal notranslate"><span class="pre">framenum_to_millisecond()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#mmif.utils.video_document_helper.framenum_to_second"><code class="docutils literal notranslate"><span class="pre">framenum_to_second()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#mmif.utils.video_document_helper.get_annotation_property"><code class="docutils literal notranslate"><span class="pre">get_annotation_property()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#mmif.utils.video_document_helper.get_framerate"><code class="docutils literal notranslate"><span class="pre">get_framerate()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#mmif.utils.video_document_helper.get_mid_framenum"><code class="docutils literal notranslate"><span class="pre">get_mid_framenum()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#mmif.utils.video_document_helper.millisecond_to_framenum"><code class="docutils literal notranslate"><span class="pre">millisecond_to_framenum()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#mmif.utils.video_document_helper.sample_frames"><code class="docutils literal notranslate"><span class="pre">sample_frames()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#mmif.utils.video_document_helper.second_to_framenum"><code class="docutils literal notranslate"><span class="pre">second_to_framenum()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">mmif-python</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../modules.html">mmif package</a></li>
+      <li class="breadcrumb-item active">mmif.utils module</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="mmif-utils-module">
+<h1>mmif.utils module<a class="headerlink" href="#mmif-utils-module" title="Permalink to this heading"></a></h1>
+<section id="module-mmif.utils.video_document_helper">
+<span id="mmif-utils-video-document-helper-module"></span><h2>mmif.utils.video_document_helper module<a class="headerlink" href="#module-mmif.utils.video_document_helper" title="Permalink to this heading"></a></h2>
+<dl class="py function">
+<dt class="sig sig-object py" id="mmif.utils.video_document_helper.capture">
+<span class="sig-prename descclassname"><span class="pre">mmif.utils.video_document_helper.</span></span><span class="sig-name descname"><span class="pre">capture</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">video_document</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="mmif.serialize.html#mmif.serialize.annotation.Document" title="mmif.serialize.annotation.Document"><span class="pre">Document</span></a></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/clamsproject/mmif-python/tree/1.0.8/mmif/utils/video_document_helper.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mmif.utils.video_document_helper.capture" title="Permalink to this definition"></a></dt>
+<dd><p>Captures a video file using OpenCV and adds fps, frame count, and duration as properties to the document.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>video_document</strong> – <a class="reference internal" href="mmif.serialize.html#mmif.serialize.annotation.Document" title="mmif.serialize.annotation.Document"><code class="xref py py-class docutils literal notranslate"><span class="pre">Document</span></code></a> instance that holds a video document (<code class="docutils literal notranslate"><span class="pre">&quot;&#64;type&quot;:</span> <span class="pre">&quot;.../VideoDocument/...&quot;</span></code>)</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.opencv.org/3.4/d8/dfe/classcv_1_1VideoCapture.html">OpenCV VideoCapture</a> object</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="mmif.utils.video_document_helper.convert">
+<span class="sig-prename descclassname"><span class="pre">mmif.utils.video_document_helper.</span></span><span class="sig-name descname"><span class="pre">convert</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">time</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">in_unit</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">out_unit</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fps</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">int</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">float</span></span></span><a class="reference external" href="https://github.com/clamsproject/mmif-python/tree/1.0.8/mmif/utils/video_document_helper.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mmif.utils.video_document_helper.convert" title="Permalink to this definition"></a></dt>
+<dd><p>Converts time from one unit to another. Works with <code class="docutils literal notranslate"><span class="pre">frames</span></code>, <code class="docutils literal notranslate"><span class="pre">seconds</span></code>, <code class="docutils literal notranslate"><span class="pre">milliseconds</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>time</strong> – time value to convert</p></li>
+<li><p><strong>in_unit</strong> – input time unit, one of <code class="docutils literal notranslate"><span class="pre">frames</span></code>, <code class="docutils literal notranslate"><span class="pre">seconds</span></code>, <code class="docutils literal notranslate"><span class="pre">milliseconds</span></code></p></li>
+<li><p><strong>out_unit</strong> – output time unit, one of <code class="docutils literal notranslate"><span class="pre">frames</span></code>, <code class="docutils literal notranslate"><span class="pre">seconds</span></code>, <code class="docutils literal notranslate"><span class="pre">milliseconds</span></code></p></li>
+<li><p><strong>fps</strong> – frames per second</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>converted time value</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="mmif.utils.video_document_helper.convert_timeframe">
+<span class="sig-prename descclassname"><span class="pre">mmif.utils.video_document_helper.</span></span><span class="sig-name descname"><span class="pre">convert_timeframe</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">mmif</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="mmif.serialize.html#mmif.serialize.mmif.Mmif" title="mmif.serialize.mmif.Mmif"><span class="pre">Mmif</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">time_frame</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="mmif.serialize.html#mmif.serialize.annotation.Annotation" title="mmif.serialize.annotation.Annotation"><span class="pre">Annotation</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">out_unit</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">int</span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">float</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">float</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference external" href="https://github.com/clamsproject/mmif-python/tree/1.0.8/mmif/utils/video_document_helper.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mmif.utils.video_document_helper.convert_timeframe" title="Permalink to this definition"></a></dt>
+<dd><p>Converts start and end points in a <code class="docutils literal notranslate"><span class="pre">TimeFrame</span></code> annotation a different time unit.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>mmif</strong> – <a class="reference internal" href="mmif.serialize.html#mmif.serialize.mmif.Mmif" title="mmif.serialize.mmif.Mmif"><code class="xref py py-class docutils literal notranslate"><span class="pre">Mmif</span></code></a> instance</p></li>
+<li><p><strong>time_frame</strong> – <a class="reference internal" href="mmif.serialize.html#mmif.serialize.annotation.Annotation" title="mmif.serialize.annotation.Annotation"><code class="xref py py-class docutils literal notranslate"><span class="pre">Annotation</span></code></a> instance that holds a time interval annotation (<code class="docutils literal notranslate"><span class="pre">&quot;&#64;type&quot;:</span> <span class="pre">&quot;.../TimeFrame/...&quot;</span></code>)</p></li>
+<li><p><strong>out_unit</strong> – time unit to which the point is converted</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>tuple of frame numbers (integer) or seconds/milliseconds (float) of input start and end</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="mmif.utils.video_document_helper.convert_timepoint">
+<span class="sig-prename descclassname"><span class="pre">mmif.utils.video_document_helper.</span></span><span class="sig-name descname"><span class="pre">convert_timepoint</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">mmif</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="mmif.serialize.html#mmif.serialize.mmif.Mmif" title="mmif.serialize.mmif.Mmif"><span class="pre">Mmif</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">timepoint</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="mmif.serialize.html#mmif.serialize.annotation.Annotation" title="mmif.serialize.annotation.Annotation"><span class="pre">Annotation</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">out_unit</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">int</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">float</span></span></span><a class="reference external" href="https://github.com/clamsproject/mmif-python/tree/1.0.8/mmif/utils/video_document_helper.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mmif.utils.video_document_helper.convert_timepoint" title="Permalink to this definition"></a></dt>
+<dd><p>Converts a time point included in an annotation to a different time unit.
+The input annotation must have <code class="docutils literal notranslate"><span class="pre">timePoint</span></code> property.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>mmif</strong> – input MMIF to obtain fps and input timeunit</p></li>
+<li><p><strong>timepoint</strong> – <a class="reference internal" href="mmif.serialize.html#mmif.serialize.annotation.Annotation" title="mmif.serialize.annotation.Annotation"><code class="xref py py-class docutils literal notranslate"><span class="pre">Annotation</span></code></a> instance with <code class="docutils literal notranslate"><span class="pre">timePoint</span></code> property</p></li>
+<li><p><strong>out_unit</strong> – time unit to which the point is converted (<code class="docutils literal notranslate"><span class="pre">frames</span></code>, <code class="docutils literal notranslate"><span class="pre">seconds</span></code>, <code class="docutils literal notranslate"><span class="pre">milliseconds</span></code>)</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>frame number (integer) or second/millisecond (float) of input timepoint</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="mmif.utils.video_document_helper.extract_frames_as_images">
+<span class="sig-prename descclassname"><span class="pre">mmif.utils.video_document_helper.</span></span><span class="sig-name descname"><span class="pre">extract_frames_as_images</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">video_document</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="mmif.serialize.html#mmif.serialize.annotation.Document" title="mmif.serialize.annotation.Document"><span class="pre">Document</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">framenums</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">as_PIL</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/clamsproject/mmif-python/tree/1.0.8/mmif/utils/video_document_helper.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mmif.utils.video_document_helper.extract_frames_as_images" title="Permalink to this definition"></a></dt>
+<dd><p>Extracts frames from a video document as a list of <code class="xref py py-class docutils literal notranslate"><span class="pre">numpy.ndarray</span></code>.
+Use with <a class="reference internal" href="#mmif.utils.video_document_helper.sample_frames" title="mmif.utils.video_document_helper.sample_frames"><code class="xref py py-func docutils literal notranslate"><span class="pre">sample_frames()</span></code></a> function to get the list of frame numbers first.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>video_document</strong> – <a class="reference internal" href="mmif.serialize.html#mmif.serialize.annotation.Document" title="mmif.serialize.annotation.Document"><code class="xref py py-class docutils literal notranslate"><span class="pre">Document</span></code></a> instance that holds a video document (<code class="docutils literal notranslate"><span class="pre">&quot;&#64;type&quot;:</span> <span class="pre">&quot;.../VideoDocument/...&quot;</span></code>)</p></li>
+<li><p><strong>framenums</strong> – integers representing the frame numbers to extract</p></li>
+<li><p><strong>as_PIL</strong> – return <code class="xref py py-class docutils literal notranslate"><span class="pre">PIL.Image.Image</span></code> instead of <code class="xref py py-class docutils literal notranslate"><span class="pre">ndarray</span></code></p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>frames as a list of <code class="xref py py-class docutils literal notranslate"><span class="pre">ndarray</span></code> or <code class="xref py py-class docutils literal notranslate"><span class="pre">Image</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="mmif.utils.video_document_helper.extract_mid_frame">
+<span class="sig-prename descclassname"><span class="pre">mmif.utils.video_document_helper.</span></span><span class="sig-name descname"><span class="pre">extract_mid_frame</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">mmif</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="mmif.serialize.html#mmif.serialize.mmif.Mmif" title="mmif.serialize.mmif.Mmif"><span class="pre">Mmif</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">time_frame</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="mmif.serialize.html#mmif.serialize.annotation.Annotation" title="mmif.serialize.annotation.Annotation"><span class="pre">Annotation</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">as_PIL</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/clamsproject/mmif-python/tree/1.0.8/mmif/utils/video_document_helper.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mmif.utils.video_document_helper.extract_mid_frame" title="Permalink to this definition"></a></dt>
+<dd><p>Extracts the middle frame of a time interval annotation as a numpy ndarray.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>mmif</strong> – <a class="reference internal" href="mmif.serialize.html#mmif.serialize.mmif.Mmif" title="mmif.serialize.mmif.Mmif"><code class="xref py py-class docutils literal notranslate"><span class="pre">Mmif</span></code></a> instance</p></li>
+<li><p><strong>time_frame</strong> – <a class="reference internal" href="mmif.serialize.html#mmif.serialize.annotation.Annotation" title="mmif.serialize.annotation.Annotation"><code class="xref py py-class docutils literal notranslate"><span class="pre">Annotation</span></code></a> instance that holds a time interval annotation (<code class="docutils literal notranslate"><span class="pre">&quot;&#64;type&quot;:</span> <span class="pre">&quot;.../TimeFrame/...&quot;</span></code>)</p></li>
+<li><p><strong>as_PIL</strong> – return <code class="xref py py-class docutils literal notranslate"><span class="pre">Image</span></code> instead of <code class="xref py py-class docutils literal notranslate"><span class="pre">ndarray</span></code></p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>frame as a <code class="xref py py-class docutils literal notranslate"><span class="pre">numpy.ndarray</span></code> or <code class="xref py py-class docutils literal notranslate"><span class="pre">PIL.Image.Image</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="mmif.utils.video_document_helper.framenum_to_millisecond">
+<span class="sig-prename descclassname"><span class="pre">mmif.utils.video_document_helper.</span></span><span class="sig-name descname"><span class="pre">framenum_to_millisecond</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">video_doc</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="mmif.serialize.html#mmif.serialize.annotation.Document" title="mmif.serialize.annotation.Document"><span class="pre">Document</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">frame</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/clamsproject/mmif-python/tree/1.0.8/mmif/utils/video_document_helper.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mmif.utils.video_document_helper.framenum_to_millisecond" title="Permalink to this definition"></a></dt>
+<dd><p>Converts a frame number to a millisecond value.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="mmif.utils.video_document_helper.framenum_to_second">
+<span class="sig-prename descclassname"><span class="pre">mmif.utils.video_document_helper.</span></span><span class="sig-name descname"><span class="pre">framenum_to_second</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">video_doc</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="mmif.serialize.html#mmif.serialize.annotation.Document" title="mmif.serialize.annotation.Document"><span class="pre">Document</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">frame</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/clamsproject/mmif-python/tree/1.0.8/mmif/utils/video_document_helper.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mmif.utils.video_document_helper.framenum_to_second" title="Permalink to this definition"></a></dt>
+<dd><p>Converts a frame number to a second value.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="mmif.utils.video_document_helper.get_annotation_property">
+<span class="sig-prename descclassname"><span class="pre">mmif.utils.video_document_helper.</span></span><span class="sig-name descname"><span class="pre">get_annotation_property</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">mmif</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">annotation</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">prop_name</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/clamsproject/mmif-python/tree/1.0.8/mmif/utils/video_document_helper.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mmif.utils.video_document_helper.get_annotation_property" title="Permalink to this definition"></a></dt>
+<dd><div class="deprecated">
+<p><span class="versionmodified deprecated">Deprecated since version 1.0.8: </span>Use <a class="reference internal" href="mmif.serialize.html#mmif.serialize.annotation.Annotation.get_property" title="mmif.serialize.annotation.Annotation.get_property"><code class="xref py py-meth docutils literal notranslate"><span class="pre">mmif.serialize.annotation.Annotation.get_property()</span></code></a> method instead.</p>
+</div>
+<p>Get a property value from an annotation. If the property is not found in the annotation, it will look up the metadata of the annotation’s parent view and return the value from there.
+xisting</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="mmif.utils.video_document_helper.get_framerate">
+<span class="sig-prename descclassname"><span class="pre">mmif.utils.video_document_helper.</span></span><span class="sig-name descname"><span class="pre">get_framerate</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">video_document</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="mmif.serialize.html#mmif.serialize.annotation.Document" title="mmif.serialize.annotation.Document"><span class="pre">Document</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">float</span></span></span><a class="reference external" href="https://github.com/clamsproject/mmif-python/tree/1.0.8/mmif/utils/video_document_helper.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mmif.utils.video_document_helper.get_framerate" title="Permalink to this definition"></a></dt>
+<dd><p>Gets the frame rate of a video document. First by checking the fps property of the document, then by capturing the video.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>video_document</strong> – <a class="reference internal" href="mmif.serialize.html#mmif.serialize.annotation.Document" title="mmif.serialize.annotation.Document"><code class="xref py py-class docutils literal notranslate"><span class="pre">Document</span></code></a> instance that holds a video document (<code class="docutils literal notranslate"><span class="pre">&quot;&#64;type&quot;:</span> <span class="pre">&quot;.../VideoDocument/...&quot;</span></code>)</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>frames per second as a float, rounded to 2 decimal places</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="mmif.utils.video_document_helper.get_mid_framenum">
+<span class="sig-prename descclassname"><span class="pre">mmif.utils.video_document_helper.</span></span><span class="sig-name descname"><span class="pre">get_mid_framenum</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">mmif</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="mmif.serialize.html#mmif.serialize.mmif.Mmif" title="mmif.serialize.mmif.Mmif"><span class="pre">Mmif</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">time_frame</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="mmif.serialize.html#mmif.serialize.annotation.Annotation" title="mmif.serialize.annotation.Annotation"><span class="pre">Annotation</span></a></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/clamsproject/mmif-python/tree/1.0.8/mmif/utils/video_document_helper.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mmif.utils.video_document_helper.get_mid_framenum" title="Permalink to this definition"></a></dt>
+<dd><p>Calculates the middle frame number of a time interval annotation.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>mmif</strong> – <a class="reference internal" href="mmif.serialize.html#mmif.serialize.mmif.Mmif" title="mmif.serialize.mmif.Mmif"><code class="xref py py-class docutils literal notranslate"><span class="pre">Mmif</span></code></a> instance</p></li>
+<li><p><strong>time_frame</strong> – <a class="reference internal" href="mmif.serialize.html#mmif.serialize.annotation.Annotation" title="mmif.serialize.annotation.Annotation"><code class="xref py py-class docutils literal notranslate"><span class="pre">Annotation</span></code></a> instance that holds a time interval annotation (<code class="docutils literal notranslate"><span class="pre">&quot;&#64;type&quot;:</span> <span class="pre">&quot;.../TimeFrame/...&quot;</span></code>)</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>middle frame number as an integer</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="mmif.utils.video_document_helper.millisecond_to_framenum">
+<span class="sig-prename descclassname"><span class="pre">mmif.utils.video_document_helper.</span></span><span class="sig-name descname"><span class="pre">millisecond_to_framenum</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">video_doc</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="mmif.serialize.html#mmif.serialize.annotation.Document" title="mmif.serialize.annotation.Document"><span class="pre">Document</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">millisecond</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">int</span></span></span><a class="reference external" href="https://github.com/clamsproject/mmif-python/tree/1.0.8/mmif/utils/video_document_helper.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mmif.utils.video_document_helper.millisecond_to_framenum" title="Permalink to this definition"></a></dt>
+<dd><p>Converts a millisecond value to a frame number.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="mmif.utils.video_document_helper.sample_frames">
+<span class="sig-prename descclassname"><span class="pre">mmif.utils.video_document_helper.</span></span><span class="sig-name descname"><span class="pre">sample_frames</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">start_frame</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">end_frame</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sample_ratio</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference external" href="https://github.com/clamsproject/mmif-python/tree/1.0.8/mmif/utils/video_document_helper.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mmif.utils.video_document_helper.sample_frames" title="Permalink to this definition"></a></dt>
+<dd><p>Helper function to sample frames from a time interval.
+Can also be used as a “cutoff” function when used with <code class="docutils literal notranslate"><span class="pre">start_frame==0</span></code> and <code class="docutils literal notranslate"><span class="pre">sample_ratio==1</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>start_frame</strong> – start frame of the interval</p></li>
+<li><p><strong>end_frame</strong> – end frame of the interval</p></li>
+<li><p><strong>sample_ratio</strong> – sample ratio (or step) to configure how often to take a frame, default is 1, meaning all consecutive frames are sampled</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="mmif.utils.video_document_helper.second_to_framenum">
+<span class="sig-prename descclassname"><span class="pre">mmif.utils.video_document_helper.</span></span><span class="sig-name descname"><span class="pre">second_to_framenum</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">video_doc</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="mmif.serialize.html#mmif.serialize.annotation.Document" title="mmif.serialize.annotation.Document"><span class="pre">Document</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">second</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">int</span></span></span><a class="reference external" href="https://github.com/clamsproject/mmif-python/tree/1.0.8/mmif/utils/video_document_helper.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mmif.utils.video_document_helper.second_to_framenum" title="Permalink to this definition"></a></dt>
+<dd><p>Converts a second value to a frame number.</p>
+</dd></dl>
+
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="mmif.vocabulary.html" class="btn btn-neutral float-left" title="mmif.vocabulary module" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2024, Brandeis LLC.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  
+<div class="rst-versions" data-toggle="rst-versions" role="note" aria-label="versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    <span class="fa fa-book"> Other Versions</span>
+    v: 1.0.8
+    <span class="fa fa-caret-down"></span>
+  </span>
+  <div class="rst-other-versions">
+    <dl>
+      <!-- <dt>Tags</dt> -->
+      <dd><a href="../../0.3.0/index.html">0.3.0</a></dd>
+      <dd><a href="../../0.3.1/index.html">0.3.1</a></dd>
+      <dd><a href="../../0.3.2/index.html">0.3.2</a></dd>
+      <dd><a href="../../0.3.3/index.html">0.3.3</a></dd>
+      <dd><a href="../../0.3.4/index.html">0.3.4</a></dd>
+      <dd><a href="../../0.3.5/index.html">0.3.5</a></dd>
+      <dd><a href="../../0.4.0/index.html">0.4.0</a></dd>
+      <dd><a href="../../0.4.1/index.html">0.4.1</a></dd>
+      <dd><a href="../../0.4.2/index.html">0.4.2</a></dd>
+      <dd><a href="../../0.4.3/index.html">0.4.3</a></dd>
+      <dd><a href="../../0.4.4/index.html">0.4.4</a></dd>
+      <dd><a href="../../0.4.5/index.html">0.4.5</a></dd>
+      <dd><a href="../../0.4.6/index.html">0.4.6</a></dd>
+      <dd><a href="../../0.4.7/index.html">0.4.7</a></dd>
+      <dd><a href="../../0.4.8/index.html">0.4.8</a></dd>
+      <dd><a href="../../0.5.0/index.html">0.5.0</a></dd>
+      <dd><a href="../../0.5.1/index.html">0.5.1</a></dd>
+      <dd><a href="../../0.5.2/index.html">0.5.2</a></dd>
+      <dd><a href="../../1.0.0/index.html">1.0.0</a></dd>
+      <dd><a href="../../1.0.1/index.html">1.0.1</a></dd>
+      <dd><a href="../../1.0.10/autodoc/mmif.utils.html">1.0.10</a></dd>
+      <dd><a href="../../1.0.11/autodoc/mmif.utils.html">1.0.11</a></dd>
+      <dd><a href="../../1.0.2/index.html">1.0.2</a></dd>
+      <dd><a href="../../1.0.3/index.html">1.0.3</a></dd>
+      <dd><a href="../../1.0.4/index.html">1.0.4</a></dd>
+      <dd><a href="../../1.0.5/index.html">1.0.5</a></dd>
+      <dd><a href="../../1.0.6/index.html">1.0.6</a></dd>
+      <dd><a href="../../1.0.7/index.html">1.0.7</a></dd>
+      <dd><a href="mmif.utils.html">1.0.8</a></dd>
+      <dd><a href="../../1.0.9/autodoc/mmif.utils.html">1.0.9</a></dd>
+    </dl>
+  </div>
+</div><script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

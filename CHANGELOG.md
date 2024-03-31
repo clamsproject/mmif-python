@@ -1,4 +1,21 @@
 
+## releasing 1.0.11 (2024-03-31)
+### Overview
+This release includes changes from MMIF spec 1.0.3 and 1.0.4, and a new helper module to handle sequence annotations
+
+### Additions
+- `mmif.utils.sequence_helper` module (fixing https://github.com/clamsproject/mmif-python/issues/267) is added to provide 
+    - a generalized label re-mapper for "post-binning" of labels
+    - conversion from a list of CLAMS annotations (with ``classification`` props) into a list of reals (scores by labels), can be combined with the label re-mapper mentioned above
+    - `smooth_outlying_short_intervals()`: a simple smoothing algorithm by trimming "short" outlier sequences
+- added support for the new `views[].metadata.appConfiguration` field (https://github.com/clamsproject/mmif/issues/208 & https://github.com/clamsproject/mmif-python/issues/269)
+
+### Changes
+- fixed querying views by strings of annotation types weren't working (https://github.com/clamsproject/mmif-python/issues/263)
+- added annotation type prop aliases added in MMIF 1.0.3 (https://github.com/clamsproject/mmif/pull/222)
+- getting start or end anchor points on annotations objects only with `targets` are no longer require the targets list is already sorted
+- sphinx-based public API documentation for old versions is back
+
 ## releasing 1.0.10 (2024-03-01)
 ### Overview
 This version includes minor bug fixes and support for MMIF spec 1.0.2. 
