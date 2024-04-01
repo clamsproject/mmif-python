@@ -1,4 +1,12 @@
 
+## releasing 1.0.12 (2024-04-01)
+### Overview
+Hot-fixing a wrong field name. 
+
+### Changes
+- `views[].metadata.app_configuration` is renamed to `appConfiguration`, correctly following the MMIF json schema. 
+
+
 ## releasing 1.0.11 (2024-03-31)
 ### Overview
 This release includes changes from MMIF spec 1.0.3 and 1.0.4, and a new helper module to handle sequence annotations
