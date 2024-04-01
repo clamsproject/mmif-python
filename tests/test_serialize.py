@@ -610,7 +610,7 @@ class TestView(unittest.TestCase):
     def test_view_configuration(self):
         vmeta = ViewMetadata()
         vmeta.add_app_configuration('pretty', False)
-        self.assertEqual(len(vmeta.app_configuration), 1)
+        self.assertEqual(len(vmeta.appConfiguration), 1)
         self.assertEqual(vmeta.get_app_configuration('pretty'), False)
         with pytest.raises(KeyError):
             vmeta.get_app_configuration('not_exist')
