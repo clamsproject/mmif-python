@@ -245,7 +245,7 @@ class ViewMetadata(MmifObject):
         self.app: str = ''
         self.contains: ContainsDict = ContainsDict()
         self.parameters: Dict[str, str] = {}
-        self.app_configuration: Dict[str, Union[PRMTV_TYPES, List[PRMTV_TYPES]]] = {}
+        self.appConfiguration: Dict[str, Union[PRMTV_TYPES, List[PRMTV_TYPES]]] = {}
         self.error: Union[dict, ErrorDict] = {}
         self.warnings: List[str] = []
         self._required_attributes = ["app"]
@@ -291,14 +291,14 @@ class ViewMetadata(MmifObject):
         """
         Add a configuration key-value pair to the app_configuration dictionary.
         """
-        self.app_configuration[config_key] = config_value
+        self.appConfiguration[config_key] = config_value
 
     def get_app_configuration(self, config_key: str) -> Union[PRMTV_TYPES, List[PRMTV_TYPES]]:
         """
         Get a configuration value from the app_configuration dictionary.
         """
         try:
-            return self.app_configuration[config_key]
+            return self.appConfiguration[config_key]
         except KeyError:
             raise KeyError(f"app is not configured for \"{config_key}\" key in the view: {self.serialize()}")
 
