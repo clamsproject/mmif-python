@@ -1,6 +1,7 @@
 import importlib
 import warnings
 from typing import List, Union, Tuple
+import math
 
 import mmif
 from mmif import Annotation, Document, Mmif
@@ -124,22 +125,23 @@ def extract_mid_frame(mmif: Mmif, time_frame: Annotation, as_PIL: bool = False):
     return extract_frames_as_images(vd, [get_mid_framenum(mmif, time_frame)], as_PIL=as_PIL)[0]
 
 
-def sample_frames(start_frame: int, end_frame: int, sample_ratio: int = 1) -> List[int]:
+def sample_frames(start_frame: int, end_frame: int, sample_rate: float = 1) -> List[int]:
     """
     Helper function to sample frames from a time interval.
-    Can also be used as a "cutoff" function when used with ``start_frame==0`` and ``sample_ratio==1``.
+    Can also be used as a "cutoff" function when used with ``start_frame==0`` and ``sample_rate==1``.
     
     :param start_frame: start frame of the interval
     :param end_frame: end frame of the interval
-    :param sample_ratio: sample ratio (or step) to configure how often to take a frame, default is 1, meaning all consecutive frames are sampled
+    :param sample_rate: sampling rate (or step) to configure how often to take a frame, default is 1, meaning all consecutive frames are sampled
 
     """
-    sample_ratio = int(sample_ratio)
-    if sample_ratio < 1:
-        raise ValueError(f"Sample ratio must be greater than 1, but got {sample_ratio}")
+    if sample_rate < 1:
+        raise ValueError(f"Sample rate must be greater than 1, but got {sample_rate}")
     frame_nums: List[int] = []
-    for i in range(start_frame, end_frame, sample_ratio):
-        frame_nums.append(i)
+    cur_f = start_frame
+    while cur_f < end_frame:
+        frame_nums.append(math.ceil(cur_f))
+        cur_f += sample_rate
     return frame_nums
 
 

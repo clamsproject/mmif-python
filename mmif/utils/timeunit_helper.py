@@ -68,17 +68,17 @@ def convert(t: Union[int, float, str], in_unit: str, out_unit: str, fps: float) 
     elif out_unit == 'frame':
         # ms>f
         if 'millisecond' == in_unit:
-            return int(t / 1000 * fps)
+            return round(t / 1000 * fps)
         # s>f
         elif 'second' == in_unit:
-            return int(t * fps)
+            return round(t * fps)
     # s>(ms or i)
     elif in_unit == 'second':
-        return int(t * 1000) if out_unit == 'millisecond' else _second_to_isoformat(t)
+        return round(t * 1000) if out_unit == 'millisecond' else _second_to_isoformat(t)
     # ms>(s or i)
     elif in_unit == 'millisecond':
         return t / 1000 if out_unit == 'second' else _millisecond_to_isoformat(t)
     # f>ms, f>s
     else:
-        return (t / fps) if out_unit == 'second' else (round(t / fps, 3) * 1000)  # pytype: disable=bad-return-type
+        return (t / fps) if out_unit == 'second' else round(round(t / fps, 3) * 1000)  # pytype: disable=bad-return-type
 
