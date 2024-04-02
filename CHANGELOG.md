@@ -1,4 +1,14 @@
 
+## releasing 1.0.13 (2024-04-02)
+### Overview
+This version includes small, but helpful improvements.
+
+### Changes
+* `Annotation` object now has `long_id` property that returns the cross-view reference-ready ID in `view_id:annotation_id` form
+* time unit conversion is now more stable (change of rounding)
+* video frame sampling can now use fractional sampling rate (in terms of frame numbers)
+
+
 ## releasing 1.0.12 (2024-04-01)
 ### Overview
 Hot-fixing a wrong field name. 
