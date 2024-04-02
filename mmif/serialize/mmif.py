@@ -10,13 +10,13 @@ import math
 import warnings
 from collections import defaultdict
 from datetime import datetime
-from typing import List, Union, Optional, Dict, ClassVar, cast
+from typing import List, Union, Optional, Dict, cast
 
 import jsonschema.validators
+
 import mmif
 from mmif import ThingTypesBase
 from mmif.vocabulary import AnnotationTypes, DocumentTypes
-
 from .annotation import Annotation, Document
 from .model import MmifObject, DataList
 from .view import View
@@ -31,9 +31,6 @@ class Mmif(MmifObject):
     :param mmif_obj: the JSON data
     :param validate: whether to validate the data against the MMIF JSON schema.
     """
-
-    view_prefix: ClassVar[str] = 'v_'
-    id_delimiter: ClassVar[str] = ':'
 
     def __init__(self, mmif_obj: Optional[Union[bytes, str, dict]] = None, *, validate: bool = True) -> None:
         self.metadata: MmifMetadata = MmifMetadata()
@@ -362,8 +359,8 @@ class Mmif(MmifObject):
         :return: a reference to the corresponding document, if it exists
         :raises KeyError: if there is no corresponding document
         """
-        if Mmif.id_delimiter in doc_id:
-            vid, did = doc_id.split(Mmif.id_delimiter)
+        if self.id_delimiter in doc_id:
+            vid, did = doc_id.split(self.id_delimiter)
             view = self[vid]
             if isinstance(view, View):
                 return view.get_document_by_id(did) 
@@ -410,8 +407,8 @@ class Mmif(MmifObject):
                     aligned_types = set()
                     for ann_id in [alignment['target'], alignment['source']]:
                         ann_id = cast(str, ann_id)
-                        if Mmif.id_delimiter in ann_id:
-                            view_id, ann_id = ann_id.split(Mmif.id_delimiter)
+                        if self.id_delimiter in ann_id:
+                            view_id, ann_id = ann_id.split(self.id_delimiter)
                             aligned_type = cast(Annotation, self[view_id][ann_id]).at_type
                         else:
                             aligned_type = cast(Annotation, alignment_view[ann_id]).at_type
@@ -438,8 +435,8 @@ class Mmif(MmifObject):
             except StopIteration:
                 # means search failed by the full doc_id string, 
                 # now try trimming the view_id from the string and re-do the search
-                if Mmif.id_delimiter in doc_id:
-                    vid, did = doc_id.split(Mmif.id_delimiter)
+                if self.id_delimiter in doc_id:
+                    vid, did = doc_id.split(self.id_delimiter)
                     if view.id == vid:
                         annotations = view.get_annotations(document=did)
                         try:
@@ -506,8 +503,8 @@ class Mmif(MmifObject):
         elif 'targets' in props:
             
             def get_target_ann(cur_ann, target_id):
-                if Mmif.id_delimiter not in target_id:
-                    target_id = Mmif.id_delimiter.join((cur_ann.parent, target_id))
+                if self.id_delimiter not in target_id:
+                    target_id = self.id_delimiter.join((cur_ann.parent, target_id))
                 return self.__getitem__(target_id)
             
             if not targets_sorted:
@@ -549,7 +546,7 @@ class Mmif(MmifObject):
         """
         if item in self._named_attributes():
             return self.__dict__[item]
-        split_attempt = item.split(Mmif.id_delimiter)
+        split_attempt = item.split(self.id_delimiter)
 
         document_result = self.documents.get(split_attempt[0])
         view_result = self.views.get(split_attempt[0])

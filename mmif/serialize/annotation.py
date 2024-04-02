@@ -26,7 +26,7 @@ __all__ = ['Annotation', 'AnnotationProperties', 'Document', 'DocumentProperties
 
 T = TypeVar('T')
 LIST_PRMTV = typing.List[PRMTV_TYPES]  # list of values (most cases for annotation props)
-LIST_LIST_PRMTV = typing.List[LIST_PRMTV]   # list of list of values (e.g. for coordinates)
+LIST_LIST_PRMTV = typing.List[LIST_PRMTV]   # list of lists of values (e.g. for coordinates)
 DICT_PRMTV = typing.Dict[str, PRMTV_TYPES]  # dict of values (`text` prop of `TextDocument` and other complex props)
 DICT_LIST_PRMTV = typing.Dict[str, LIST_PRMTV]  # dict of list of values (even more complex props)
 
@@ -127,6 +127,20 @@ class Annotation(MmifObject):
     def id(self, aid: str) -> None:
         self.properties.id = aid
         
+    @property
+    def long_id(self) -> str:
+        if self.parent is not None and len(self.parent) > 0:
+            return f"{self.parent}{self.id_delimiter}{self.id}"
+        else:
+            return self.id
+    
+    @long_id.setter
+    def long_id(self, long_id: str) -> None:
+        if self.id_delimiter in long_id:
+            self.parent, self.id = long_id.split(self.id_delimiter)
+        else:
+            self.id = long_id
+    
     @staticmethod
     def check_prop_value_is_simple_enough(
             value: Union[PRMTV_TYPES, LIST_PRMTV, LIST_LIST_PRMTV, DICT_PRMTV, DICT_LIST_PRMTV]) -> bool:

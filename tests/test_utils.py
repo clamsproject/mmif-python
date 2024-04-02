@@ -58,7 +58,15 @@ class TestVideoDocumentHelper(unittest.TestCase):
 
     def test_milliseconds_to_frames(self):
         self.assertAlmostEqual(100, vdh.millisecond_to_framenum(self.video_doc, 3337.0), places=0)
-    
+
+    def test_convert_roundtrip(self):
+        # ms for 1 frame
+        tolerance = 1000 / self.video_doc.get_property('fps')
+        for ms in [1000, 1234, 4321, 44444, 789789]:
+            m2f = vdh.millisecond_to_framenum(self.video_doc, ms)
+            m2f2m = vdh.framenum_to_millisecond(self.video_doc, m2f)
+            self.assertAlmostEqual(ms, m2f2m, delta=tolerance)
+
     def test_sample_frames(self):
         s_frame = vdh.second_to_framenum(self.video_doc, 3)
         e_frame = vdh.second_to_framenum(self.video_doc, 5.5)

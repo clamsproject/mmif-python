@@ -916,6 +916,11 @@ class TestDocument(unittest.TestCase):
         self.assertEqual(d.id, d.get_property('id'))
         self.assertEqual(d.location, d.get_property('location'))
         self.assertEqual('value1', d.get_property('prop1'))
+        d.long_id = 'v1:d1'
+        self.assertEqual('v1:d1', d.long_id)
+        self.assertEqual('v1', d.parent)
+        self.assertEqual('d1', d.id)
+
 
     def test_nontext_document(self):
         ad = Document()
