@@ -14,7 +14,7 @@ for the different components of MMIF is added in the subclasses.
 
 import json
 from datetime import datetime
-from typing import Union, Any, Dict, Optional, TypeVar, Generic, Generator, Iterator, Type, Set
+from typing import Union, Any, Dict, Optional, TypeVar, Generic, Generator, Iterator, Type, Set, ClassVar
 
 from deepdiff import DeepDiff
 
@@ -79,6 +79,9 @@ class MmifObject(object):
      an ID value automatically generated, based on its parent object.
     """
     
+    view_prefix: ClassVar[str] = 'v_'
+    id_delimiter: ClassVar[str] = ':'
+
     # these are the reserved names that cannot be used as attribute names, and 
     # they won't be serialized
     reserved_names: Set[str] = {
