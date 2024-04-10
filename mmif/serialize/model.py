@@ -44,35 +44,39 @@ class MmifObject(object):
 
     1. _unnamed_attributes:
        Only can be either None or an empty dictionary. If it's set to None,
-       it means the class won't take any ``Additional Attributes`` in the JSON
-       schema sense. If it's a dict, users can throw any k-v pairs to the
-       class, EXCEPT for the reserved two key names.
+       it means the class won't take any ``Additional Attributes`` in the 
+       JSON schema sense. If it's an empty dict, users can throw any k-v 
+       pairs to the class, as long as the key is not a "reserved" name, 
+       and those additional attributes will be stored in this dict while
+       in memory. 
     2. _attribute_classes:
        This is a dict from a key name to a specific python class to use for
        deserialize the value. Note that a key name in this dict does NOT
        have to be a *named* attribute, but is recommended to be one.
     3. _required_attributes:
-       This is a simple list of names of attributes that are required in the object.
-       When serialize, an object will skip its *empty* (e.g. zero-length, or None)
-       attributes unless they are in this list. Otherwise, the serialized JSON
-       string would have empty representations (e.g. ``""``, ``[]``).
+       This is a simple list of names of attributes that are required in 
+       the object. When serialize, an object will skip its *empty* (e.g. 
+       zero-length, or None) attributes unless they are in this list. 
+       Otherwise, the serialized JSON string would have empty 
+       representations (e.g. ``""``, ``[]``).
     4. _exclude_from_diff:
-       This is a simple list of names of attributes that should be excluded from
-       the diff calculation in ``__eq__``. 
+       This is a simple list of names of attributes that should be excluded 
+       from the diff calculation in ``__eq__``. 
 
     # TODO (krim @ 8/17/20): this dict is however, a duplicate with the type hints in the class definition.
-    Maybe there is a better way to utilize type hints (e.g. getting them as a programmatically), but for now
-    developers should be careful to add types to hints as well as to this dict.
+    Maybe there is a better way to utilize type hints (e.g. getting them 
+    as a programmatically), but for now developers should be careful to 
+    add types to hints as well as to this dict.
 
     Also note that those special attributes MUST be set in the __init__()
     before calling super method, otherwise deserialization will not work.
 
     And also, a subclass that has one or more *named* attributes, it must
-    set those attributes in the __init__() before calling super method. When
-    serializing a MmifObject, all *empty* attributes will be ignored, so for
-    optional named attributes, you must leave the values empty (len == 0), but
-    NOT None. Any None-valued named attributes will cause issues with current
-    implementation.
+    set those attributes in the __init__() before calling super method. 
+    When serializing a MmifObject, all *empty* attributes will be ignored, 
+    so for optional named attributes, you must leave the values empty 
+    (len == 0), but NOT None. Any None-valued named attributes will cause 
+    issues with current implementation.
 
     :param mmif_obj: JSON string or `dict` to initialize an object.
      If not given, an empty object will be initialized, sometimes with
@@ -272,8 +276,8 @@ class MmifObject(object):
         """
         Returns number of attributes that are not *empty*. 
         """
-        return sum([named in self and not self.is_empty(self[named]) for named in self._named_attributes()]) \
-               + (len(self._unnamed_attributes) if self._unnamed_attributes else 0)
+        return (sum([named in self and not self.is_empty(self[named]) for named in self._named_attributes()]) 
+                + (len(self._unnamed_attributes) if self._unnamed_attributes else 0))
 
     def __setitem__(self, key, value) -> None:
         if key in self.reserved_names:

@@ -35,7 +35,7 @@ publish: distclean version package test
 
 $(generatedcode): dist/$(sdistname)*.tar.gz
 
-docs: latest := $(shell git tag | sort -r | head -n 1)
+docs: latest := $(shell git tag | sort -t. -k 1,1nr -k 2,2nr -k 3,3nr -k 4,4nr | head -n 1)
 docs: VERSION $(generatedcode)
 	rm -rf docs
 	pip install --upgrade -r requirements.txt
@@ -83,8 +83,9 @@ increase_dev = $(call macro,$(1)).$(call micro,$(1)).$(call patch,$(1)).dev$$(($
 devversion: VERSION.dev VERSION; cat VERSION
 version: VERSION; cat VERSION
 
-VERSION.dev: devver := $(shell curl --silent "https://api.github.com/repos/clamsproject/mmif-python/git/refs/tags" | grep '"ref":' | sed -E 's/.+refs\/tags\/([0-9.]+)",/\1/g' | sort | tail -n 1)
-VERSION.dev: specver := $(shell curl --silent "https://api.github.com/repos/clamsproject/mmif/git/refs/tags" | grep '"ref":' | grep -v 'py-' | sed -E 's/.+refs\/tags\/(spec-)?([0-9.]+)",/\2/g' | sort | tail -n 1)
+# since the GH api will return tags in chronological order, we can just grab the last one without sorting
+VERSION.dev: devver := $(shell curl --silent "https://api.github.com/repos/clamsproject/mmif-python/git/refs/tags" | grep '"ref":' | sed -E 's/.+refs\/tags\/([0-9.]+)",/\1/g' | tail -n 1)
+VERSION.dev: specver := $(shell curl --silent "https://api.github.com/repos/clamsproject/mmif/git/refs/tags" | grep '"ref":' | grep -v 'py-' | sed -E 's/.+refs\/tags\/(spec-)?([0-9.]+)",/\2/g' | tail -n 1)
 VERSION.dev:
 	@echo DEVVER: $(devver)
 	@echo SPECVER: $(specver)
@@ -94,7 +95,7 @@ VERSION.dev:
 	else echo $(call add_dev,$(specver)) ; fi \
 	> VERSION.dev
 
-VERSION: version := $(shell git tag | sort -r | head -n 1)
+VERSION: version := $(shell git tag | sort -t. -k 1,1nr -k 2,2nr -k 3,3nr -k 4,4nr | head -n 1)
 VERSION:
 	@if [ -e VERSION.dev ] ; \
 	then cp VERSION.dev VERSION; \

@@ -15,7 +15,7 @@ import mmif as mmifpkg
 from mmif.serialize import *
 from mmif.serialize.model import *
 from mmif.serialize.view import ContainsDict, ErrorDict
-from mmif.vocabulary import AnnotationTypes, DocumentTypes
+from mmif.vocabulary import AnnotationTypes, DocumentTypes, ThingType
 from tests.mmif_examples import *
 
 # Flags for skipping tests
@@ -795,7 +795,29 @@ class TestAnnotation(unittest.TestCase):
         for k, v in ann_obj.properties.items():
             self.assertTrue(k is not None)
             self.assertTrue(v is not None)
-    
+            
+    def test_empty_annotation_property(self):
+        a = Annotation({
+            '@type': ThingType.Thing,
+            'properties': {
+                'id': 'a1',
+                'empty_str_prop': "",
+                'nonempty_str_prop': "string",
+                'empty_lst_prop': []
+            }
+        })
+        self.assertEqual(a['empty_str_prop'], "")
+        self.assertEqual(a['empty_lst_prop'], [])
+        self.assertEqual(4, len(a.properties.keys()))
+        a_serialized = a.serialize()
+        json.loads(a_serialized)
+        self.assertEqual(json.loads(a_serialized)['properties']['empty_str_prop'], "")
+        self.assertEqual(json.loads(a_serialized)['properties']['empty_lst_prop'], [])
+        a_roundtrip = Annotation(a_serialized)
+        self.assertEqual(a_roundtrip.get_property('empty_str_prop'), "")
+        self.assertEqual(a_roundtrip.get_property('empty_lst_prop'), [])
+        self.assertEqual(4, len(a.properties.keys()))
+
     def test_annotation_ephemeral_properties(self):
         mmif = self.data['everything']['mmif']
         first_view_first_ann = mmif['v1']['s1']
@@ -1116,8 +1138,6 @@ class TestDocument(unittest.TestCase):
             cap_anns = list(mmif_roundtrip.views[f'v{i}'].get_annotations(AnnotationTypes.Annotation))
             self.assertEqual(1, len(cap_anns))
             self.assertEqual(authors[i-1], cap_anns[0].get_property('author'))
-        
-
 
     def test_deserialize_with_whole_mmif(self):
         for i, datum in self.data.items():
