@@ -5,6 +5,7 @@ as a live Python object.
 In MMIF, views are created by apps in a pipeline that are annotating
 data that was previously present in the MMIF file.
 """
+import json
 from datetime import datetime
 from typing import Dict, Union, Optional, Generator, List, cast
 
@@ -230,6 +231,23 @@ class View(MmifObject):
     def set_error(self, err_message: str, err_trace: str) -> None:
         self.metadata.set_error(err_message, err_trace)
         self.annotations.empty()
+    
+    def get_error(self) -> Optional[str]:
+        """
+        Get the "text" representation of the error occurred during 
+        processing. Text representation is supposed to be human-readable. 
+        When ths view does not have any error, returns None.
+        """
+        if self.has_error():
+            return self.metadata.get_error_as_text()
+        else:
+            return None
+
+    def has_error(self) -> bool:
+        return self.metadata.has_error()
+
+    def has_warnings(self):
+        return self.metadata.has_warnings()
 
 
 class ViewMetadata(MmifObject):
@@ -267,7 +285,24 @@ class ViewMetadata(MmifObject):
         if not (self.contains.items() or self.error or self.warnings):
             serialized['contains'] = {}
         return serialized
-
+    
+    def has_error(self) -> bool:
+        return len(self.error) > 0
+    
+    def has_warnings(self):
+        return len(self.warnings) > 0
+    
+    def get_error_as_text(self) -> str:
+        if self.has_error():
+            if isinstance(self.error, ErrorDict):
+                return str(self.error)
+            elif isinstance(self.error, dict):
+                return f"Error: {json.dumps(self.error, indent=2)}"
+            else:
+                return f"Error (unknown error format): {self.error}"
+        else:
+            raise KeyError(f"No error found")
+            
     def new_contain(self, at_type: Union[str, ThingTypesBase], **contains_metadata) -> Optional['Contain']:
         """
         Adds a new element to the ``contains`` dictionary.
@@ -346,6 +381,9 @@ class ErrorDict(MmifObject):
         self.message: str = ''
         self.stackTrace: str = ''
         super().__init__(error_obj)
+    
+    def __str__(self):
+        return f"({self.message})\n\n{self.stackTrace}"
         
 
 class Contain(DataDict[str, str]):
