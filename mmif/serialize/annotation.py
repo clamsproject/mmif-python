@@ -415,26 +415,31 @@ class AnnotationProperties(MmifObject, MutableMapping[str, T]):
                 
     def __iter__(self) -> Iterator[str]:
         """
-        ``__iter__`` on Mapping should basically work as ``keys()`` method of vanilla dict
-        however, when MMIF objects are serialized, all optional (not in ``_req_atts``),
-        empty props are ignored (note that emtpy but required props are serialized 
-        with the *emtpy* value). 
-        Hence, this ``__iter__`` method should also work in the same way and 
-        ignore empty optional props. 
+        ``__iter__`` on Mapping should basically work as ``keys()`` method 
+        of vanilla dict.
         """
         for key in itertools.chain(self._named_attributes(), self._unnamed_attributes):
-            if key in self._required_attributes:
-                yield key
-            else:
-                try:
-                    self.__getitem__(key)
-                    yield key
-                except KeyError:
-                    pass
+            yield key
+                
+    def __getitem__(self, key):
+        """
+        Parent MmifObject class has a __getitem__ method that checks if 
+        the value is empty when asked for an unnamed attribute. But for 
+        AnnotationProperties, any arbitrary property that's added 
+        explicitly by the user (developer) should not be ignored and 
+        returned even the value is empty. 
+        """
+        if key in self._named_attributes():
+            return self.__dict__[key]
+        else:
+            return self._unnamed_attributes[key]
 
     def __init__(self, mmif_obj: Optional[Union[bytes, str, dict]] = None) -> None:
         self.id: str = ''
+        # any individual at_type (subclassing this class) can have its own set of required attributes
         self._required_attributes = ["id"]
+        # allowing additional attributes for arbitrary annotation properties
+        self._unnamed_attributes = {}
         super().__init__(mmif_obj)
 
 
