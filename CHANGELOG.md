@@ -1,4 +1,19 @@
 
+## releasing 1.0.14 (2024-04-10)
+### Overview
+This release contains small fixes and improvements. 
+
+### Additions
+- added getter helpers at various levels to access errors encoded in MMIF json in human-friendly format
+    - `Mmif.get_view_with_error`
+    - `Mmif.get_views_with_error`
+    - `Mmif.get_last_error`
+    - `View.get_error`
+    - `ViewMetadata.get_error_as_text`
+
+### Changes
+- "empty" annotation property values are correctly retrievable
+
 ## releasing 1.0.13 (2024-04-02)
 ### Overview
 This version includes small, but helpful improvements.
