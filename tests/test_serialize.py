@@ -763,6 +763,42 @@ class TestView(unittest.TestCase):
         self.assertTrue("error" in roundtrip.metadata)
         self.assertFalse("contains" in roundtrip.metadata)
 
+    def test_error_to_text(self):
+        err_msg = "some message"
+        err_trace = "some trace line1\n\ttrace line 2\n\ttrace line 3"
+        error = ErrorDict({"message": err_msg, "stackTrace": err_trace})
+        mmif_obj = Mmif(validate=False)
+        aview = mmif_obj.new_view()
+        aview.set_error(err_msg, err_trace)
+        self.assertTrue(aview.has_error())
+        aview.metadata.error = error
+        self.assertTrue(aview.has_error())
+        self.assertFalse(aview.has_warnings())
+        # assumes the "text" representation of the error contains the message and the trace
+        self.assertGreaterEqual(len(aview.metadata.get_error_as_text()), len(err_msg) + len(err_trace))
+        self.assertIn(err_msg, aview.metadata.get_error_as_text())
+        self.assertIn(err_trace, aview.metadata.get_error_as_text())
+        self.assertEqual(aview.metadata.get_error_as_text(), aview.get_error())
+        self.assertEqual(1, len(mmif_obj.get_views_with_error()))
+        self.assertEqual(aview.id, mmif_obj.get_view_with_error().id)
+        self.assertEqual(aview.metadata.get_error_as_text(), mmif_obj.get_last_error())
+        
+        # and then test for custom error objects
+        aview.metadata.error = {'errorName': 'custom error', 'errorDetails': 'some details', 'errorTimestamp': 'now'}
+        self.assertTrue(aview.has_error())
+        self.assertTrue(isinstance(mmif_obj.get_last_error(), str))
+        err_str = 'custom error as a single long string'
+        aview.metadata.error = err_str
+        self.assertTrue(aview.has_error())
+        self.assertTrue(isinstance(mmif_obj.get_last_error(), str))
+        self.assertIn(err_str, mmif_obj.get_last_error())
+        aview.metadata.error = {}  # no error
+        self.assertFalse(aview.has_error())
+        with self.assertRaises(KeyError):
+            _ = aview.metadata.get_error_as_text()
+        self.assertIsNone(aview.get_error())
+        self.assertIsNone(mmif_obj.get_last_error())
+
 
 class TestAnnotation(unittest.TestCase):
     # TODO (angus-lherrou @ 7/27/2020): testing should include validation for required attrs

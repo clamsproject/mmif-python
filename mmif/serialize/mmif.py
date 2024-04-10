@@ -447,6 +447,16 @@ class Mmif(MmifObject):
                             pass
         return views
 
+    def get_all_views_with_error(self) -> List[View]:
+        """
+        Returns the list of all views in the MMIF that have errors. 
+        
+        :return: the list of views that contain errors but no annotations
+        """
+        return [v for v in self.views if v.has_error()]
+    
+    get_views_with_error = get_all_views_with_error
+            
     def get_all_views_contain(self, at_types: Union[ThingTypesBase, str, List[Union[str, ThingTypesBase]]]) -> List[View]:
         """
         Returns the list of all views in the MMIF if given types
@@ -461,11 +471,27 @@ class Mmif(MmifObject):
         else:
             return [view for view in self.views if at_types in view.metadata.contains]
 
-    def get_views_contain(self, at_types: Union[ThingTypesBase, str, List[Union[str, ThingTypesBase]]]) -> List[View]:
+    get_views_contain = get_all_views_contain
+    
+    def get_view_with_error(self) -> Optional[View]:
         """
-        An alias to `get_all_views_contain` method.
+        Returns the last view appended that contains an error.
+        
+        :return: the view, or None if no error is found
         """
-        return self.get_all_views_contain(at_types)
+        for view in reversed(self.views):
+            if view.has_error():
+                return view
+        return None
+    
+    def get_last_error(self) -> Optional[str]:
+        """
+        Returns the last error message found in the views.
+        
+        :return: the error message in human-readable format, or None if no error is found
+        """
+        v = self.get_view_with_error()
+        return v.get_error() if v is not None else None
 
     def get_view_contains(self, at_types: Union[ThingTypesBase, str, List[Union[str, ThingTypesBase]]]) -> Optional[View]:
         """
