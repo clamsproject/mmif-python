@@ -127,6 +127,38 @@ def extract_mid_frame(mmif: Mmif, time_frame: Annotation, as_PIL: bool = False):
     return extract_frames_as_images(vd, [get_mid_framenum(mmif, time_frame)], as_PIL=as_PIL)[0]
 
 
+def get_representative_framenum(mmif: Mmif, time_frame: Annotation):
+    """
+    Calculates the representative frame number from an annotation.
+
+    :param mmif: :py:class:`~mmif.serialize.mmif.Mmif` instance
+    :param time_frame: :py:class:`~mmif.serialize.annotation.Annotation` instance that holds a time interval annotation containing a `representatives` property (``"@type": ".../TimeFrame/..."``)
+    :return: representative frame number as an integer
+    """
+    if 'representatives' not in time_frame.properties:
+        raise ValueError(f'The time frame {time_frame.id} does not have a representative.')
+    timeunit = time_frame.get_property('timeUnit')
+    video_document = mmif[time_frame.get_property('document')]
+    fps = get_framerate(video_document)
+    representatives = time_frame.get_property('representatives')
+    representative_timepoint_anno = mmif.get_annotation(representatives[0])
+    return convert(representative_timepoint_anno.get_property('timePoint'), timeunit, 'frame', fps)
+
+
+def extract_representative_frame(mmif: Mmif, time_frame: Annotation, as_PIL: bool = False):
+    """
+    Extracts the representative frame of an annotation as a numpy ndarray or PIL Image.
+
+    :param mmif: :py:class:`~mmif.serialize.mmif.Mmif` instance
+    :param time_frame: :py:class:`~mmif.serialize.annotation.Annotation` instance that holds a time interval annotation (``"@type": ".../TimeFrame/..."``)
+    :param as_PIL: return :py:class:`~PIL.Image.Image` instead of :py:class:`~numpy.ndarray`
+    :return: frame as a :py:class:`numpy.ndarray` or :py:class:`PIL.Image.Image`
+    """
+    video_document = mmif[time_frame.get_property('document')]
+    rep_frame_num = get_representative_framenum(mmif, time_frame)
+    return extract_frames_as_images(video_document, [rep_frame_num], as_PIL=as_PIL)[0]
+
+
 def sample_frames(start_frame: int, end_frame: int, sample_rate: float = 1) -> List[int]:
     """
     Helper function to sample frames from a time interval.
