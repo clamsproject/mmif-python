@@ -150,7 +150,7 @@ def get_representative_framenum(mmif: Mmif, time_frame: Annotation):
             break
         except KeyError:
             continue
-    if top_representative_id and not representative_timepoint_anno:
+    if not representative_timepoint_anno:
         raise ValueError(f'Representative timepoint {top_representative_id} not found in any view.')
     return convert(representative_timepoint_anno.get_property('timePoint'), timeunit, 'frame', fps)
 
