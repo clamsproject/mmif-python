@@ -55,6 +55,12 @@ class TestVideoDocumentHelper(unittest.TestCase):
         tf = self.a_view.new_annotation(AnnotationTypes.TimeFrame, start=1000, end=2000, timeUnit='milliseconds', document='d1')
         with pytest.raises(ValueError):
             vdh.get_representative_framenum(self.mmif_obj, tf)
+        # check there is an error if there is a representative referencing a timepoint that
+        # does not exist
+        tf = self.a_view.new_annotation(AnnotationTypes.TimeFrame, start=1000, end=2000, timeUnit='milliseconds', document='d1')
+        tf.add_property('representatives', ['fake_tp_id'])
+        with pytest.raises(ValueError):
+            vdh.get_representative_framenum(self.mmif_obj, tf)
 
     def test_get_framerate(self):
         self.assertAlmostEqual(29.97, vdh.get_framerate(self.video_doc), places=0)
