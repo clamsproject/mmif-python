@@ -57,7 +57,6 @@ class TestVideoDocumentHelper(unittest.TestCase):
             vdh.get_representative_framenum(self.mmif_obj, tf)
         # check there is an error if there is a representative referencing a timepoint that
         # does not exist
-        tf = self.a_view.new_annotation(AnnotationTypes.TimeFrame, start=1000, end=2000, timeUnit='milliseconds', document='d1')
         tf.add_property('representatives', ['fake_tp_id'])
         with pytest.raises(ValueError):
             vdh.get_representative_framenum(self.mmif_obj, tf)
