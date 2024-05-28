@@ -46,7 +46,8 @@ class TestVideoDocumentHelper(unittest.TestCase):
 
     def test_extract_representative_frame(self):
         tp = self.a_view.new_annotation(AnnotationTypes.TimePoint, timePoint=1500, timeUnit='milliseconds', document='d1')
-        tf = self.a_view.new_annotation(AnnotationTypes.TimeFrame, start=1000, end=2000, timeUnit='milliseconds', document='d1', properties={'representatives': [tp.id]})
+        tf = self.a_view.new_annotation(AnnotationTypes.TimeFrame, start=1000, end=2000, timeUnit='milliseconds', document='d1')
+        tf.add_property('representatives', [tp.id])
         rep_frame_num = vdh.get_representative_framenum(self.mmif_obj, tf)
         expected_frame_num = vdh.millisecond_to_framenum(self.video_doc, tp.get_property('timePoint'))
         self.assertEqual(expected_frame_num, rep_frame_num)

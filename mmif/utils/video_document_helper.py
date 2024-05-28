@@ -6,7 +6,7 @@ import math
 import mmif
 from mmif import Annotation, Document, Mmif
 from mmif.utils.timeunit_helper import convert
-from mmif.vocabulary import DocumentTypes
+from mmif.vocabulary import DocumentTypes, AnnotationTypes
 
 for cv_dep in ('cv2', 'ffmpeg', 'PIL'):
     try:
@@ -141,7 +141,17 @@ def get_representative_framenum(mmif: Mmif, time_frame: Annotation):
     video_document = mmif[time_frame.get_property('document')]
     fps = get_framerate(video_document)
     representatives = time_frame.get_property('representatives')
-    representative_timepoint_anno = mmif.get_annotation(representatives[0])
+    top_representative_id = representatives[0]
+    views = mmif.get_all_views_contain(AnnotationTypes.TimePoint)
+    representative_timepoint_anno = None
+    for view in views:
+        try:
+            representative_timepoint_anno = view.get_annotation_by_id(top_representative_id)
+            break
+        except KeyError:
+            continue
+    if top_representative_id and not representative_timepoint_anno:
+        raise ValueError(f'Representative timepoint {top_representative_id} not found in any view.')
     return convert(representative_timepoint_anno.get_property('timePoint'), timeunit, 'frame', fps)
 
 
