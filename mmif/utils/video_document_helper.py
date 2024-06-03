@@ -142,15 +142,9 @@ def get_representative_framenum(mmif: Mmif, time_frame: Annotation):
     fps = get_framerate(video_document)
     representatives = time_frame.get_property('representatives')
     top_representative_id = representatives[0]
-    views = mmif.get_all_views_contain(AnnotationTypes.TimePoint)
-    representative_timepoint_anno = None
-    for view in views:
-        try:
-            representative_timepoint_anno = view.get_annotation_by_id(top_representative_id)
-            break
-        except KeyError:
-            continue
-    if not representative_timepoint_anno:
+    try:
+        representative_timepoint_anno = mmif[time_frame._parent_view_id+time_frame.id_delimiter+top_representative_id]
+    except KeyError:
         raise ValueError(f'Representative timepoint {top_representative_id} not found in any view.')
     return convert(representative_timepoint_anno.get_property('timePoint'), timeunit, 'frame', fps)
 
