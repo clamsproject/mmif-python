@@ -24,6 +24,104 @@ from .view import View
 __all__ = ['Mmif']
 
 
+class MmifMetadata(MmifObject):
+    """
+    Basic MmifObject class to contain the top-level metadata of a MMIF file.
+
+    :param metadata_obj: the JSON data
+    """
+
+    def __init__(self, metadata_obj: Optional[Union[bytes, str, dict]] = None) -> None:
+        # TODO (krim @ 10/7/20): there could be a better name and a better way to give a value to this
+        self.mmif: str = f"http://mmif.clams.ai/{mmif.__specver__}"
+        self._required_attributes = ["mmif"]
+        super().__init__(metadata_obj)
+
+
+class DocumentsList(DataList[Document]):
+    """
+    DocumentsList object that implements :class:`mmif.serialize.model.DataList`
+    for :class:`mmif.serialize.document.Document`.
+    """
+    _items: Dict[str, Document]
+
+    def _deserialize(self, input_list: list) -> None:  # pytype: disable=signature-mismatch
+        """
+        Extends base ``_deserialize`` method to initialize ``items`` as a dict from
+        document IDs to :class:`mmif.serialize.document.Document` objects.
+
+        :param input_list: the JSON data that defines the list of documents
+        :return: None
+        """
+        self._items = {item['properties']['id']: Document(item) for item in input_list}
+
+    def append(self, value: Document, overwrite=False) -> None:
+        """
+        Appends a document to the list.
+
+        Fails if there is already a document with the same ID
+        in the list, unless ``overwrite`` is set to True.
+
+        :param value: the :class:`mmif.serialize.document.Document`
+                      object to add
+        :param overwrite: if set to True, will overwrite an
+                          existing document with the same ID
+        :raises KeyError: if ``overwrite`` is set to False and
+                          a document with the same ID exists
+                          in the list
+        :return: None
+        """
+        super()._append_with_key(value.id, value, overwrite)
+
+
+class ViewsList(DataList[View]):
+    """
+    ViewsList object that implements :class:`mmif.serialize.model.DataList`
+    for :class:`mmif.serialize.view.View`.
+    """
+    _items: Dict[str, View]
+
+    def __init__(self, mmif_obj: Optional[Union[bytes, str, list]] = None):
+        super().__init__(mmif_obj)
+
+    def _deserialize(self, input_list: list) -> None:  # pytype: disable=signature-mismatch
+        """
+        Extends base ``_deserialize`` method to initialize ``items`` as a dict from
+        view IDs to :class:`mmif.serialize.view.View` objects.
+
+        :param input_list: the JSON data that defines the list of views
+        :return: None
+        """
+        if input_list:
+            self._items = {item['id']: View(item) for item in input_list}
+
+    def append(self, value: View, overwrite=False) -> None:
+        """
+        Appends a view to the list.
+
+        Fails if there is already a view with the same ID
+        in the list, unless ``overwrite`` is set to True.
+
+        :param value: the :class:`mmif.serialize.view.View`
+                      object to add
+        :param overwrite: if set to True, will overwrite an
+                          existing view with the same ID
+        :raises KeyError: if ``overwrite`` is set to False and
+                          a view with the same ID exists
+                          in the list
+        :return: None
+        """
+        super()._append_with_key(value.id, value, overwrite)
+
+    def get_last(self) -> Optional[View]:
+        """
+        Returns the last view appended to the list.
+        """
+        for view in reversed(self._items.values()):
+            if 'error' not in view.metadata and 'warning' not in view.metadata:
+                return view
+
+
 class Mmif(MmifObject):
     """
     MmifObject that represents a full MMIF file.
@@ -560,8 +658,8 @@ class Mmif(MmifObject):
         """
         return self._get_linear_anchor_point(annotation, start=False)
 
-    # pytype: disable=bad-return-type
-    def __getitem__(self, item: str) -> Union[Document, View, Annotation]:
+    def __getitem__(self, item: str) \
+            -> Union[Document, View, Annotation, MmifMetadata, DocumentsList, ViewsList]:
         """
         getitem implementation for Mmif. When nothing is found, this will raise an error
         rather than returning a None (although pytype doesn't think so...)
@@ -589,102 +687,4 @@ class Mmif(MmifObject):
         if not (view_result or document_result):
             raise KeyError("ID not found: %s" % item)
         return anno_result or view_result or document_result
-    # pytype: enable=bad-return-type
 
-
-class MmifMetadata(MmifObject):
-    """
-    Basic MmifObject class to contain the top-level metadata of a MMIF file.
-
-    :param metadata_obj: the JSON data
-    """
-
-    def __init__(self, metadata_obj: Optional[Union[bytes, str, dict]] = None) -> None:
-        # TODO (krim @ 10/7/20): there could be a better name and a better way to give a value to this
-        self.mmif: str = f"http://mmif.clams.ai/{mmif.__specver__}"
-        self._required_attributes = ["mmif"]
-        super().__init__(metadata_obj)
-
-
-class DocumentsList(DataList[Document]):
-    """
-    DocumentsList object that implements :class:`mmif.serialize.model.DataList`
-    for :class:`mmif.serialize.document.Document`.
-    """
-    _items: Dict[str, Document]
-
-    def _deserialize(self, input_list: list) -> None:  # pytype: disable=signature-mismatch
-        """
-        Extends base ``_deserialize`` method to initialize ``items`` as a dict from
-        document IDs to :class:`mmif.serialize.document.Document` objects.
-
-        :param input_list: the JSON data that defines the list of documents
-        :return: None
-        """
-        self._items = {item['properties']['id']: Document(item) for item in input_list}
-
-    def append(self, value: Document, overwrite=False) -> None:
-        """
-        Appends a document to the list.
-
-        Fails if there is already a document with the same ID
-        in the list, unless ``overwrite`` is set to True.
-
-        :param value: the :class:`mmif.serialize.document.Document`
-                      object to add
-        :param overwrite: if set to True, will overwrite an
-                          existing document with the same ID
-        :raises KeyError: if ``overwrite`` is set to False and
-                          a document with the same ID exists
-                          in the list
-        :return: None
-        """
-        super()._append_with_key(value.id, value, overwrite)
-
-
-class ViewsList(DataList[View]):
-    """
-    ViewsList object that implements :class:`mmif.serialize.model.DataList`
-    for :class:`mmif.serialize.view.View`.
-    """
-    _items: Dict[str, View]
-    
-    def __init__(self, mmif_obj: Optional[Union[bytes, str, list]] = None):
-        super().__init__(mmif_obj)
-
-    def _deserialize(self, input_list: list) -> None:  # pytype: disable=signature-mismatch
-        """
-        Extends base ``_deserialize`` method to initialize ``items`` as a dict from
-        view IDs to :class:`mmif.serialize.view.View` objects.
-
-        :param input_list: the JSON data that defines the list of views
-        :return: None
-        """
-        if input_list:
-            self._items = {item['id']: View(item) for item in input_list}
-
-    def append(self, value: View, overwrite=False) -> None:
-        """
-        Appends a view to the list.
-
-        Fails if there is already a view with the same ID
-        in the list, unless ``overwrite`` is set to True.
-
-        :param value: the :class:`mmif.serialize.view.View`
-                      object to add
-        :param overwrite: if set to True, will overwrite an
-                          existing view with the same ID
-        :raises KeyError: if ``overwrite`` is set to False and
-                          a view with the same ID exists
-                          in the list
-        :return: None
-        """
-        super()._append_with_key(value.id, value, overwrite)
-
-    def get_last(self) -> Optional[View]:
-        """
-        Returns the last view appended to the list.
-        """
-        for view in reversed(self._items.values()):
-            if 'error' not in view.metadata and 'warning' not in view.metadata:
-                return view
