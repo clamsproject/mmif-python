@@ -661,30 +661,38 @@ class Mmif(MmifObject):
     def __getitem__(self, item: str) \
             -> Union[Document, View, Annotation, MmifMetadata, DocumentsList, ViewsList]:
         """
-        getitem implementation for Mmif. When nothing is found, this will raise an error
-        rather than returning a None (although pytype doesn't think so...)
+        getitem implementation for Mmif. This will try to find any object, given an identifier or an immediate 
+        attribute name. When nothing is found, this will raise an error rather than returning a None 
 
         :raises KeyError: if the item is not found or if the search results are ambiguous
-        :param item: the search string, a document ID, a view ID, or a view-scoped annotation ID
+        :param item: an attribute name or an object identifier (a document ID, a view ID, or an annotation ID). When 
+                     annotation ID is given as a "short" ID (without view ID prefix), the method will try to find a 
+                     match from the first view, and return immediately if found.
         :return: the object searched for
+        :raise KeyError: if the item is not found or multiple objects are found with the same ID
         """
         if item in self._named_attributes():
             return self.__dict__[item]
         split_attempt = item.split(self.id_delimiter)
 
-        document_result = self.documents.get(split_attempt[0])
-        view_result = self.views.get(split_attempt[0])
+        found = []
 
         if len(split_attempt) == 1:
-            anno_result = None
-        elif view_result:
-            anno_result = view_result[split_attempt[1]]
+            found.append(self.documents.get(split_attempt[0]))
+            found.append(self.views.get(split_attempt[0]))
+            for view in self.views:
+                found.append(view.annotations.get(split_attempt[0]))
+        elif len(split_attempt) == 2:
+            v = self.get_view_by_id(split_attempt[0])
+            if v is not None:
+                found.append(v.annotations.get(split_attempt[1]))
         else:
             raise KeyError("Tried to subscript into a view that doesn't exist")
+        found = [x for x in found if x is not None]
 
-        if view_result and document_result:
+        if len(found) > 1:
             raise KeyError("Ambiguous ID search result")
-        if not (view_result or document_result):
+        elif len(found) == 0:
             raise KeyError("ID not found: %s" % item)
-        return anno_result or view_result or document_result
-
+        else:
+            return found[-1]

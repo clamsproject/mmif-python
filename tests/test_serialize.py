@@ -516,6 +516,29 @@ class TestGetItem(unittest.TestCase):
         except KeyError:
             self.fail("didn't get document 'm1'")
 
+    def test_mmif_getitem_idconflict(self):
+        m = Mmif(validate=False)
+        v1 = m.new_view()
+        v1.id = 'v1'
+        v2 = m.new_view()
+        v2.id = 'v1'
+        with pytest.raises(KeyError):
+            _ = m['v1']
+
+        m = Mmif(validate=False)
+        v1 = m.new_view()
+        v1a = v1.new_annotation(AnnotationTypes.Annotation, id='a1')
+        v2 = m.new_view()
+        v2a = v2.new_annotation(AnnotationTypes.Annotation, id='a1')
+        self.assertIsNotNone(m[v1.id])
+        self.assertIsNotNone(m[v2.id])
+        # conflict short IDs
+        self.assertEqual(v1a.id, v2a.id)
+        with pytest.raises(KeyError):
+            _ = m[v1a.id]
+        self.assertIsNotNone(m[v1a.long_id])
+        self.assertIsNotNone(m[v2a.long_id])
+
     def test_mmif_getitem_view(self):
         try:
             v1 = self.mmif_obj['v1']
