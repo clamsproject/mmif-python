@@ -10,7 +10,7 @@ import math
 import warnings
 from collections import defaultdict
 from datetime import datetime
-from typing import List, Union, Optional, Dict, cast
+from typing import List, Union, Optional, Dict, cast, Iterator
 
 import jsonschema.validators
 
@@ -511,7 +511,57 @@ class Mmif(MmifObject):
                 if at_types in view.metadata.contains:
                     return view
         return None
-    
+
+    def _is_in_time_between(self, start: int, end: int, annotation: Annotation) -> bool:
+        s, e = self.get_start(annotation), self.get_end(annotation)
+        if (s < start < e) or (s > start and e < end) or (s < end < e):
+            return True
+        else:
+            return False
+
+    def get_annotations_between_time(self, start: int, end: int) -> Iterator[Annotation]:
+        """
+        Version: 1.0
+        Returns all 'Token' annotations aligned with 'TimeFrame' annotations sorted by start time within start and end time
+        Note: this function only works for mmif object obtained from Whisper-wrapper
+
+        :param start: the start time
+        :param end: the end time
+        :return: a generator of 'Token' annotations
+        """
+        assert start <= end, "Start time must be less than end time"
+        assert start >= 0, "Start time must be greater than or equal to zero"
+        assert end >= 0, "End time must be greater than or equal to zero"
+        # 0. Initialize container and helper method
+        valid_tf_anns = []
+        idtf_to_token = {}
+
+        # 1. find all views that contain the type of TF
+        views = self.get_all_views_contain(AnnotationTypes.TimeFrame)
+
+        # 2. For each view, extract annotations that satisfy conditions that are TF/TP and fall into time interval
+        for view in views:
+            tf_anns = view.get_annotations(at_type=AnnotationTypes.TimeFrame)
+            al_anns = view.get_annotations(at_type=AnnotationTypes.Annotation)
+
+            # Select 'TimeFrame' annotations within given time interval
+            for tf in tf_anns:
+                if self._is_in_time_between(start, end, tf):
+                    valid_tf_anns.append(tf)
+
+            # Map 'TimeFrame' id to 'Token' annotation
+            idtf_to_idtk = {align.get_property('source'): align.get_property('target') for align in al_anns}
+            for id_tf in idtf_to_idtk:
+                token_id = idtf_to_idtk[id_tf]
+                idtf_to_token[id_tf] = view.get_annotation_by_id(token_id)
+
+        # 3. For those extracted 'TimeFrame' annotations, sort them by their start time
+        sort_tf_anns = sorted(valid_tf_anns, key=lambda x: self.get_start(x))
+
+        # 4. Find all 'Token' annotations aligned with sorted 'TimeFrame' annotations
+        for ann in sort_tf_anns:
+            yield idtf_to_token[ann.get_property('id')]
+
     def _get_linear_anchor_point(self, ann: Annotation, targets_sorted=False, start: bool = True) -> Union[int, float]:
         # TODO (krim @ 2/5/24): Update the return type once timeunits are unified to `ms` as integers (https://github.com/clamsproject/mmif/issues/192)
         """
