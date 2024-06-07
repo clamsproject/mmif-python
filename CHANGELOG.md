@@ -1,4 +1,15 @@
 
+## releasing 1.0.15 (2024-06-07)
+### Overview
+Minor release to add/improve helper methods.
+
+### Additions
+- `video_document_helper` now has convenient helpers to grab `TimeFrame` annotations' `representative` points. (https://github.com/clamsproject/mmif-python/pull/278)
+
+### Changes
+- `Mmif.__getitem__()` now works with short annotation IDs (https://github.com/clamsproject/mmif-python/issues/279)
+
+
 ## releasing 1.0.14 (2024-04-10)
 ### Overview
 This release contains small fixes and improvements. 
