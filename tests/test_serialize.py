@@ -342,6 +342,64 @@ class TestMmif(unittest.TestCase):
         self.assertEqual(e_view.id, f'{p}4')
         self.assertEqual(len(mmif_obj.views), 5)
 
+    def test_get_annotations_between_time(self):
+        token_type = "http://vocab.lappsgrid.org/Token"
+        # Below tokens are obtained by 'jq' in CLI using command:
+        # jq '[
+        # .views[3].annotations |
+        # .[] |
+        # select(."@type"=="http://vocab.lappsgrid.org/Token")] |
+        # sort_by(.properties.id | ltrimstr("t") | tonumber) |
+        # map(.properties.text)' <examples>.json
+        tokens_in_order = ["Hello",
+                           ",",
+                           "this",
+                           "is",
+                           "Jim",
+                           "Lehrer",
+                           "with",
+                           "the",
+                           "NewsHour",
+                           "on",
+                           "PBS",
+                           ".",
+                           "In",
+                           "the",
+                           "nineteen",
+                           "eighties",
+                           ",",
+                           "barking",
+                           "dogs",
+                           "have",
+                           "increasingly",
+                           "become",
+                           "a",
+                           "problem",
+                           "in",
+                           "urban",
+                           "areas",
+                           "."]
+        mmif_obj = Mmif(MMIF_EXAMPLES['everything'])
+
+        # Test case 1: All token annotations are selected
+        selected_token_anns = mmif_obj.get_annotations_between_time(0, 22000)
+        self.assertEqual(28, len(list(selected_token_anns)))
+        for i, ann in enumerate(selected_token_anns):
+            self.assertTrue(ann.is_type(token_type))
+            self.assertEqual(tokens_in_order[i], ann.get_property("text"))
+
+        # Test case 2: No token annotation are selected
+        selected_token_anns = mmif_obj.get_annotations_between_time(0, 5000)
+        self.assertEqual(0, len(list(selected_token_anns)))
+
+        # Test case 3(a): Partial tokens are selected (involve partial overlap)
+        selected_token_anns = mmif_obj.get_annotations_between_time(7000, 10000)
+        self.assertEqual(tokens_in_order[3:9], [ann.get_property("text") for ann in selected_token_anns])
+
+        # Test case 3(b): Partial tokens are selected (only full overlap)
+        selected_token_anns = mmif_obj.get_annotations_between_time(11500, 14600)
+        self.assertEqual(tokens_in_order[12:17], [ann.get_property("text") for ann in selected_token_anns])
+
     def test_add_document(self):
         mmif_obj = Mmif(MMIF_EXAMPLES['everything'])
         med_obj = Document(FRACTIONAL_EXAMPLES['doc_only'])

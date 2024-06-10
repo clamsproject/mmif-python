@@ -537,12 +537,12 @@ class Mmif(MmifObject):
         idtf_to_token = {}
 
         # 1. find all views that contain the type of TF
-        views = self.get_all_views_contain(AnnotationTypes.TimeFrame)
+        views = self.get_all_views_contain([AnnotationTypes.TimeFrame, AnnotationTypes.Alignment])
 
         # 2. For each view, extract annotations that satisfy conditions that are TF/TP and fall into time interval
         for view in views:
             tf_anns = view.get_annotations(at_type=AnnotationTypes.TimeFrame)
-            al_anns = view.get_annotations(at_type=AnnotationTypes.Annotation)
+            al_anns = view.get_annotations(at_type=AnnotationTypes.Alignment)
 
             # Select 'TimeFrame' annotations within given time interval
             for tf in tf_anns:
