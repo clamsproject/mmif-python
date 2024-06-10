@@ -58,12 +58,16 @@ class BoundingboxConcatenation(ClamsApp):
             for view_id, annotations in alignment_annotations.items()
             for annotation in annotations
         }
-        anno_id_to_annotation.update(
-            {annotation.id: annotation for annotation in bbox_annotations.annotations}
-        )
-        anno_id_to_annotation.update(
-            {annotation.id: annotation for annotation in tpoint_annotations.annotations}
-        )
+        if bbox_annotations:
+            anno_id_to_annotation.update(
+                {annotation.id: annotation for annotation in bbox_annotations.annotations}
+            )
+            
+        if tpoint_annotations:
+            anno_id_to_annotation.update(
+                {annotation.id: annotation for annotation in tpoint_annotations.annotations}
+            )
+
         for viewID, annotations in alignment_annotations.items():
             for annotation in annotations:
                 if annotation.at_type == AnnotationTypes.Alignment:
