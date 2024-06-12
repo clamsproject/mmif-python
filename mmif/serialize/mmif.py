@@ -532,7 +532,7 @@ class Mmif(MmifObject):
         assert end >= 0, "End time must be greater than or equal to zero"
         # 0. Initialize container and helper method
         valid_tf_anns = []
-        idtf_to_token = {}
+        tf_to_anns = defaultdict(list)
 
         # 1. find all views that contain the type of TF
         views = self.get_all_views_contain([AnnotationTypes.TimeFrame, AnnotationTypes.Alignment])
@@ -556,18 +556,26 @@ class Mmif(MmifObject):
                 if self._is_in_time_between(start, end, tf):
                     valid_tf_anns.append(tf)
 
-            # Map 'TimeFrame' id to 'Token' annotation
-            idtf_to_idtk = {align.get_property('source'): align.get_property('target') for align in al_anns}
-            for id_tf in idtf_to_idtk:
-                token_id = idtf_to_idtk[id_tf]
-                idtf_to_token[id_tf] = view.get_annotation_by_id(token_id)
+            # Map 'TimeFrame' annotation to its aligned annotation
+            for align in al_anns:
+                source_id, target_id = align.get_property('source'), align.get_property('target')
+                try:
+                    source, target = view.get_annotation_by_id(source_id), view.get_annotation_by_id(target_id)
+                    if source in valid_tf_anns:
+                        tf_to_anns[source_id].append(target)
+                    elif target in valid_tf_anns:
+                        tf_to_anns[target_id].append(source)
+                except KeyError:
+                    pass
 
         # 3. For those extracted 'TimeFrame' annotations, sort them by their start time
         sort_tf_anns = sorted(valid_tf_anns, key=lambda x: self.get_start(x))
 
-        # 4. Find all 'Token' annotations aligned with sorted 'TimeFrame' annotations
-        for ann in sort_tf_anns:
-            yield idtf_to_token[ann.get_property('id')]
+        # 4. Yield all annotations aligned with sorted 'TimeFrame' annotations
+        for tf_ann in sort_tf_anns:
+            anns = tf_to_anns[tf_ann.get_property("id")]
+            for ann in anns:
+                yield ann
 
     def _get_linear_anchor_point(self, ann: Annotation, targets_sorted=False, start: bool = True) -> Union[int, float]:
         # TODO (krim @ 2/5/24): Update the return type once timeunits are unified to `ms` as integers (https://github.com/clamsproject/mmif/issues/192)

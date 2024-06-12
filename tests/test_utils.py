@@ -163,9 +163,9 @@ class TestTextDocHelper(unittest.TestCase):
 
     def test_slice_text(self):
         sliced_text_full_overlap = tdh.slice_text(self.mmif_obj, 11500, 14600)
-        sliced_text_partial_overlap = tdh.slice_text(self.mmif_obj, 7000, 10000)
+        sliced_text_partial_overlap = tdh.slice_text(self.mmif_obj, 7, 10, unit="seconds")
         no_sliced_text = tdh.slice_text(self.mmif_obj, 0, 5000)
-        full_sliced_text = tdh.slice_text(self.mmif_obj, 0, 22000)
+        full_sliced_text = tdh.slice_text(self.mmif_obj, 0, 22, unit="seconds")
         self.assertEqual("In the nineteen eighties ,", sliced_text_full_overlap)
         self.assertEqual("is Jim Lehrer with the NewsHour", sliced_text_partial_overlap)
         self.assertEqual("", no_sliced_text)
