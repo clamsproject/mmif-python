@@ -10,7 +10,7 @@ import math
 import warnings
 from collections import defaultdict
 from datetime import datetime
-from typing import List, Union, Optional, Dict, cast, Iterator
+from typing import List, Union, Optional, Dict, cast, Iterator, Tuple
 
 import jsonschema.validators
 
@@ -516,6 +516,13 @@ class Mmif(MmifObject):
         s, e = self.get_start(annotation), self.get_end(annotation)
         return (s < start < e) or (s > start and e < end) or (s < end < e)
 
+    def _handle_time_unit(self, input_unit: str, ann_unit: str,
+                          start: int, end: int) -> Tuple[Union[int, float, str], Union[int, float, str]]:
+        from mmif.utils.timeunit_helper import convert
+        start = convert(start, input_unit, ann_unit, 1)
+        end = convert(end, input_unit, ann_unit, 1)
+        return start, end
+
     def get_annotations_between_time(self, start: int, end: int, time_unit: str = "milliseconds") -> Iterator[Annotation]:
         """
         Version: 1.0
@@ -540,31 +547,26 @@ class Mmif(MmifObject):
         # 2. For each view, extract annotations that satisfy conditions that are TF/TP and fall into time interval
         for view in views:
             # Make sure time unit stay at the same level
-            unit_of_time = view.metadata.contains.get(AnnotationTypes.TimeFrame)["timeUnit"]
-            if time_unit != unit_of_time:
-                if time_unit == "seconds":
-                    start *= 1000
-                    end *= 1000
-                else:
-                    start /= 1000
-                    end /= 1000
+            start_time, end_time = self._handle_time_unit(time_unit, view.metadata.contains.get(AnnotationTypes.TimeFrame)["timeUnit"],
+                                                          start, end)
             tf_anns = view.get_annotations(at_type=AnnotationTypes.TimeFrame)
             al_anns = view.get_annotations(at_type=AnnotationTypes.Alignment)
 
             # Select 'TimeFrame' annotations within given time interval
             for tf in tf_anns:
-                if self._is_in_time_between(start, end, tf):
+                if self._is_in_time_between(start_time, end_time, tf):
                     valid_tf_anns.append(tf)
 
             # Map 'TimeFrame' annotation to its aligned annotation
             for align in al_anns:
                 source_id, target_id = align.get_property('source'), align.get_property('target')
+                to_long_id = lambda x: x if self.id_delimiter in x else f'{view.id}{self.id_delimiter}{x}'
                 try:
                     source, target = view.get_annotation_by_id(source_id), view.get_annotation_by_id(target_id)
                     if source in valid_tf_anns:
-                        tf_to_anns[source_id].append(target)
+                        tf_to_anns[to_long_id(source_id)].append(target)
                     elif target in valid_tf_anns:
-                        tf_to_anns[target_id].append(source)
+                        tf_to_anns[to_long_id(target_id)].append(source)
                 except KeyError:
                     pass
 
@@ -573,7 +575,7 @@ class Mmif(MmifObject):
 
         # 4. Yield all annotations aligned with sorted 'TimeFrame' annotations
         for tf_ann in sort_tf_anns:
-            anns = tf_to_anns[tf_ann.get_property("id")]
+            anns = tf_to_anns[tf_ann.long_id]
             for ann in anns:
                 yield ann
 

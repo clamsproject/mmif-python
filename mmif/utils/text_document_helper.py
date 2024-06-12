@@ -8,5 +8,5 @@ def slice_text(mmif_obj, start: int, end: int, unit: str = "milliseconds") -> st
     tokens_sliced = []
     for ann in anns_found:
         if ann.is_type(token_type):
-            tokens_sliced.append(ann.get_property('text'))  # FIXME: Sometimes the string attribute "word" is used for getting property value
+            tokens_sliced.append(ann.get_property('word'))
     return ' '.join(tokens_sliced)
