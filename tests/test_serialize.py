@@ -389,11 +389,11 @@ class TestMmif(unittest.TestCase):
             self.assertEqual(tokens_in_order[i], ann.get_property("text"))
 
         # Test case 2: No token annotation are selected
-        selected_token_anns = mmif_obj.get_annotations_between_time(0, 5000)
+        selected_token_anns = mmif_obj.get_annotations_between_time(0, 5, time_unit="seconds")
         self.assertEqual(0, len(list(selected_token_anns)))
 
         # Test case 3(a): Partial tokens are selected (involve partial overlap)
-        selected_token_anns = mmif_obj.get_annotations_between_time(7000, 10000)
+        selected_token_anns = mmif_obj.get_annotations_between_time(7, 10, time_unit="seconds")
         self.assertEqual(tokens_in_order[3:9], [ann.get_property("text") for ann in selected_token_anns])
 
         # Test case 3(b): Partial tokens are selected (only full overlap)

@@ -512,14 +512,11 @@ class Mmif(MmifObject):
                     return view
         return None
 
-    def _is_in_time_between(self, start: int, end: int, annotation: Annotation) -> bool:
+    def _is_in_time_between(self, start: Union[int, float], end: Union[int, float], annotation: Annotation) -> bool:
         s, e = self.get_start(annotation), self.get_end(annotation)
-        if (s < start < e) or (s > start and e < end) or (s < end < e):
-            return True
-        else:
-            return False
+        return (s < start < e) or (s > start and e < end) or (s < end < e)
 
-    def get_annotations_between_time(self, start: int, end: int) -> Iterator[Annotation]:
+    def get_annotations_between_time(self, start: int, end: int, time_unit: str = "milliseconds") -> Iterator[Annotation]:
         """
         Version: 1.0
         Returns all 'Token' annotations aligned with 'TimeFrame' annotations sorted by start time within start and end time
@@ -527,6 +524,7 @@ class Mmif(MmifObject):
 
         :param start: the start time
         :param end: the end time
+        :param time_unit: the time unit, either string "milliseconds" or "seconds", defaults to "milliseconds"
         :return: a generator of 'Token' annotations
         """
         assert start <= end, "Start time must be less than end time"
@@ -541,6 +539,15 @@ class Mmif(MmifObject):
 
         # 2. For each view, extract annotations that satisfy conditions that are TF/TP and fall into time interval
         for view in views:
+            # Make sure time unit stay at the same level
+            unit_of_time = view.metadata.contains.get(AnnotationTypes.TimeFrame)["timeUnit"]
+            if time_unit != unit_of_time:
+                if time_unit == "seconds":
+                    start *= 1000
+                    end *= 1000
+                else:
+                    start /= 1000
+                    end /= 1000
             tf_anns = view.get_annotations(at_type=AnnotationTypes.TimeFrame)
             al_anns = view.get_annotations(at_type=AnnotationTypes.Alignment)
 
