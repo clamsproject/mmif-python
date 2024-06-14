@@ -1,4 +1,12 @@
 
+## releasing 1.0.16 (2024-06-14)
+### Overview
+This release includes an _experimental_ implementation for helpers to slice `text_value` from text documents. 
+
+### Additions
+* `mmif.utils.text_document_helper` module to address https://github.com/clamsproject/mmif-python/issues/280
+
+
 ## releasing 1.0.15 (2024-06-07)
 ### Overview
 Minor release to add/improve helper methods.
