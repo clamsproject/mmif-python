@@ -6,12 +6,14 @@ from mmif import Mmif, Document, AnnotationTypes
 from mmif.utils import sequence_helper as sqh
 from mmif.utils import timeunit_helper as tuh
 from mmif.utils import video_document_helper as vdh
+from mmif.utils import text_document_helper as tdh
+from mmif.serialize import mmif
+from tests.mmif_examples import *
 
 
 class TestTimeunitHelper(unittest.TestCase):
-    
     FPS = 30
-    
+
     def test_convert(self):
         self.assertEqual(1000, tuh.convert(1, 's', 'ms', self.FPS))
         self.assertEqual(1.1, tuh.convert(1100, 'ms', 's', self.FPS))
@@ -35,7 +37,7 @@ class TestVideoDocumentHelper(unittest.TestCase):
         })
         self.video_doc.add_property('fps', self.fps)
         self.mmif_obj.add_document(self.video_doc)
-    
+
     def test_extract_mid_frame(self):
         tf = self.a_view.new_annotation(AnnotationTypes.TimeFrame, start=100, end=200, timeUnit='frame', document='d1')
         self.assertEqual(150, vdh.get_mid_framenum(self.mmif_obj, tf))
@@ -92,11 +94,12 @@ class TestVideoDocumentHelper(unittest.TestCase):
         s_frame = vdh.second_to_framenum(self.video_doc, 3)
         e_frame = vdh.second_to_framenum(self.video_doc, 5)
         self.assertEqual(1, len(vdh.sample_frames(s_frame, e_frame, 60)))
-        
+
     def test_convert_timepoint(self):
-        timepoint_ann = self.a_view.new_annotation(AnnotationTypes.BoundingBox, timePoint=3, timeUnit='second', document='d1')
+        timepoint_ann = self.a_view.new_annotation(AnnotationTypes.BoundingBox, timePoint=3, timeUnit='second',
+                                                   document='d1')
         self.assertEqual(vdh.convert(3, 's', 'f', self.fps), vdh.convert_timepoint(self.mmif_obj, timepoint_ann, 'f'))
-    
+
     def test_convert_timeframe(self):
         self.a_view.metadata.new_contain(AnnotationTypes.TimeFrame, timeUnit='frame', document='d1')
         timeframe_ann = self.a_view.new_annotation(AnnotationTypes.TimeFrame, start=100, end=200)
@@ -105,7 +108,7 @@ class TestVideoDocumentHelper(unittest.TestCase):
 
 
 class TestSequenceHelper(unittest.TestCase):
-    
+
     def test_validate_labelset(self):
         mmif_obj = Mmif(validate=False)
         view = mmif_obj.new_view()
@@ -170,6 +173,24 @@ class TestSequenceHelper(unittest.TestCase):
         # res = [0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 1, 1],
         self.assertEqual([(3, 7), (11, 15), (18, 20)],
                          sqh.smooth_outlying_short_intervals(scores, 1, 1))
+
+
+class TestTextDocHelper(unittest.TestCase):
+    mmif_obj = Mmif(MMIF_EXAMPLES['everything'])
+
+    @pytest.mark.skip("The only valid test cases come from kalbi app which annotates wrong property")
+    def test_slice_text(self):
+        sliced_text_full_overlap = tdh.slice_text(self.mmif_obj, 11500, 14600)
+        sliced_text_partial_overlap = tdh.slice_text(self.mmif_obj, 7, 10, unit="seconds")
+        no_sliced_text = tdh.slice_text(self.mmif_obj, 0, 5000)
+        full_sliced_text = tdh.slice_text(self.mmif_obj, 0, 22, unit="seconds")
+        self.assertEqual("In the nineteen eighties ,", sliced_text_full_overlap)
+        self.assertEqual("is Jim Lehrer with the NewsHour", sliced_text_partial_overlap)
+        self.assertEqual("", no_sliced_text)
+        self.assertEqual(
+            "Hello , this is Jim Lehrer with the NewsHour on PBS . "
+            "In the nineteen eighties , barking dogs have increasingly become a problem in urban areas .",
+            full_sliced_text)
 
 
 if __name__ == '__main__':
