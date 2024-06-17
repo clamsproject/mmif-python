@@ -81,3 +81,4 @@ mmif/vocabulary
 # sphinx/autodoc files
 documentation/_build/
 
+/VERSION
