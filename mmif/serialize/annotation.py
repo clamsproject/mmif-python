@@ -51,7 +51,8 @@ class Annotation(MmifObject):
         # to store the parent view ID
         self._parent_view_id = ''
         self._props_ephemeral: AnnotationProperties = AnnotationProperties()
-        self.reserved_names.update(('_parent_view_id', '_props_ephemeral'))
+        self._alignments = {}  # to hold alignment information (Alignment anno long_id -> aligned anno long_id)
+        self.reserved_names.update(('_parent_view_id', '_props_ephemeral', '_alignments'))
         if not hasattr(self, 'properties'):  # don't overwrite DocumentProperties on super() call
             self.properties: AnnotationProperties = AnnotationProperties()
             self._attribute_classes = {'properties': AnnotationProperties}
@@ -69,6 +70,22 @@ class Annotation(MmifObject):
         for k, v in self.properties.items():
             self._add_prop_aliases(k, v)
                             
+    def _cache_alignment(self, alignment_id: str, alignedto_id: str) -> None:
+        """
+        Cache alignment information. This cache will not be serialized. Both ID arguments must be in their long_id 
+        format.
+        :param alignment_id: long_id of the Alignment annotation that has this annotation on one side
+        :param alignedto_id: long_id of the annotation that this annotation is aligned to (other side of Alignment)
+        """
+        self._alignments[alignment_id] = alignedto_id
+    
+    def aligned_to_by(self, alignment_id: str) -> Optional[str]:
+        """
+        Retrieve the long_id of the annotation that this annotation is aligned to. 
+        :param alignment_id: ID if the Alignment annotation
+        """
+        return self._alignments.get(alignment_id)
+        
     def _add_prop_aliases(self, key_to_add, val_to_add):
         """
         Method to handle aliases of the same property.

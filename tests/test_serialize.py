@@ -323,6 +323,17 @@ class TestMmif(unittest.TestCase):
         views_and_alignments = mmif_obj.get_alignments(DocumentTypes.TextDocument, AnnotationTypes.BoundingBox)
         self.assertEqual(1, len(views_and_alignments))
         self.assertTrue('v6' in views_and_alignments)
+    
+    def test_alignment_caching(self):
+        mmif_obj = Mmif(MMIF_EXAMPLES['everything'])
+        views_and_alignments = mmif_obj.get_alignments(DocumentTypes.TextDocument, AnnotationTypes.TimeFrame)
+        for vid, alignments in views_and_alignments.items():
+            v = mmif_obj.get_view_by_id(vid)
+            for alignment in alignments:
+                s = v.get_annotation_by_id(alignment.get('source'))
+                t = v.get_annotation_by_id(alignment.get('target'))
+                self.assertTrue(s.aligned_to_by(alignment.long_id).endswith(t.long_id))
+                self.assertTrue(t.aligned_to_by(alignment.long_id).endswith(s.long_id))
 
     def test_new_view_id(self):
         p = Mmif.view_prefix
@@ -886,13 +897,12 @@ class TestAnnotation(unittest.TestCase):
     # TODO (angus-lherrou @ 7/27/2020): testing should include validation for required attrs
     #  once that is implemented (issue #23)
     def setUp(self) -> None:
-        self.data = {i: {'string': example,
-                         'json': json.loads(example),
-                         'mmif': Mmif(example),
-                         'annotations': [annotation
-                                         for view in json.loads(example)['views']
-                                         for annotation in view['annotations']]}
-                     for i, example in MMIF_EXAMPLES.items()}
+        self.data = {}
+        for i, example in MMIF_EXAMPLES.items():
+            self.data[i] = {'string': example,
+                            'json': json.loads(example),
+                            'mmif': Mmif(example),
+                            'annotations': [annotation for view in json.loads(example)['views'] for annotation in view['annotations']]}
 
     def test_annotation_properties(self):
         ann_json = self.data['everything']['annotations'][0]

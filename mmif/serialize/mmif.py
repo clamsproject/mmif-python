@@ -81,7 +81,9 @@ class ViewsList(DataList[View]):
     """
     _items: Dict[str, View]
 
-    def __init__(self, mmif_obj: Optional[Union[bytes, str, list]] = None, *_):
+    def __init__(self, mmif_obj: Optional[Union[bytes, str, list]] = None, parent_mmif=None, *_):
+        self._parent_mmif = parent_mmif
+        self.reserved_names.update(("_parent_mmif", "_id_counts"))
         super().__init__(mmif_obj)
 
     def _deserialize(self, input_list: list) -> None:  # pytype: disable=signature-mismatch
@@ -93,7 +95,7 @@ class ViewsList(DataList[View]):
         :return: None
         """
         if input_list:
-            self._items = {item['id']: View(item) for item in input_list}
+            self._items = {item['id']: View(item, self._parent_mmif) for item in input_list}
 
     def append(self, value: View, overwrite=False) -> None:
         """
@@ -205,6 +207,7 @@ class Mmif(MmifObject):
         """
         super()._deserialize(input_dict)
         for view in self.views:
+            view._parent_mmif = self
             # this dict will be populated with properties 
             # that are not encoded in individual annotations objects themselves
             extrinsic_props = defaultdict(dict)
@@ -212,6 +215,7 @@ class Mmif(MmifObject):
                 for prop_key, prop_value in type_lv_props.items():
                     extrinsic_props[at_type][prop_key] = prop_value
             for ann in view.get_annotations():
+                ## for "capital" Annotation properties
                 # first add all extrinsic properties to the Annotation objects
                 # as "ephemeral" properties
                 for prop_key, prop_value in extrinsic_props[ann.at_type].items():
@@ -226,13 +230,19 @@ class Mmif(MmifObject):
                     except KeyError:
                         warnings.warn(f"Annotation {ann.id} (in view {view.id}) has a document ID {doc_id} that "
                                       f"does not exist in the MMIF object. Skipping.", RuntimeWarning)
-                # lastly, add quick access to `start` and `end` values if the annotation is using `targets` property
+                        
+                ## caching start and end points for time-based annotations
+                # add quick access to `start` and `end` values if the annotation is using `targets` property
                 if 'targets' in ann.properties:
                     if 'start' in ann.properties or 'end' in ann.properties:
                         raise ValueError(f"Annotation {ann.id} (in view {view.id}) has `targes` and `start`/`end/` "
                                          f"properties at the same time. Annotation anchors are ambiguous.")
                     ann._props_ephemeral['start'] = self._get_linear_anchor_point(ann, start=True)
                     ann._props_ephemeral['end'] = self._get_linear_anchor_point(ann, start=False)
+                
+                ## caching alignments
+                if ann.at_type == AnnotationTypes.Alignment:
+                    view._cache_alignment(ann)
 
     def generate_capital_annotations(self):
         """
@@ -353,6 +363,7 @@ class Mmif(MmifObject):
                           an existing view with the same ID
         :return: None
         """
+        view._parent_mmif = self
         self.views.append(view, overwrite)
 
     def add_document(self, document: Document, overwrite=False) -> None:

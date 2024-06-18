@@ -29,10 +29,12 @@ class View(MmifObject):
     :param view_obj: the JSON data that defines the view
     """
 
-    def __init__(self, view_obj: Optional[Union[bytes, str, dict]] = None, *_) -> None:
+    def __init__(self, view_obj: Optional[Union[bytes, str, dict]] = None, parent_mmif=None, *_) -> None:
         # used to autogenerate annotation ids
         self._id_counts = {}
-        self.reserved_names.add("_id_counts")
+        # used to access the parent MMIF object
+        self._parent_mmif = parent_mmif
+        self.reserved_names.update(("_parent_mmif", "_id_counts"))
         self._exclude_from_diff = {"_id_counts"}
         
         self.id: str = ''
@@ -119,7 +121,16 @@ class View(MmifObject):
         annotation.parent = self.id
         self.annotations.append(annotation, overwrite)
         self.new_contain(annotation.at_type)
+        if annotation.at_type == AnnotationTypes.Alignment:
+            self._cache_alignment(annotation)
         return annotation
+    
+    def _cache_alignment(self, alignent_ann: 'Annotation'):
+        if all(map(lambda x: x in alignent_ann.properties, ('source', 'target'))):
+            source_ann = self.get_annotation_by_id(alignent_ann.get('source'))
+            target_ann = self.get_annotation_by_id(alignent_ann.get('target'))
+            source_ann._cache_alignment(alignent_ann.long_id, target_ann.long_id)
+            target_ann._cache_alignment(alignent_ann.long_id, source_ann.long_id)
 
     def new_textdocument(self, text: str, lang: str = "en", did: Optional[str] = None, 
                          overwrite=False, **properties) -> 'Document':
@@ -186,9 +197,18 @@ class View(MmifObject):
                     yield annotation
     
     def get_annotation_by_id(self, ann_id) -> Annotation:
-        ann_found = self.annotations.get(ann_id)
+        if self.id_delimiter in ann_id and not ann_id.startswith(self.id):
+            try:
+                ann_found = self._parent_mmif[ann_id]
+            except KeyError:
+                ann_found = None
+        else:
+            ann_found = self.annotations.get(ann_id.split(self.id_delimiter)[-1])
         if ann_found is None or not isinstance(ann_found, Annotation):
-            raise KeyError(f"Annotation \"{ann_id}\" is not found in view {self.id}.")
+            if self.id_delimiter in ann_id:
+                raise KeyError(f"Annotation \"{ann_id}\" is not found in the MMIF.")
+            else:
+                raise KeyError(f"Annotation \"{ann_id}\" is not found in view {self.id}.")
         else:
             return ann_found
         
