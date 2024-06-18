@@ -9,14 +9,11 @@ import json
 from datetime import datetime
 from typing import Dict, Union, Optional, Generator, List, cast
 
-from mmif.serialize.model import PRMTV_TYPES
-from mmif.vocabulary import ThingTypesBase, ClamsTypesBase
-from .annotation import Annotation, Document
-from .model import MmifObject, DataList, DataDict
+from mmif import DocumentTypes, AnnotationTypes, ThingTypesBase, ClamsTypesBase
+from mmif.serialize.annotation import Annotation, Document
+from mmif.serialize.model import PRMTV_TYPES, MmifObject, DataList, DataDict
 
 __all__ = ['View', 'ViewMetadata', 'Contain']
-
-from .. import DocumentTypes
 
 
 class View(MmifObject):
@@ -64,7 +61,7 @@ class View(MmifObject):
         else:
             return self.metadata.new_contain(at_type, **contains_metadata)
     
-    def _set_id(self, annotation: Annotation, identifier):
+    def _set_ann_id(self, annotation: Annotation, identifier):
         if identifier is not None:
             annotation.id = identifier
         else:
@@ -73,7 +70,7 @@ class View(MmifObject):
             new_id = f'{prefix}_{new_num}'
             self._id_counts[prefix] = new_num
             annotation.id = new_id
-
+    
     def new_annotation(self, at_type: Union[str, ThingTypesBase], aid: Optional[str] = None, 
                        overwrite=False, **properties) -> 'Annotation':
         """
@@ -96,7 +93,7 @@ class View(MmifObject):
         """
         new_annotation = Annotation()
         new_annotation.at_type = at_type
-        self._set_id(new_annotation, aid)
+        self._set_ann_id(new_annotation, aid)
         for propk, propv in properties.items():
             new_annotation.add_property(propk, propv)
         for propk, propv in self.metadata.contains.get(at_type, {}).items():
@@ -147,7 +144,7 @@ class View(MmifObject):
         """
         new_document = Document()
         new_document.at_type = DocumentTypes.TextDocument
-        self._set_id(new_document, did)
+        self._set_ann_id(new_document, did)
         new_document.text_language = lang
         new_document.text_value = text
         for propk, propv in properties.items():

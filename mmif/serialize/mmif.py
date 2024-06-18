@@ -17,9 +17,9 @@ import jsonschema.validators
 import mmif
 from mmif import ThingTypesBase
 from mmif.vocabulary import AnnotationTypes, DocumentTypes
-from .annotation import Annotation, Document
-from .model import MmifObject, DataList
-from .view import View
+from mmif.serialize.annotation import Annotation, Document
+from mmif.serialize.model import MmifObject, DataList
+from mmif.serialize.view import View
 
 __all__ = ['Mmif']
 
@@ -339,7 +339,7 @@ class Mmif(MmifObject):
         new_view = View()
         new_view.id = self.new_view_id()
         new_view.metadata.timestamp = datetime.now()
-        self.views.append(new_view)
+        self.add_view(new_view)
         return new_view
 
     def add_view(self, view: View, overwrite=False) -> None:

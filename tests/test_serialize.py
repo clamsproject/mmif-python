@@ -662,6 +662,7 @@ class TestView(unittest.TestCase):
         self.assertEqual(view_from_str, view_from_bytes)
         self.assertEqual(json.loads(view_from_json.serialize()), json.loads(view_from_str.serialize()))
         self.assertEqual(json.loads(view_from_bytes.serialize()), json.loads(view_from_str.serialize()))
+        
 
     def test_annotation_order_preserved(self):
         view_serial = self.view_obj.serialize()

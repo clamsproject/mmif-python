@@ -14,7 +14,7 @@ import pkgutil
 import re
 import typing
 import warnings
-from typing import Union, Dict, List, Optional, Iterator, MutableMapping, TypeVar
+from typing import Union, Dict, Optional, Iterator, MutableMapping, TypeVar
 from urllib.parse import urlparse
 
 from mmif.vocabulary import ThingTypesBase, DocumentTypesBase
