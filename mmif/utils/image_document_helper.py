@@ -8,6 +8,7 @@ is a useful bit of processing for downstream tasks.
 # ====================================|
 # Import Statements
 import argparse
+import logging
 from collections import defaultdict
 from typing import Dict, List, Tuple, Union
 
@@ -171,17 +172,24 @@ class BoundingboxConcatenation(ClamsApp):
         return mmif
 
 
+def get_app():
+    """
+    This function effectively creates an instance of the app class, without any arguments passed in, meaning, any 
+    external information such as initial app configuration should be set without using function arguments. The easiest
+    way to do this is to set global variables before calling this. 
+    """
+    return BoundingboxConcatenation()
+    
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "--port", action="store", default="5000", help="set port to listen"
-    )
+    parser.add_argument("--port", action="store", default="5000", help="set port to listen")
     parser.add_argument("--production", action="store_true", help="run gunicorn server")
 
     parsed_args = parser.parse_args()
 
     # create the app instance
-    app = BoundingboxConcatenation()
+    app = get_app()
 
     http_app = Restifier(app, port=int(parsed_args.port))
     # for running the application in production mode
@@ -189,4 +197,5 @@ if __name__ == "__main__":
         http_app.serve_production()
     # development mode
     else:
+        app.logger.setLevel(logging.DEBUG)
         http_app.run()
