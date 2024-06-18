@@ -46,7 +46,7 @@ class Annotation(MmifObject):
     MmifObject that represents an annotation in a MMIF view.
     """
 
-    def __init__(self, anno_obj: Optional[Union[bytes, str, dict]] = None) -> None:
+    def __init__(self, anno_obj: Optional[Union[bytes, str, dict]] = None, *_) -> None:
         self._type: ThingTypesBase = ThingTypesBase('')
         # to store the parent view ID
         self._parent_view_id = ''
@@ -241,7 +241,7 @@ class Document(Annotation):
 
     :param document_obj: the JSON data that defines the document
     """
-    def __init__(self, doc_obj: Optional[Union[bytes, str, dict]] = None) -> None:
+    def __init__(self, doc_obj: Optional[Union[bytes, str, dict]] = None, *_) -> None:
         # see https://github.com/clamsproject/mmif-python/issues/226 for discussion
         # around the use of these three dictionaries
         # (names changed since, `existing` >> `ephemeral` and `temporary` >> `pending`)
@@ -434,7 +434,7 @@ class AnnotationProperties(MmifObject, MutableMapping[str, T]):
         else:
             return self._unnamed_attributes[key]
 
-    def __init__(self, mmif_obj: Optional[Union[bytes, str, dict]] = None) -> None:
+    def __init__(self, mmif_obj: Optional[Union[bytes, str, dict]] = None, *_) -> None:
         self.id: str = ''
         # any individual at_type (subclassing this class) can have its own set of required attributes
         self._required_attributes = ["id"]
@@ -451,7 +451,7 @@ class DocumentProperties(AnnotationProperties):
     :param mmif_obj: the JSON data that defines the properties
     """
 
-    def __init__(self, mmif_obj: Optional[Union[bytes, str, dict]] = None) -> None:
+    def __init__(self, mmif_obj: Optional[Union[bytes, str, dict]] = None, *_) -> None:
         self.mime: str = ''
         # note the trailing underscore here. I wanted to use the name `location`
         # for @property in this class and `Document` class, so had to use a diff
@@ -572,7 +572,7 @@ class DocumentProperties(AnnotationProperties):
 
 class Text(MmifObject):
 
-    def __init__(self, text_obj: Optional[Union[bytes, str, dict]] = None) -> None:
+    def __init__(self, text_obj: Optional[Union[bytes, str, dict]] = None, *_) -> None:
         self._value: str = ''
         self._language: str = ''
         self.disallow_additional_properties()

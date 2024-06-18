@@ -31,7 +31,7 @@ class MmifMetadata(MmifObject):
     :param metadata_obj: the JSON data
     """
 
-    def __init__(self, metadata_obj: Optional[Union[bytes, str, dict]] = None) -> None:
+    def __init__(self, metadata_obj: Optional[Union[bytes, str, dict]] = None, *_) -> None:
         # TODO (krim @ 10/7/20): there could be a better name and a better way to give a value to this
         self.mmif: str = f"http://mmif.clams.ai/{mmif.__specver__}"
         self._required_attributes = ["mmif"]
@@ -81,7 +81,7 @@ class ViewsList(DataList[View]):
     """
     _items: Dict[str, View]
 
-    def __init__(self, mmif_obj: Optional[Union[bytes, str, list]] = None):
+    def __init__(self, mmif_obj: Optional[Union[bytes, str, list]] = None, *_):
         super().__init__(mmif_obj)
 
     def _deserialize(self, input_list: list) -> None:  # pytype: disable=signature-mismatch

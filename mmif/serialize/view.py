@@ -29,7 +29,7 @@ class View(MmifObject):
     :param view_obj: the JSON data that defines the view
     """
 
-    def __init__(self, view_obj: Optional[Union[bytes, str, dict]] = None) -> None:
+    def __init__(self, view_obj: Optional[Union[bytes, str, dict]] = None, *_) -> None:
         # used to autogenerate annotation ids
         self._id_counts = {}
         self.reserved_names.add("_id_counts")
@@ -254,7 +254,7 @@ class ViewMetadata(MmifObject):
     :param viewmetadata_obj: the JSON data that defines the metadata
     """
 
-    def __init__(self, viewmetadata_obj: Optional[Union[bytes, str, dict]] = None) -> None:
+    def __init__(self, viewmetadata_obj: Optional[Union[bytes, str, dict]] = None, *_) -> None:
         self.document: str = ''
         self.timestamp: Optional[datetime] = None
         self.app: str = ''
@@ -374,7 +374,7 @@ class ErrorDict(MmifObject):
     """
     Error object that stores information about error occurred during processing. 
     """
-    def __init__(self, error_obj: Optional[Union[bytes, str, dict]] = None) -> None:
+    def __init__(self, error_obj: Optional[Union[bytes, str, dict]] = None, *_) -> None:
         self.message: str = ''
         self.stackTrace: str = ''
         super().__init__(error_obj)

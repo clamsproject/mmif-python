@@ -99,7 +99,7 @@ class MmifObject(object):
     _exclude_from_diff: Set[str]
     _attribute_classes: Dict[str, Type] = {}  # Mapping: str -> Type
 
-    def __init__(self, mmif_obj: Optional[Union[bytes, str, dict]] = None) -> None:
+    def __init__(self, mmif_obj: Optional[Union[bytes, str, dict]] = None, *_) -> None:
         if isinstance(mmif_obj, bytes):
             mmif_obj = mmif_obj.decode('utf8')
         if not hasattr(self, '_required_attributes'):
@@ -258,7 +258,7 @@ class MmifObject(object):
         """
         for k, v in input_dict.items():
             if self._attribute_classes and k in self._attribute_classes:
-                self[k] = self._attribute_classes[k](v)
+                self[k] = self._attribute_classes[k](v, self)
             else:
                 self[k] = v
 
@@ -285,13 +285,13 @@ class MmifObject(object):
         if key in self._named_attributes():
             if self._attribute_classes and key in self._attribute_classes \
                     and not isinstance(value, (self._attribute_classes[key])):
-                self.__dict__[key] = self._attribute_classes[key](value)
+                self.__dict__[key] = self._attribute_classes[key](value, self)
             else:
                 self.__dict__[key] = value
         else:
             if self._attribute_classes and key in self._attribute_classes \
                     and not isinstance(value, (self._attribute_classes[key])):
-                self.set_additional_property(key, self._attribute_classes[key](value))
+                self.set_additional_property(key, self._attribute_classes[key](value, self))
             else:
                 self.set_additional_property(key, value)
 
@@ -342,7 +342,7 @@ class DataList(MmifObject, Generic[T]):
 
     :param Union[str, list] mmif_obj: the data that the list contains
     """
-    def __init__(self, mmif_obj: Optional[Union[bytes, str, list]] = None):
+    def __init__(self, mmif_obj: Optional[Union[bytes, str, list]] = None, *_):
         self.reserved_names.add('_items')
         self._items: Dict[str, T] = dict()
         self.disallow_additional_properties()
@@ -440,7 +440,7 @@ class DataList(MmifObject, Generic[T]):
 
 
 class DataDict(MmifObject, Generic[T, S]):
-    def __init__(self, mmif_obj: Optional[Union[bytes, str, dict]] = None):
+    def __init__(self, mmif_obj: Optional[Union[bytes, str, dict]] = None, *_):
         self.reserved_names.add('_items')
         self._items: Dict[T, S] = dict()
         self.disallow_additional_properties()
