@@ -1,12 +1,12 @@
 import importlib
+import math
 import warnings
 from typing import List, Union, Tuple
-import math
 
 import mmif
 from mmif import Annotation, Document, Mmif
 from mmif.utils.timeunit_helper import convert
-from mmif.vocabulary import DocumentTypes, AnnotationTypes
+from mmif.vocabulary import DocumentTypes
 
 for cv_dep in ('cv2', 'ffmpeg', 'PIL'):
     try:
@@ -212,19 +212,19 @@ def convert_timepoint(mmif: Mmif, timepoint: Annotation, out_unit: str) -> Union
     return convert(timepoint.get_property('timePoint'), in_unit, out_unit, get_framerate(vd))
 
 
-def convert_timeframe(mmif: Mmif, time_frame: Annotation, out_unit: str) -> Union[Tuple[Union[int, float, str], Union[int, float, str]]]:
+def convert_timeframe(mmif: Mmif, time_frame: Annotation, out_unit: str) -> Tuple[Union[int, float, str], Union[int, float, str]]:
     """
     Converts start and end points in a ``TimeFrame`` annotation a different time unit.
 
     :param mmif: :py:class:`~mmif.serialize.mmif.Mmif` instance
     :param time_frame: :py:class:`~mmif.serialize.annotation.Annotation` instance that holds a time interval annotation (``"@type": ".../TimeFrame/..."``)
     :param out_unit: time unit to which the point is converted
-    :return: tuple of frame numbers (integer) or seconds/milliseconds (float) of input start and end
+    :return: tuple of frame numbers, seconds/milliseconds, or ISO notation of TimeFrame's start and end
     """
     in_unit = time_frame.get_property('timeUnit')
     vd = mmif[time_frame.get_property('document')]
-    return convert(mmif.get_start(time_frame), in_unit, out_unit, get_framerate(vd)), \
-        convert(mmif.get_end(time_frame), in_unit, out_unit, get_framerate(vd))
+    fps = get_framerate(vd)
+    return convert(time_frame.get_property('start'), in_unit, out_unit, fps), convert(time_frame.get_property('end'), in_unit, out_unit, fps)
 
 
 def framenum_to_second(video_doc: Document, frame: int):

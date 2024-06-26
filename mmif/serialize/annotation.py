@@ -60,6 +60,9 @@ class Annotation(MmifObject):
         self._required_attributes = ["_type", "properties"]
         super().__init__(anno_obj)
     
+    def __hash__(self):
+        return hash(self.serialize())
+    
     def _deserialize(self, input_dict: dict) -> None:
         self.at_type = input_dict.pop('_type', '')
         # TODO (krim @ 6/1/21): If annotation IDs must follow a certain string format,
@@ -70,21 +73,31 @@ class Annotation(MmifObject):
         for k, v in self.properties.items():
             self._add_prop_aliases(k, v)
                             
-    def _cache_alignment(self, alignment_id: str, alignedto_id: str) -> None:
+    def _cache_alignment(self, alignment_ann: 'Annotation', alignedto_ann: 'Annotation') -> None:
         """
         Cache alignment information. This cache will not be serialized. Both ID arguments must be in their long_id 
         format.
         :param alignment_id: long_id of the Alignment annotation that has this annotation on one side
         :param alignedto_id: long_id of the annotation that this annotation is aligned to (other side of Alignment)
         """
-        self._alignments[alignment_id] = alignedto_id
+        self._alignments[alignment_ann] = alignedto_ann
     
-    def aligned_to_by(self, alignment_id: str) -> Optional[str]:
+    def aligned_to_by(self, alignment: 'Annotation') -> Optional['Annotation']:
         """
         Retrieve the long_id of the annotation that this annotation is aligned to. 
-        :param alignment_id: ID if the Alignment annotation
+        :param alignment: Alignment annotation that has this annotation on one side
         """
-        return self._alignments.get(alignment_id)
+        return self._alignments.get(alignment)
+    
+    def get_all_aligned(self) -> Iterator['Annotation']:
+        """
+        Generator to iterate through all alignments and aligned annotations.
+        :return: yields the alignment annotation and the aligned annotation in order
+        """
+        for alignment, aligned in self._alignments.items():
+            yield alignment
+            yield aligned
+        
         
     def _add_prop_aliases(self, key_to_add, val_to_add):
         """

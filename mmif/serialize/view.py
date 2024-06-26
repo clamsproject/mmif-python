@@ -122,16 +122,9 @@ class View(MmifObject):
         self.annotations.append(annotation, overwrite)
         self.new_contain(annotation.at_type)
         if annotation.at_type == AnnotationTypes.Alignment:
-            self._cache_alignment(annotation)
+            self._parent_mmif._cache_alignment(annotation)
         return annotation
     
-    def _cache_alignment(self, alignent_ann: 'Annotation'):
-        if all(map(lambda x: x in alignent_ann.properties, ('source', 'target'))):
-            source_ann = self.get_annotation_by_id(alignent_ann.get('source'))
-            target_ann = self.get_annotation_by_id(alignent_ann.get('target'))
-            source_ann._cache_alignment(alignent_ann.long_id, target_ann.long_id)
-            target_ann._cache_alignment(alignent_ann.long_id, source_ann.long_id)
-
     def new_textdocument(self, text: str, lang: str = "en", did: Optional[str] = None, 
                          overwrite=False, **properties) -> 'Document':
         """

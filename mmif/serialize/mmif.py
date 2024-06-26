@@ -10,7 +10,7 @@ import math
 import warnings
 from collections import defaultdict
 from datetime import datetime
-from typing import List, Union, Optional, Dict, cast, Iterator, Tuple
+from typing import List, Union, Optional, Dict, cast, Iterator
 
 import jsonschema.validators
 
@@ -235,14 +235,39 @@ class Mmif(MmifObject):
                 # add quick access to `start` and `end` values if the annotation is using `targets` property
                 if 'targets' in ann.properties:
                     if 'start' in ann.properties or 'end' in ann.properties:
-                        raise ValueError(f"Annotation {ann.id} (in view {view.id}) has `targes` and `start`/`end/` "
+                        raise ValueError(f"Annotation {ann.id} (in view {view.id}) has `targets` and `start`/`end/` "
                                          f"properties at the same time. Annotation anchors are ambiguous.")
                     ann._props_ephemeral['start'] = self._get_linear_anchor_point(ann, start=True)
                     ann._props_ephemeral['end'] = self._get_linear_anchor_point(ann, start=False)
                 
                 ## caching alignments
                 if ann.at_type == AnnotationTypes.Alignment:
-                    view._cache_alignment(ann)
+                    self._cache_alignment(ann)
+    
+    def _cache_alignment(self, alignment_ann: Annotation):
+        view = self.views.get(alignment_ann.parent)
+        if view is None:
+            warnings.warn(f"Alignment {alignment_ann.long_id} doesn't have a parent view, but it should.", RuntimeWarning)
+            return
+
+        ## caching alignments
+        def _desprately_search_annotation_object(ann_short_id):
+            ann_long_id = f"{view.id}{self.id_delimiter}{ann_short_id}"
+            try:
+                return self.__getitem__(ann_long_id)
+            except KeyError:
+                return self.__getitem__(ann_short_id)
+
+        if all(map(lambda x: x in alignment_ann.properties, ('source', 'target'))):
+            source_ann = _desprately_search_annotation_object(alignment_ann.get('source'))
+            target_ann = _desprately_search_annotation_object(alignment_ann.get('target'))
+            if isinstance(source_ann, Annotation) and isinstance(target_ann, Annotation):
+                source_ann._cache_alignment(alignment_ann, target_ann)
+                target_ann._cache_alignment(alignment_ann, source_ann)
+            else:
+                warnings.warn(
+                    f"Alignment {alignment_ann.long_id} has `source` and `target` properties that do not point to Annotation objects.",
+                    RuntimeWarning)
 
     def generate_capital_annotations(self):
         """
@@ -566,7 +591,7 @@ class Mmif(MmifObject):
     
     get_views_with_error = get_all_views_with_error
             
-    def get_all_views_contain(self, at_types: Union[ThingTypesBase, str, List[Union[str, ThingTypesBase]]]) -> List[View]:
+    def get_all_views_contain(self, *at_types: Union[ThingTypesBase, str]) -> List[View]:
         """
         Returns the list of all views in the MMIF if given types
         are present in that view's 'contains' metadata.
@@ -574,11 +599,8 @@ class Mmif(MmifObject):
         :param at_types: a list of types or just a type to check for. When given more than one types, all types must be found.
         :return: the list of views that contain the type
         """
-        if isinstance(at_types, list):
-            return [view for view in self.views
-                    if all(map(lambda x: x in view.metadata.contains, at_types))]
-        else:
-            return [view for view in self.views if at_types in view.metadata.contains]
+        return [view for view in self.views
+                if all(map(lambda x: x in view.metadata.contains, at_types))]
 
     get_views_contain = get_all_views_contain
     
@@ -621,35 +643,20 @@ class Mmif(MmifObject):
                     return view
         return None
 
-    def _is_in_time_range(self, ann: Annotation, start: Union[int, float], end: Union[int, float]) -> bool:
+    def _is_in_time_range(self, ann: Annotation, range_s: Union[int, float], range_e: Union[int, float]) -> bool:
         """
-        Checks if the annotation is anchored within the given time range.
+        Checks if the annotation is anchored within the given time range. Any overlap is considered included. 
 
-        :param ann: the Annotation object to check
-        :param start: the start time point in milliseconds
-        :param end: the end time point in milliseconds
+        :param ann: the Annotation object to check, must be time-based itself or anchored to time-based annotations
+        :param range_s: the start time point of the range (in milliseconds)
+        :param range_e: the end time point of the range (in milliseconds)
 
         :return: True if the annotation is anchored within the time range, False otherwise
         """
-        s, e = self.get_start(ann), self.get_end(ann)
-        return (s < start < e) or (s < end < e) or (s > start and e < end)
+        ann_s, ann_e = self.get_start(ann), self.get_end(ann)
+        return (ann_s < range_s < ann_e) or (ann_s < range_e < ann_e) or (ann_s > range_s and ann_e < range_e)
 
-    def _handle_time_unit(self, input_unit: str, ann_unit: str,
-                          start: int, end: int) -> Tuple[Union[int, float, str], Union[int, float, str]]:
-        """
-        Helper method to convert time unit defined by user to the unit in mmif object.
-
-        :param input_unit: the time unit defined by user
-        :param ann_unit: the time unit in mmif object
-        :param start: the start time point in the unit of `input_unit`
-        :param end: the end time point in the unit of `input_unit`
-
-        :return: the start and end time points in the unit of `ann_unit`
-        """
-        from mmif.utils.timeunit_helper import convert
-        return convert(start, input_unit, ann_unit, 1), convert(end, input_unit, ann_unit, 1)
-
-    def get_annotations_between_time(self, start: Union[int, float], end: Union[int, float],
+    def get_annotations_between_time(self, start: Union[int, float], end: Union[int, float], 
                                      time_unit: str = "ms") -> Iterator[Annotation]:
         """
         Finds annotations that are anchored between the given time points.
@@ -662,34 +669,24 @@ class Mmif(MmifObject):
         assert start < end, f"Start time point must be smaller than the end time point, given {start} and {end}"
         assert start >= 0, f"Start time point must be non-negative, given {start}"
         assert end >= 0, f"End time point must be non-negative, given {end}"
+        
+        from mmif.utils.timeunit_helper import convert
 
-        tf_in_range = []
-        tf_to_anns = defaultdict(list)
+        time_anchors_in_range = []
 
-        # Runtime: O(V * (TF * AL))
-        for view in self.get_all_views_contain([AnnotationTypes.TimeFrame, AnnotationTypes.Alignment]):
+        for view in self.get_all_views_contain(AnnotationTypes.TimeFrame) + self.get_all_views_contain(AnnotationTypes.TimePoint):
             time_unit_in_view = view.metadata.contains.get(AnnotationTypes.TimeFrame)["timeUnit"]
-            start_time, end_time = self._handle_time_unit(time_unit, time_unit_in_view, start, end)
-
-            tf_anns = view.get_annotations(AnnotationTypes.TimeFrame)
-            al_anns = view.get_annotations(AnnotationTypes.Alignment)
-
-            for tf_ann in tf_anns:
-                if self._is_in_time_range(tf_ann, start_time, end_time):
-                    tf_in_range.append(tf_ann)
-                    tf_to_anns[self.get_start(tf_ann)] = []
-
-            for al_ann in al_anns:
-                for tf in tf_in_range:
-                    target_ann_long_id = tf.aligned_to_by(al_ann.long_id)
-                    if target_ann_long_id:
-                        tf_to_anns[self.get_start(tf)].append(view.get_annotation_by_id(target_ann_long_id))
-                        break
-
-        # Runtime: O(TF + AL)
-        for start_point, anns in dict(sorted(tf_to_anns.items())).items():
-            for ann in anns:
-                yield ann
+            
+            start_time = convert(start, time_unit, time_unit_in_view, 1)
+            end_time = convert(end, time_unit, time_unit_in_view, 1)
+            for ann in view.get_annotations():
+                if ann.at_type in (AnnotationTypes.TimeFrame, AnnotationTypes.TimePoint) and self._is_in_time_range(ann, start_time, end_time):
+                    time_anchors_in_range.append(ann)
+        time_anchors_in_range.sort(key=lambda x: self.get_start(x))
+        for time_anchor in time_anchors_in_range:
+            yield time_anchor
+            for aligned in time_anchor.get_all_aligned():
+                yield aligned
 
     def _get_linear_anchor_point(self, ann: Annotation, targets_sorted=False, start: bool = True) -> Union[int, float]:
         # TODO (krim @ 2/5/24): Update the return type once timeunits are unified to `ms` as integers (https://github.com/clamsproject/mmif/issues/192)
