@@ -1,11 +1,13 @@
-name: upload HTML documentation, PyPI distribution
+name: "📦 Publish (docs, PyPI)"
 
 on: 
   push: 
     tags: 
       - '[0-9]+.[0-9]+.[0-9]+'
+
 jobs:
-  build-and-upload:
-    name: documentation and pypi
+  packge-and-upload:
+    name: "🤙 Call SDK publish workflow"
     uses: clamsproject/.github/.github/workflows/sdk-publish.yml@main
     secrets: inherit
+

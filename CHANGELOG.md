@@ -1,4 +1,73 @@
 
+## releasing 1.0.16 (2024-06-14)
+### Overview
+This release includes an _experimental_ implementation for helpers to slice `text_value` from text documents. 
+
+### Additions
+* `mmif.utils.text_document_helper` module to address https://github.com/clamsproject/mmif-python/issues/280
+
+
+## releasing 1.0.15 (2024-06-07)
+### Overview
+Minor release to add/improve helper methods.
+
+### Additions
+- `video_document_helper` now has convenient helpers to grab `TimeFrame` annotations' `representative` points. (https://github.com/clamsproject/mmif-python/pull/278)
+
+### Changes
+- `Mmif.__getitem__()` now works with short annotation IDs (https://github.com/clamsproject/mmif-python/issues/279)
+
+
+## releasing 1.0.14 (2024-04-10)
+### Overview
+This release contains small fixes and improvements. 
+
+### Additions
+- added getter helpers at various levels to access errors encoded in MMIF json in human-friendly format
+    - `Mmif.get_view_with_error`
+    - `Mmif.get_views_with_error`
+    - `Mmif.get_last_error`
+    - `View.get_error`
+    - `ViewMetadata.get_error_as_text`
+
+### Changes
+- "empty" annotation property values are correctly retrievable
+
+## releasing 1.0.13 (2024-04-02)
+### Overview
+This version includes small, but helpful improvements.
+
+### Changes
+* `Annotation` object now has `long_id` property that returns the cross-view reference-ready ID in `view_id:annotation_id` form
+* time unit conversion is now more stable (change of rounding)
+* video frame sampling can now use fractional sampling rate (in terms of frame numbers)
+
+
+## releasing 1.0.12 (2024-04-01)
+### Overview
+Hot-fixing a wrong field name. 
+
+### Changes
+- `views[].metadata.app_configuration` is renamed to `appConfiguration`, correctly following the MMIF json schema. 
+
+
+## releasing 1.0.11 (2024-03-31)
+### Overview
+This release includes changes from MMIF spec 1.0.3 and 1.0.4, and a new helper module to handle sequence annotations
+
+### Additions
+- `mmif.utils.sequence_helper` module (fixing https://github.com/clamsproject/mmif-python/issues/267) is added to provide 
+    - a generalized label re-mapper for "post-binning" of labels
+    - conversion from a list of CLAMS annotations (with ``classification`` props) into a list of reals (scores by labels), can be combined with the label re-mapper mentioned above
+    - `smooth_outlying_short_intervals()`: a simple smoothing algorithm by trimming "short" outlier sequences
+- added support for the new `views[].metadata.appConfiguration` field (https://github.com/clamsproject/mmif/issues/208 & https://github.com/clamsproject/mmif-python/issues/269)
+
+### Changes
+- fixed querying views by strings of annotation types weren't working (https://github.com/clamsproject/mmif-python/issues/263)
+- added annotation type prop aliases added in MMIF 1.0.3 (https://github.com/clamsproject/mmif/pull/222)
+- getting start or end anchor points on annotations objects only with `targets` are no longer require the targets list is already sorted
+- sphinx-based public API documentation for old versions is back
+
 ## releasing 1.0.10 (2024-03-01)
 ### Overview
 This version includes minor bug fixes and support for MMIF spec 1.0.2. 
