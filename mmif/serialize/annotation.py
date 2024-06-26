@@ -75,24 +75,32 @@ class Annotation(MmifObject):
                             
     def _cache_alignment(self, alignment_ann: 'Annotation', alignedto_ann: 'Annotation') -> None:
         """
-        Cache alignment information. This cache will not be serialized. Both ID arguments must be in their long_id 
-        format.
-        :param alignment_id: long_id of the Alignment annotation that has this annotation on one side
-        :param alignedto_id: long_id of the annotation that this annotation is aligned to (other side of Alignment)
+        Cache alignment information. This cache will not be serialized. 
+        
+        :param alignment_ann: the Alignment annotation that has this annotation on one side
+        :param alignedto_ann: the annotation that this annotation is aligned to (other side of Alignment)
         """
         self._alignments[alignment_ann] = alignedto_ann
     
     def aligned_to_by(self, alignment: 'Annotation') -> Optional['Annotation']:
         """
-        Retrieve the long_id of the annotation that this annotation is aligned to. 
-        :param alignment: Alignment annotation that has this annotation on one side
+        Retrieves the other side of ``Alignment`` annotation that has this annotation on one side. 
+        
+        :param alignment: ``Alignment`` annotation that has this annotation on one side
+        :return: the annotation that this annotation is aligned to (other side of ``Alignment``), 
+                 or None if this annotation is not used in the ``Alignment``.
         """
         return self._alignments.get(alignment)
     
     def get_all_aligned(self) -> Iterator['Annotation']:
         """
-        Generator to iterate through all alignments and aligned annotations.
-        :return: yields the alignment annotation and the aligned annotation in order
+        Generator to iterate through all alignments and aligned annotations. Note that this generator will yield
+        the `Alignment` annotations as well. Every odd-numbered yield will be an `Alignment` annotation, and every
+        even-numbered yield will be the aligned annotation. If there's a specific annotation type that you're looking
+        for, you need to filter the generated results outside. 
+        
+        :return: yields the alignment annotation and the aligned annotation.
+                 The order is decided by the order of appearance of Alignment annotations in the MMIF
         """
         for alignment, aligned in self._alignments.items():
             yield alignment
@@ -193,6 +201,7 @@ class Annotation(MmifObject):
                      value: Union[PRMTV_TYPES, LIST_PRMTV, LIST_LIST_PRMTV, DICT_PRMTV, DICT_LIST_PRMTV]) -> None:
         """
         Adds a property to the annotation's properties.
+        
         :param name: the name of the property
         :param value: the property's desired value
         :return: None
