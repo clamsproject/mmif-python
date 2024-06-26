@@ -14,7 +14,7 @@ import pkgutil
 import re
 import typing
 import warnings
-from typing import Union, Dict, List, Optional, Iterator, MutableMapping, TypeVar
+from typing import Union, Dict, Optional, Iterator, MutableMapping, TypeVar
 from urllib.parse import urlparse
 
 from mmif.vocabulary import ThingTypesBase, DocumentTypesBase
@@ -46,18 +46,22 @@ class Annotation(MmifObject):
     MmifObject that represents an annotation in a MMIF view.
     """
 
-    def __init__(self, anno_obj: Optional[Union[bytes, str, dict]] = None) -> None:
+    def __init__(self, anno_obj: Optional[Union[bytes, str, dict]] = None, *_) -> None:
         self._type: ThingTypesBase = ThingTypesBase('')
         # to store the parent view ID
         self._parent_view_id = ''
         self._props_ephemeral: AnnotationProperties = AnnotationProperties()
-        self.reserved_names.update(('_parent_view_id', '_props_ephemeral'))
+        self._alignments = {}  # to hold alignment information (Alignment anno long_id -> aligned anno long_id)
+        self.reserved_names.update(('_parent_view_id', '_props_ephemeral', '_alignments'))
         if not hasattr(self, 'properties'):  # don't overwrite DocumentProperties on super() call
             self.properties: AnnotationProperties = AnnotationProperties()
             self._attribute_classes = {'properties': AnnotationProperties}
         self.disallow_additional_properties()
         self._required_attributes = ["_type", "properties"]
         super().__init__(anno_obj)
+    
+    def __hash__(self):
+        return hash(self.serialize())
     
     def _deserialize(self, input_dict: dict) -> None:
         self.at_type = input_dict.pop('_type', '')
@@ -69,6 +73,40 @@ class Annotation(MmifObject):
         for k, v in self.properties.items():
             self._add_prop_aliases(k, v)
                             
+    def _cache_alignment(self, alignment_ann: 'Annotation', alignedto_ann: 'Annotation') -> None:
+        """
+        Cache alignment information. This cache will not be serialized. 
+        
+        :param alignment_ann: the Alignment annotation that has this annotation on one side
+        :param alignedto_ann: the annotation that this annotation is aligned to (other side of Alignment)
+        """
+        self._alignments[alignment_ann] = alignedto_ann
+    
+    def aligned_to_by(self, alignment: 'Annotation') -> Optional['Annotation']:
+        """
+        Retrieves the other side of ``Alignment`` annotation that has this annotation on one side. 
+        
+        :param alignment: ``Alignment`` annotation that has this annotation on one side
+        :return: the annotation that this annotation is aligned to (other side of ``Alignment``), 
+                 or None if this annotation is not used in the ``Alignment``.
+        """
+        return self._alignments.get(alignment)
+    
+    def get_all_aligned(self) -> Iterator['Annotation']:
+        """
+        Generator to iterate through all alignments and aligned annotations. Note that this generator will yield
+        the `Alignment` annotations as well. Every odd-numbered yield will be an `Alignment` annotation, and every
+        even-numbered yield will be the aligned annotation. If there's a specific annotation type that you're looking
+        for, you need to filter the generated results outside. 
+        
+        :return: yields the alignment annotation and the aligned annotation.
+                 The order is decided by the order of appearance of Alignment annotations in the MMIF
+        """
+        for alignment, aligned in self._alignments.items():
+            yield alignment
+            yield aligned
+        
+        
     def _add_prop_aliases(self, key_to_add, val_to_add):
         """
         Method to handle aliases of the same property.
@@ -163,6 +201,7 @@ class Annotation(MmifObject):
                      value: Union[PRMTV_TYPES, LIST_PRMTV, LIST_LIST_PRMTV, DICT_PRMTV, DICT_LIST_PRMTV]) -> None:
         """
         Adds a property to the annotation's properties.
+        
         :param name: the name of the property
         :param value: the property's desired value
         :return: None
@@ -241,7 +280,7 @@ class Document(Annotation):
 
     :param document_obj: the JSON data that defines the document
     """
-    def __init__(self, doc_obj: Optional[Union[bytes, str, dict]] = None) -> None:
+    def __init__(self, doc_obj: Optional[Union[bytes, str, dict]] = None, *_) -> None:
         # see https://github.com/clamsproject/mmif-python/issues/226 for discussion
         # around the use of these three dictionaries
         # (names changed since, `existing` >> `ephemeral` and `temporary` >> `pending`)
@@ -434,7 +473,7 @@ class AnnotationProperties(MmifObject, MutableMapping[str, T]):
         else:
             return self._unnamed_attributes[key]
 
-    def __init__(self, mmif_obj: Optional[Union[bytes, str, dict]] = None) -> None:
+    def __init__(self, mmif_obj: Optional[Union[bytes, str, dict]] = None, *_) -> None:
         self.id: str = ''
         # any individual at_type (subclassing this class) can have its own set of required attributes
         self._required_attributes = ["id"]
@@ -451,7 +490,7 @@ class DocumentProperties(AnnotationProperties):
     :param mmif_obj: the JSON data that defines the properties
     """
 
-    def __init__(self, mmif_obj: Optional[Union[bytes, str, dict]] = None) -> None:
+    def __init__(self, mmif_obj: Optional[Union[bytes, str, dict]] = None, *_) -> None:
         self.mime: str = ''
         # note the trailing underscore here. I wanted to use the name `location`
         # for @property in this class and `Document` class, so had to use a diff
@@ -572,7 +611,7 @@ class DocumentProperties(AnnotationProperties):
 
 class Text(MmifObject):
 
-    def __init__(self, text_obj: Optional[Union[bytes, str, dict]] = None) -> None:
+    def __init__(self, text_obj: Optional[Union[bytes, str, dict]] = None, *_) -> None:
         self._value: str = ''
         self._language: str = ''
         self.disallow_additional_properties()
