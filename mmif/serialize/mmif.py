@@ -656,14 +656,15 @@ class Mmif(MmifObject):
         ann_s, ann_e = self.get_start(ann), self.get_end(ann)
         return (ann_s < range_s < ann_e) or (ann_s < range_e < ann_e) or (ann_s > range_s and ann_e < range_e)
 
-    def get_annotations_between_time(self, start: Union[int, float], end: Union[int, float], 
-                                     time_unit: str = "ms") -> Iterator[Annotation]:
+    def get_annotations_between_time(self, start: Union[int, float], end: Union[int, float], time_unit: str = "ms",
+                                     at_types: List[Union[ThingTypesBase, str]] = []) -> Iterator[Annotation]:
         """
         Finds annotations that are anchored between the given time points.
 
         :param start: the start time point in the unit of `input_unit`
         :param end: the end time point in the unit of `input_unit`
         :param time_unit: the unit of the input time points. Default is `ms`.
+        :param at_types: a list of annotation types to filter with. Any type in this list will be included in the return.
         :return: an iterator of Annotation objects that are anchored between the given time points
         """
         assert start < end, f"Start time point must be smaller than the end time point, given {start} and {end}"
@@ -673,6 +674,7 @@ class Mmif(MmifObject):
         from mmif.utils.timeunit_helper import convert
 
         time_anchors_in_range = []
+        at_types = set(at_types)
 
         for view in self.get_all_views_contain(AnnotationTypes.TimeFrame) + self.get_all_views_contain(AnnotationTypes.TimePoint):
             time_unit_in_view = view.metadata.contains.get(AnnotationTypes.TimeFrame)["timeUnit"]
@@ -684,9 +686,11 @@ class Mmif(MmifObject):
                     time_anchors_in_range.append(ann)
         time_anchors_in_range.sort(key=lambda x: self.get_start(x))
         for time_anchor in time_anchors_in_range:
-            yield time_anchor
+            if not at_types or time_anchor.at_type in at_types:
+                yield time_anchor
             for aligned in time_anchor.get_all_aligned():
-                yield aligned
+                if not at_types or aligned.at_type in at_types:
+                    yield aligned
 
     def _get_linear_anchor_point(self, ann: Annotation, targets_sorted=False, start: bool = True) -> Union[int, float]:
         # TODO (krim @ 2/5/24): Update the return type once timeunits are unified to `ms` as integers (https://github.com/clamsproject/mmif/issues/192)

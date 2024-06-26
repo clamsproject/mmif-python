@@ -361,7 +361,7 @@ class TestMmif(unittest.TestCase):
         # .[] |
         # select(."@type"=="http://vocab.lappsgrid.org/Token")] |
         # sort_by(.properties.id | ltrimstr("t") | tonumber) |
-        # map(.properties.text)' <examples>.json
+        # map(.properties.word)' <examples>.json
         tokens_in_order = ["Hello",
                            ",",
                            "this",
@@ -405,11 +405,13 @@ class TestMmif(unittest.TestCase):
             self.assertFalse(ann.is_type(token_type))
 
         # Test case 3(a): Partial tokens are selected (involve partial overlap)
-        selected_token_anns = mmif_obj.get_annotations_between_time(7, 10, time_unit="seconds")
+        selected_token_anns = mmif_obj.get_annotations_between_time(7, 10, time_unit="seconds", 
+                                                                    at_types=['http://vocab.lappsgrid.org/Token'])
         self.assertEqual(tokens_in_order[3:9], [ann.get_property("word") for ann in selected_token_anns])
 
         # Test case 3(b): Partial tokens are selected (only full overlap)
-        selected_token_anns = mmif_obj.get_annotations_between_time(11500, 14600)
+        selected_token_anns = mmif_obj.get_annotations_between_time(11500, 14600, 
+                                                                    at_types=['http://vocab.lappsgrid.org/Token'])
         self.assertEqual(tokens_in_order[12:17], [ann.get_property("word") for ann in selected_token_anns])
 
     def test_add_document(self):
