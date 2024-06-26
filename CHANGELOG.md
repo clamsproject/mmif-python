@@ -1,4 +1,17 @@
 
+## releasing 1.0.17 (2024-06-26)
+### Overview
+This release adds caching mechanism for annotation alignments (via `Alignment` annotation, the alignment via `targets` property is not yet supported). 
+
+### Additions
+- `Annotation` class now has [`.aligned_to_by(alignment: Annotation)`](https://clams.ai/mmif-python/latest/autodoc/mmif.serialize.html#mmif.serialize.annotation.Annotation.aligned_to_by) and [`.get_all_aligned()`](https://clams.ai/mmif-python/latest/autodoc/mmif.serialize.html#mmif.serialize.annotation.Annotation.get_all_aligned) method to quickly retrieve cached alignment counterparts (https://github.com/clamsproject/mmif-python/issues/285). The caching occurs 
+    1. when MMIF JSON is deserialized
+    2. when `view.add_annotation` or `view.new_annotation` is called
+
+### Changes
+- `mmif.utils.text_document_helper.slice_text` received a major speed boost from the alignment caching. 
+
+
 ## releasing 1.0.16 (2024-06-14)
 ### Overview
 This release includes an _experimental_ implementation for helpers to slice `text_value` from text documents. 
