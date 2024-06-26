@@ -4,10 +4,9 @@ import pytest
 
 from mmif import Mmif, Document, AnnotationTypes
 from mmif.utils import sequence_helper as sqh
+from mmif.utils import text_document_helper as tdh
 from mmif.utils import timeunit_helper as tuh
 from mmif.utils import video_document_helper as vdh
-from mmif.utils import text_document_helper as tdh
-from mmif.serialize import mmif
 from tests.mmif_examples import *
 
 
@@ -178,7 +177,7 @@ class TestSequenceHelper(unittest.TestCase):
 class TestTextDocHelper(unittest.TestCase):
     mmif_obj = Mmif(MMIF_EXAMPLES['everything'])
 
-    @pytest.mark.skip("The only valid test cases come from kalbi app which annotates wrong property")
+    @pytest.mark.skip("The only valid test cases come from kaldi app which annotates wrong property")
     def test_slice_text(self):
         sliced_text_full_overlap = tdh.slice_text(self.mmif_obj, 11500, 14600)
         sliced_text_partial_overlap = tdh.slice_text(self.mmif_obj, 7, 10, unit="seconds")

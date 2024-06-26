@@ -9,14 +9,11 @@ import json
 from datetime import datetime
 from typing import Dict, Union, Optional, Generator, List, cast
 
-from mmif.serialize.model import PRMTV_TYPES
-from mmif.vocabulary import ThingTypesBase, ClamsTypesBase
-from .annotation import Annotation, Document
-from .model import MmifObject, DataList, DataDict
+from mmif import DocumentTypes, AnnotationTypes, ThingTypesBase, ClamsTypesBase
+from mmif.serialize.annotation import Annotation, Document
+from mmif.serialize.model import PRMTV_TYPES, MmifObject, DataList, DataDict
 
 __all__ = ['View', 'ViewMetadata', 'Contain']
-
-from .. import DocumentTypes
 
 
 class View(MmifObject):
@@ -32,10 +29,12 @@ class View(MmifObject):
     :param view_obj: the JSON data that defines the view
     """
 
-    def __init__(self, view_obj: Optional[Union[bytes, str, dict]] = None) -> None:
+    def __init__(self, view_obj: Optional[Union[bytes, str, dict]] = None, parent_mmif=None, *_) -> None:
         # used to autogenerate annotation ids
         self._id_counts = {}
-        self.reserved_names.add("_id_counts")
+        # used to access the parent MMIF object
+        self._parent_mmif = parent_mmif
+        self.reserved_names.update(("_parent_mmif", "_id_counts"))
         self._exclude_from_diff = {"_id_counts"}
         
         self.id: str = ''
@@ -64,7 +63,7 @@ class View(MmifObject):
         else:
             return self.metadata.new_contain(at_type, **contains_metadata)
     
-    def _set_id(self, annotation: Annotation, identifier):
+    def _set_ann_id(self, annotation: Annotation, identifier):
         if identifier is not None:
             annotation.id = identifier
         else:
@@ -73,7 +72,7 @@ class View(MmifObject):
             new_id = f'{prefix}_{new_num}'
             self._id_counts[prefix] = new_num
             annotation.id = new_id
-
+    
     def new_annotation(self, at_type: Union[str, ThingTypesBase], aid: Optional[str] = None, 
                        overwrite=False, **properties) -> 'Annotation':
         """
@@ -96,7 +95,7 @@ class View(MmifObject):
         """
         new_annotation = Annotation()
         new_annotation.at_type = at_type
-        self._set_id(new_annotation, aid)
+        self._set_ann_id(new_annotation, aid)
         for propk, propv in properties.items():
             new_annotation.add_property(propk, propv)
         for propk, propv in self.metadata.contains.get(at_type, {}).items():
@@ -122,8 +121,10 @@ class View(MmifObject):
         annotation.parent = self.id
         self.annotations.append(annotation, overwrite)
         self.new_contain(annotation.at_type)
+        if annotation.at_type == AnnotationTypes.Alignment:
+            self._parent_mmif._cache_alignment(annotation)
         return annotation
-
+    
     def new_textdocument(self, text: str, lang: str = "en", did: Optional[str] = None, 
                          overwrite=False, **properties) -> 'Document':
         """
@@ -147,7 +148,7 @@ class View(MmifObject):
         """
         new_document = Document()
         new_document.at_type = DocumentTypes.TextDocument
-        self._set_id(new_document, did)
+        self._set_ann_id(new_document, did)
         new_document.text_language = lang
         new_document.text_value = text
         for propk, propv in properties.items():
@@ -189,9 +190,18 @@ class View(MmifObject):
                     yield annotation
     
     def get_annotation_by_id(self, ann_id) -> Annotation:
-        ann_found = self.annotations.get(ann_id)
+        if self.id_delimiter in ann_id and not ann_id.startswith(self.id):
+            try:
+                ann_found = self._parent_mmif[ann_id]
+            except KeyError:
+                ann_found = None
+        else:
+            ann_found = self.annotations.get(ann_id.split(self.id_delimiter)[-1])
         if ann_found is None or not isinstance(ann_found, Annotation):
-            raise KeyError(f"Annotation \"{ann_id}\" is not found in view {self.id}.")
+            if self.id_delimiter in ann_id:
+                raise KeyError(f"Annotation \"{ann_id}\" is not found in the MMIF.")
+            else:
+                raise KeyError(f"Annotation \"{ann_id}\" is not found in view {self.id}.")
         else:
             return ann_found
         
@@ -257,7 +267,7 @@ class ViewMetadata(MmifObject):
     :param viewmetadata_obj: the JSON data that defines the metadata
     """
 
-    def __init__(self, viewmetadata_obj: Optional[Union[bytes, str, dict]] = None) -> None:
+    def __init__(self, viewmetadata_obj: Optional[Union[bytes, str, dict]] = None, *_) -> None:
         self.document: str = ''
         self.timestamp: Optional[datetime] = None
         self.app: str = ''
@@ -377,7 +387,7 @@ class ErrorDict(MmifObject):
     """
     Error object that stores information about error occurred during processing. 
     """
-    def __init__(self, error_obj: Optional[Union[bytes, str, dict]] = None) -> None:
+    def __init__(self, error_obj: Optional[Union[bytes, str, dict]] = None, *_) -> None:
         self.message: str = ''
         self.stackTrace: str = ''
         super().__init__(error_obj)

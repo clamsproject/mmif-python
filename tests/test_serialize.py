@@ -222,7 +222,7 @@ class TestMmif(unittest.TestCase):
     def test_document_location_helpers_http(self):
         new_doc = Document()
         new_doc.id = "d1"
-        new_doc.location = f"https://www.gnu.org/licenses/gpl-3.0.txt"
+        new_doc.location = f"https://example.com/"
         self.assertEqual(new_doc.location_scheme(), 'https')
         try:
             path = new_doc.location_path()
@@ -277,11 +277,11 @@ class TestMmif(unittest.TestCase):
         self.assertEqual(2, len(views))
         views = mmif_obj.get_all_views_contain('http://vocab.lappsgrid.org/SemanticTag')
         self.assertEqual(1, len(views))
-        views = mmif_obj.get_views_contain([
+        views = mmif_obj.get_views_contain(
             AnnotationTypes.TimeFrame,
             DocumentTypes.TextDocument,
             AnnotationTypes.Alignment,
-        ])
+        )
         self.assertEqual(1, len(views))
         views = mmif_obj.get_all_views_contain(not_existing_attype)
         self.assertEqual(0, len(views))
@@ -323,6 +323,17 @@ class TestMmif(unittest.TestCase):
         views_and_alignments = mmif_obj.get_alignments(DocumentTypes.TextDocument, AnnotationTypes.BoundingBox)
         self.assertEqual(1, len(views_and_alignments))
         self.assertTrue('v6' in views_and_alignments)
+    
+    def test_cache_alignment(self):
+        mmif_obj = Mmif(MMIF_EXAMPLES['everything'])
+        views_and_alignments = mmif_obj.get_alignments(DocumentTypes.TextDocument, AnnotationTypes.TimeFrame)
+        for vid, alignments in views_and_alignments.items():
+            v = mmif_obj.get_view_by_id(vid)
+            for alignment in alignments:
+                s = v.get_annotation_by_id(alignment.get('source'))
+                t = v.get_annotation_by_id(alignment.get('target'))
+                self.assertTrue(s.aligned_to_by(alignment).long_id.endswith(t.long_id))
+                self.assertTrue(t.aligned_to_by(alignment).long_id.endswith(s.long_id))
 
     def test_new_view_id(self):
         p = Mmif.view_prefix
@@ -350,7 +361,7 @@ class TestMmif(unittest.TestCase):
         # .[] |
         # select(."@type"=="http://vocab.lappsgrid.org/Token")] |
         # sort_by(.properties.id | ltrimstr("t") | tonumber) |
-        # map(.properties.text)' <examples>.json
+        # map(.properties.word)' <examples>.json
         tokens_in_order = ["Hello",
                            ",",
                            "this",
@@ -382,23 +393,26 @@ class TestMmif(unittest.TestCase):
         mmif_obj = Mmif(MMIF_EXAMPLES['everything'])
 
         # Test case 1: All token annotations are selected
-        selected_token_anns = mmif_obj.get_annotations_between_time(0, 22000)
-        self.assertEqual(28, len(list(selected_token_anns)))
+        selected_token_anns = [ann for ann in mmif_obj.get_annotations_between_time(0, 22000) if ann.is_type(token_type)]
+        self.assertEqual(28, len(selected_token_anns))
         for i, ann in enumerate(selected_token_anns):
-            self.assertTrue(ann.is_type(token_type))
-            self.assertEqual(tokens_in_order[i], ann.get_property("text"))
+            self.assertEqual(tokens_in_order[i], ann.get_property("word"))
 
         # Test case 2: No token annotation are selected
-        selected_token_anns = mmif_obj.get_annotations_between_time(0, 5, time_unit="seconds")
-        self.assertEqual(0, len(list(selected_token_anns)))
+        selected_token_anns = list(mmif_obj.get_annotations_between_time(0, 5, time_unit="seconds"))
+        self.assertEqual(4, len(list(selected_token_anns))) 
+        for ann in selected_token_anns:
+            self.assertFalse(ann.is_type(token_type))
 
         # Test case 3(a): Partial tokens are selected (involve partial overlap)
-        selected_token_anns = mmif_obj.get_annotations_between_time(7, 10, time_unit="seconds")
-        self.assertEqual(tokens_in_order[3:9], [ann.get_property("text") for ann in selected_token_anns])
+        selected_token_anns = mmif_obj.get_annotations_between_time(7, 10, time_unit="seconds", 
+                                                                    at_types=['http://vocab.lappsgrid.org/Token'])
+        self.assertEqual(tokens_in_order[3:9], [ann.get_property("word") for ann in selected_token_anns])
 
         # Test case 3(b): Partial tokens are selected (only full overlap)
-        selected_token_anns = mmif_obj.get_annotations_between_time(11500, 14600)
-        self.assertEqual(tokens_in_order[12:17], [ann.get_property("text") for ann in selected_token_anns])
+        selected_token_anns = mmif_obj.get_annotations_between_time(11500, 14600, 
+                                                                    at_types=['http://vocab.lappsgrid.org/Token'])
+        self.assertEqual(tokens_in_order[12:17], [ann.get_property("word") for ann in selected_token_anns])
 
     def test_add_document(self):
         mmif_obj = Mmif(MMIF_EXAMPLES['everything'])
@@ -662,6 +676,7 @@ class TestView(unittest.TestCase):
         self.assertEqual(view_from_str, view_from_bytes)
         self.assertEqual(json.loads(view_from_json.serialize()), json.loads(view_from_str.serialize()))
         self.assertEqual(json.loads(view_from_bytes.serialize()), json.loads(view_from_str.serialize()))
+        
 
     def test_annotation_order_preserved(self):
         view_serial = self.view_obj.serialize()
@@ -885,13 +900,12 @@ class TestAnnotation(unittest.TestCase):
     # TODO (angus-lherrou @ 7/27/2020): testing should include validation for required attrs
     #  once that is implemented (issue #23)
     def setUp(self) -> None:
-        self.data = {i: {'string': example,
-                         'json': json.loads(example),
-                         'mmif': Mmif(example),
-                         'annotations': [annotation
-                                         for view in json.loads(example)['views']
-                                         for annotation in view['annotations']]}
-                     for i, example in MMIF_EXAMPLES.items()}
+        self.data = {}
+        for i, example in MMIF_EXAMPLES.items():
+            self.data[i] = {'string': example,
+                            'json': json.loads(example),
+                            'mmif': Mmif(example),
+                            'annotations': [annotation for view in json.loads(example)['views'] for annotation in view['annotations']]}
 
     def test_annotation_properties(self):
         ann_json = self.data['everything']['annotations'][0]
