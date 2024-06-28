@@ -40,8 +40,7 @@ class BoundingboxConcatenation(ClamsApp):
         else:
             mmif_obj = mmif
         new_view = mmif_obj.new_view()
-        config = parameters
-        self.sign_view(new_view, config)
+        self.sign_view(new_view, parameters)
         new_view.new_contain(
             AnnotationTypes.BoundingBox
         ) 
@@ -81,13 +80,13 @@ class BoundingboxConcatenation(ClamsApp):
                     box_anno = anno_id_to_annotation[box_id].properties["coordinates"]
                     if (
                         anno_id_to_annotation[box_id].properties["label"]
-                        == config["label"]
+                        == parameters["label"]
                     ):
                         box_dict[timepoint_anno].append(box_anno)
 
         # concatenate bounding boxes and add to mmif
         out_coords = self.make_boxes(box_dict)
-        mmif_obj = self.annotate_boxes(mmif_obj, new_view, out_coords, **config)
+        mmif_obj = self.annotate_boxes(mmif_obj, new_view, out_coords, **parameters)
 
         
         return mmif_obj
