@@ -80,8 +80,8 @@ class BoundingboxConcatenation(ClamsApp):
                     ]
                     box_anno = anno_id_to_annotation[box_id].properties["coordinates"]
                     if (
-                        anno_id_to_annotation[box_id].properties["boxType"]
-                        == config["boxType"]
+                        anno_id_to_annotation[box_id].properties["label"]
+                        == config["label"]
                     ):
                         box_dict[timepoint_anno].append(box_anno)
 
@@ -161,7 +161,7 @@ class BoundingboxConcatenation(ClamsApp):
             tp_annotation.add_property("timeUnit", config["timeUnit"])
             tp_annotation.add_property("timePoint", time_point)
 
-            bb_annotation.add_property("boxType", config["boxType"])
+            bb_annotation.add_property("label", config["label"])
 
             bb_annotation.add_property("coordinates", box_coords)
 
