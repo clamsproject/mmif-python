@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>mmif.vocabulary module &mdash; mmif-python  documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=80d5e7a1" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=19f00094" />
+
+  
+  <!--[if lt IE 9]>
+    <script src="../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="../_static/jquery.js?v=5d32c60e"></script>
+        <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js?v=b3ba4146"></script>
+        <script src="../_static/doctools.js?v=888ff710"></script>
+        <script src="../_static/sphinx_highlight.js?v=4825356b"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="prev" title="mmif.serialize module" href="mmif.serialize.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            mmif-python
+          </a>
+              <div class="version">
+                0.3.2
+              </div>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../introduction.html">Getting Started</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../consumer-tutorial.html">MMIF consumer</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">API documentation:</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="../modules.html">mmif package</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="mmif.serialize.html">mmif.serialize module</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">mmif.vocabulary module</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#module-mmif.vocabulary.annotation_types">mmif.vocabulary.annotation_types module</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#mmif.vocabulary.annotation_types.AnnotationTypes"><code class="docutils literal notranslate"><span class="pre">AnnotationTypes</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#mmif.vocabulary.annotation_types.AnnotationTypesBase"><code class="docutils literal notranslate"><span class="pre">AnnotationTypesBase</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#module-mmif.vocabulary.document_types">mmif.vocabulary.media_types module</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#mmif.vocabulary.document_types.DocumentTypes"><code class="docutils literal notranslate"><span class="pre">DocumentTypes</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#mmif.vocabulary.document_types.DocumentTypesBase"><code class="docutils literal notranslate"><span class="pre">DocumentTypesBase</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">mmif-python</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../modules.html">mmif package</a></li>
+      <li class="breadcrumb-item active">mmif.vocabulary module</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="mmif-vocabulary-module">
+<h1>mmif.vocabulary module<a class="headerlink" href="#mmif-vocabulary-module" title="Permalink to this heading"></a></h1>
+<section id="module-mmif.vocabulary.annotation_types">
+<span id="mmif-vocabulary-annotation-types-module"></span><h2>mmif.vocabulary.annotation_types module<a class="headerlink" href="#module-mmif.vocabulary.annotation_types" title="Permalink to this heading"></a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="mmif.vocabulary.annotation_types.AnnotationTypes">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">mmif.vocabulary.annotation_types.</span></span><span class="sig-name descname"><span class="pre">AnnotationTypes</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">value</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/clamsproject/mmif-python/tree/0.3.2/mmif/vocabulary/annotation_types.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mmif.vocabulary.annotation_types.AnnotationTypes" title="Permalink to this definition"></a></dt>
+<dd><p>Bases: <a class="reference internal" href="#mmif.vocabulary.annotation_types.AnnotationTypesBase" title="mmif.vocabulary.annotation_types.AnnotationTypesBase"><code class="xref py py-class docutils literal notranslate"><span class="pre">AnnotationTypesBase</span></code></a></p>
+<p>This enum contains the URIs for the MMIF annotation types defined in the spec version 0.3.1.
+Use this to quickly get the correct URIs for those types, or use the objects themselves in your
+code and they will serialize to the strings.</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="mmif.vocabulary.annotation_types.AnnotationTypes.Alignment">
+<span class="sig-name descname"><span class="pre">Alignment</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'http://mmif.clams.ai/0.3.1/vocabulary/Alignment'</span></em><a class="reference external" href="https://github.com/clamsproject/mmif-python/tree/0.3.2/mmif/vocabulary/annotation_types.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mmif.vocabulary.annotation_types.AnnotationTypes.Alignment" title="Permalink to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="mmif.vocabulary.annotation_types.AnnotationTypes.Annotation">
+<span class="sig-name descname"><span class="pre">Annotation</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'http://mmif.clams.ai/0.3.1/vocabulary/Annotation'</span></em><a class="reference external" href="https://github.com/clamsproject/mmif-python/tree/0.3.2/mmif/vocabulary/annotation_types.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mmif.vocabulary.annotation_types.AnnotationTypes.Annotation" title="Permalink to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="mmif.vocabulary.annotation_types.AnnotationTypes.BoundingBox">
+<span class="sig-name descname"><span class="pre">BoundingBox</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'http://mmif.clams.ai/0.3.1/vocabulary/BoundingBox'</span></em><a class="reference external" href="https://github.com/clamsproject/mmif-python/tree/0.3.2/mmif/vocabulary/annotation_types.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mmif.vocabulary.annotation_types.AnnotationTypes.BoundingBox" title="Permalink to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="mmif.vocabulary.annotation_types.AnnotationTypes.Chapter">
+<span class="sig-name descname"><span class="pre">Chapter</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'http://mmif.clams.ai/0.3.1/vocabulary/Chapter'</span></em><a class="reference external" href="https://github.com/clamsproject/mmif-python/tree/0.3.2/mmif/vocabulary/annotation_types.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mmif.vocabulary.annotation_types.AnnotationTypes.Chapter" title="Permalink to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="mmif.vocabulary.annotation_types.AnnotationTypes.Interval">
+<span class="sig-name descname"><span class="pre">Interval</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'http://mmif.clams.ai/0.3.1/vocabulary/Interval'</span></em><a class="reference external" href="https://github.com/clamsproject/mmif-python/tree/0.3.2/mmif/vocabulary/annotation_types.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mmif.vocabulary.annotation_types.AnnotationTypes.Interval" title="Permalink to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="mmif.vocabulary.annotation_types.AnnotationTypes.Polygon">
+<span class="sig-name descname"><span class="pre">Polygon</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'http://mmif.clams.ai/0.3.1/vocabulary/Polygon'</span></em><a class="reference external" href="https://github.com/clamsproject/mmif-python/tree/0.3.2/mmif/vocabulary/annotation_types.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mmif.vocabulary.annotation_types.AnnotationTypes.Polygon" title="Permalink to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="mmif.vocabulary.annotation_types.AnnotationTypes.Region">
+<span class="sig-name descname"><span class="pre">Region</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'http://mmif.clams.ai/0.3.1/vocabulary/Region'</span></em><a class="reference external" href="https://github.com/clamsproject/mmif-python/tree/0.3.2/mmif/vocabulary/annotation_types.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mmif.vocabulary.annotation_types.AnnotationTypes.Region" title="Permalink to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="mmif.vocabulary.annotation_types.AnnotationTypes.Relation">
+<span class="sig-name descname"><span class="pre">Relation</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'http://mmif.clams.ai/0.3.1/vocabulary/Relation'</span></em><a class="reference external" href="https://github.com/clamsproject/mmif-python/tree/0.3.2/mmif/vocabulary/annotation_types.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mmif.vocabulary.annotation_types.AnnotationTypes.Relation" title="Permalink to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="mmif.vocabulary.annotation_types.AnnotationTypes.Span">
+<span class="sig-name descname"><span class="pre">Span</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'http://mmif.clams.ai/0.3.1/vocabulary/Span'</span></em><a class="reference external" href="https://github.com/clamsproject/mmif-python/tree/0.3.2/mmif/vocabulary/annotation_types.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mmif.vocabulary.annotation_types.AnnotationTypes.Span" title="Permalink to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="mmif.vocabulary.annotation_types.AnnotationTypes.TimeFrame">
+<span class="sig-name descname"><span class="pre">TimeFrame</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'http://mmif.clams.ai/0.3.1/vocabulary/TimeFrame'</span></em><a class="reference external" href="https://github.com/clamsproject/mmif-python/tree/0.3.2/mmif/vocabulary/annotation_types.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mmif.vocabulary.annotation_types.AnnotationTypes.TimeFrame" title="Permalink to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="mmif.vocabulary.annotation_types.AnnotationTypes.TimePoint">
+<span class="sig-name descname"><span class="pre">TimePoint</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'http://mmif.clams.ai/0.3.1/vocabulary/TimePoint'</span></em><a class="reference external" href="https://github.com/clamsproject/mmif-python/tree/0.3.2/mmif/vocabulary/annotation_types.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mmif.vocabulary.annotation_types.AnnotationTypes.TimePoint" title="Permalink to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="mmif.vocabulary.annotation_types.AnnotationTypes.VideoObject">
+<span class="sig-name descname"><span class="pre">VideoObject</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'http://mmif.clams.ai/0.3.1/vocabulary/VideoObject'</span></em><a class="reference external" href="https://github.com/clamsproject/mmif-python/tree/0.3.2/mmif/vocabulary/annotation_types.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mmif.vocabulary.annotation_types.AnnotationTypes.VideoObject" title="Permalink to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="mmif.vocabulary.annotation_types.AnnotationTypesBase">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">mmif.vocabulary.annotation_types.</span></span><span class="sig-name descname"><span class="pre">AnnotationTypesBase</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">value</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/clamsproject/mmif-python/tree/0.3.2/mmif/vocabulary/annotation_types.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mmif.vocabulary.annotation_types.AnnotationTypesBase" title="Permalink to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">ThingTypesBase</span></code></p>
+<p>Inherit from this class to build your own custom annotation
+vocabularies. Each member’s name should be the name of the
+type, and each member’s value should be the URI of that type.</p>
+</dd></dl>
+
+</section>
+<section id="module-mmif.vocabulary.document_types">
+<span id="mmif-vocabulary-media-types-module"></span><h2>mmif.vocabulary.media_types module<a class="headerlink" href="#module-mmif.vocabulary.document_types" title="Permalink to this heading"></a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="mmif.vocabulary.document_types.DocumentTypes">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">mmif.vocabulary.document_types.</span></span><span class="sig-name descname"><span class="pre">DocumentTypes</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">value</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/clamsproject/mmif-python/tree/0.3.2/mmif/vocabulary/document_types.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mmif.vocabulary.document_types.DocumentTypes" title="Permalink to this definition"></a></dt>
+<dd><p>Bases: <a class="reference internal" href="#mmif.vocabulary.document_types.DocumentTypesBase" title="mmif.vocabulary.document_types.DocumentTypesBase"><code class="xref py py-class docutils literal notranslate"><span class="pre">DocumentTypesBase</span></code></a></p>
+<p>This enum contains the URIs for the MMIF document types defined in the spec version 0.3.1.
+Use this to quickly get the correct URIs for those types, or use the objects themselves in your
+code and they will serialize to the strings.</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="mmif.vocabulary.document_types.DocumentTypes.AudioDocument">
+<span class="sig-name descname"><span class="pre">AudioDocument</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'http://mmif.clams.ai/0.3.1/vocabulary/AudioDocument'</span></em><a class="reference external" href="https://github.com/clamsproject/mmif-python/tree/0.3.2/mmif/vocabulary/document_types.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mmif.vocabulary.document_types.DocumentTypes.AudioDocument" title="Permalink to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="mmif.vocabulary.document_types.DocumentTypes.Document">
+<span class="sig-name descname"><span class="pre">Document</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'http://mmif.clams.ai/0.3.1/vocabulary/Document'</span></em><a class="reference external" href="https://github.com/clamsproject/mmif-python/tree/0.3.2/mmif/vocabulary/document_types.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mmif.vocabulary.document_types.DocumentTypes.Document" title="Permalink to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="mmif.vocabulary.document_types.DocumentTypes.ImageDocument">
+<span class="sig-name descname"><span class="pre">ImageDocument</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'http://mmif.clams.ai/0.3.1/vocabulary/ImageDocument'</span></em><a class="reference external" href="https://github.com/clamsproject/mmif-python/tree/0.3.2/mmif/vocabulary/document_types.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mmif.vocabulary.document_types.DocumentTypes.ImageDocument" title="Permalink to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="mmif.vocabulary.document_types.DocumentTypes.TextDocument">
+<span class="sig-name descname"><span class="pre">TextDocument</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'http://mmif.clams.ai/0.3.1/vocabulary/TextDocument'</span></em><a class="reference external" href="https://github.com/clamsproject/mmif-python/tree/0.3.2/mmif/vocabulary/document_types.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mmif.vocabulary.document_types.DocumentTypes.TextDocument" title="Permalink to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="mmif.vocabulary.document_types.DocumentTypes.VideoDocument">
+<span class="sig-name descname"><span class="pre">VideoDocument</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'http://mmif.clams.ai/0.3.1/vocabulary/VideoDocument'</span></em><a class="reference external" href="https://github.com/clamsproject/mmif-python/tree/0.3.2/mmif/vocabulary/document_types.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mmif.vocabulary.document_types.DocumentTypes.VideoDocument" title="Permalink to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="mmif.vocabulary.document_types.DocumentTypesBase">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">mmif.vocabulary.document_types.</span></span><span class="sig-name descname"><span class="pre">DocumentTypesBase</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">value</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/clamsproject/mmif-python/tree/0.3.2/mmif/vocabulary/document_types.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mmif.vocabulary.document_types.DocumentTypesBase" title="Permalink to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">ThingTypesBase</span></code></p>
+<p>Inherit from this class to build your own custom document
+vocabularies. Each member’s name should be the name of the
+type, and each member’s value should be the URI of that type.</p>
+</dd></dl>
+
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="mmif.serialize.html" class="btn btn-neutral float-left" title="mmif.serialize module" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2024, Brandeis LLC.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  
+<div class="rst-versions" data-toggle="rst-versions" role="note" aria-label="versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    <span class="fa fa-book"> Other Versions</span>
+    v: 0.3.2
+    <span class="fa fa-caret-down"></span>
+  </span>
+  <div class="rst-other-versions">
+    <dl>
+      <!-- <dt>Tags</dt> -->
+      <dd><a href="../../0.3.0/autodoc/mmif.vocabulary.html">0.3.0</a></dd>
+      <dd><a href="../../0.3.1/autodoc/mmif.vocabulary.html">0.3.1</a></dd>
+      <dd><a href="mmif.vocabulary.html">0.3.2</a></dd>
+      <dd><a href="../../0.3.3/autodoc/mmif.vocabulary.html">0.3.3</a></dd>
+      <dd><a href="../../0.3.4/autodoc/mmif.vocabulary.html">0.3.4</a></dd>
+      <dd><a href="../../0.3.5/autodoc/mmif.vocabulary.html">0.3.5</a></dd>
+      <dd><a href="../../0.4.0/autodoc/mmif.vocabulary.html">0.4.0</a></dd>
+      <dd><a href="../../0.4.1/autodoc/mmif.vocabulary.html">0.4.1</a></dd>
+      <dd><a href="../../0.4.2/autodoc/mmif.vocabulary.html">0.4.2</a></dd>
+      <dd><a href="../../0.4.3/autodoc/mmif.vocabulary.html">0.4.3</a></dd>
+      <dd><a href="../../0.4.4/autodoc/mmif.vocabulary.html">0.4.4</a></dd>
+      <dd><a href="../../0.4.5/autodoc/mmif.vocabulary.html">0.4.5</a></dd>
+      <dd><a href="../../0.4.6/autodoc/mmif.vocabulary.html">0.4.6</a></dd>
+      <dd><a href="../../0.4.7/autodoc/mmif.vocabulary.html">0.4.7</a></dd>
+      <dd><a href="../../0.4.8/autodoc/mmif.vocabulary.html">0.4.8</a></dd>
+      <dd><a href="../../0.5.0/autodoc/mmif.vocabulary.html">0.5.0</a></dd>
+      <dd><a href="../../0.5.1/autodoc/mmif.vocabulary.html">0.5.1</a></dd>
+      <dd><a href="../../0.5.2/autodoc/mmif.vocabulary.html">0.5.2</a></dd>
+      <dd><a href="../../1.0.0/autodoc/mmif.vocabulary.html">1.0.0</a></dd>
+      <dd><a href="../../1.0.1/autodoc/mmif.vocabulary.html">1.0.1</a></dd>
+      <dd><a href="../../1.0.10/autodoc/mmif.vocabulary.html">1.0.10</a></dd>
+      <dd><a href="../../1.0.11/autodoc/mmif.vocabulary.html">1.0.11</a></dd>
+      <dd><a href="../../1.0.12/autodoc/mmif.vocabulary.html">1.0.12</a></dd>
+      <dd><a href="../../1.0.13/autodoc/mmif.vocabulary.html">1.0.13</a></dd>
+      <dd><a href="../../1.0.14/autodoc/mmif.vocabulary.html">1.0.14</a></dd>
+      <dd><a href="../../1.0.15/autodoc/mmif.vocabulary.html">1.0.15</a></dd>
+      <dd><a href="../../1.0.16/autodoc/mmif.vocabulary.html">1.0.16</a></dd>
+      <dd><a href="../../1.0.2/autodoc/mmif.vocabulary.html">1.0.2</a></dd>
+      <dd><a href="../../1.0.3/autodoc/mmif.vocabulary.html">1.0.3</a></dd>
+      <dd><a href="../../1.0.4/autodoc/mmif.vocabulary.html">1.0.4</a></dd>
+      <dd><a href="../../1.0.5/autodoc/mmif.vocabulary.html">1.0.5</a></dd>
+      <dd><a href="../../1.0.6/autodoc/mmif.vocabulary.html">1.0.6</a></dd>
+      <dd><a href="../../1.0.7/autodoc/mmif.vocabulary.html">1.0.7</a></dd>
+      <dd><a href="../../1.0.8/autodoc/mmif.vocabulary.html">1.0.8</a></dd>
+      <dd><a href="../../1.0.9/autodoc/mmif.vocabulary.html">1.0.9</a></dd>
+    </dl>
+  </div>
+</div><script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
