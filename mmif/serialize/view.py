@@ -10,6 +10,7 @@ from datetime import datetime
 from typing import Dict, Union, Optional, Generator, List, cast
 
 from mmif import DocumentTypes, AnnotationTypes, ThingTypesBase, ClamsTypesBase
+from mmif.serialize import model
 from mmif.serialize.annotation import Annotation, Document
 from mmif.serialize.model import PRMTV_TYPES, MmifObject, DataList, DataDict
 
@@ -439,6 +440,16 @@ class AnnotationsList(DataList[Union[Annotation, Document]]):
         :return: None
         """
         super()._append_with_key(value.id, value, overwrite)
+        
+    def __getitem__(self, key: str) -> model.T:
+        """
+        specialized getter implementation to workaround https://github.com/clamsproject/mmif/issues/228
+        # TODO (krim @ 7/12/24): annotation ids must be in the long form in the future, so this check will be unnecessary once https://github.com/clamsproject/mmif/issues/228 is resolved. 
+        """
+        if ":" in key:
+            _, aid = key.split(":")
+            return self._items.__getitem__(aid)
+        return self._items.get(key, None)
 
 
 class ContainsDict(DataDict[ThingTypesBase, Contain]):
