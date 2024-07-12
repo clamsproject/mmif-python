@@ -115,13 +115,24 @@ class ViewsList(DataList[View]):
         """
         super()._append_with_key(value.id, value, overwrite)
 
-    def get_last(self) -> Optional[View]:
+    def get_last_contentful_view(self) -> Optional[View]:
         """
-        Returns the last view appended to the list.
+        Returns the last view that is contentful, i.e., has no error or warning .
         """
         for view in reversed(self._items.values()):
             if 'error' not in view.metadata and 'warning' not in view.metadata:
                 return view
+    
+    def get_last_view(self) -> Optional[View]:
+        """
+        Returns the last view appended.
+        """
+        if self._items:
+            return self._items[list(self._items.keys())[-1]]
+            
+    def get_last(self) -> Optional[View]:
+        warnings.warn('get_last() is deprecated, use get_last_contentful_view() instead.', DeprecationWarning)
+        return self.get_last_contentful_view()
 
 
 class Mmif(MmifObject):
