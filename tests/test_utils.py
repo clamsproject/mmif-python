@@ -5,6 +5,7 @@ import pytest
 from mmif import Mmif, Document, AnnotationTypes
 from mmif.utils import sequence_helper as sqh
 from mmif.utils import text_document_helper as tdh
+from mmif.utils import image_document_helper as idh
 from mmif.utils import timeunit_helper as tuh
 from mmif.utils import video_document_helper as vdh
 from tests.mmif_examples import *
@@ -174,7 +175,7 @@ class TestSequenceHelper(unittest.TestCase):
                          sqh.smooth_outlying_short_intervals(scores, 1, 1))
 
 
-class TestTextDocHelper(unittest.TestCase):
+class TestTextDocumentHelper(unittest.TestCase):
     mmif_obj = Mmif(MMIF_EXAMPLES['everything'])
 
     @pytest.mark.skip("The only valid test cases come from kaldi app which annotates wrong property")
@@ -190,6 +191,55 @@ class TestTextDocHelper(unittest.TestCase):
             "Hello , this is Jim Lehrer with the NewsHour on PBS . "
             "In the nineteen eighties , barking dogs have increasingly become a problem in urban areas .",
             full_sliced_text)
+        
+        
+class TestImageDocumentHelper(unittest.TestCase):
+    
+    def test_concatenate_boxes(self):
+        # test two-point boxes
+        boxes = [
+            ((0, 0), (10, 10)),
+            ((5, 5), (15, 15)),
+            ((10, 10), (20, 20))
+        ]
+        concat = idh.concatenate_boxes(boxes)
+        self.assertEqual(2, len(concat))
+        self.assertEqual((0, 0), concat[0])
+        self.assertEqual((20, 20), concat[1])
+        
+        # test four-point boxes
+        boxes = [
+            ((0, 0), (10, 0), (10, 10), (0, 10)),
+            ((5, 5), (15, 5), (15, 15), (5, 15)),
+            ((10, 10), (20, 10), (20, 20), (10, 20))
+        ]
+        concat = idh.concatenate_boxes(boxes)
+        self.assertEqual(2, len(concat))
+        self.assertEqual((0, 0), concat[0])
+        self.assertEqual((20, 20), concat[1])
+
+    def test_concate_timestamped_boundingboxes(self):
+        mmif_obj = Mmif(validate=False)
+        view = mmif_obj.new_view()
+        tp1 = view.new_annotation(AnnotationTypes.TimePoint, timePoint=0, timeUnit='milliseconds')
+        tp2 = view.new_annotation(AnnotationTypes.TimePoint, timePoint=10, timeUnit='milliseconds')
+        
+        bb1 = view.new_annotation(AnnotationTypes.BoundingBox, coordinates=((0, 0), (10, 10)))
+        a11 = view.new_annotation(AnnotationTypes.Alignment, source=tp1.long_id, target=bb1.long_id)
+        
+        bb2 = view.new_annotation(AnnotationTypes.BoundingBox, coordinates=((5, 5), (15, 15)))
+        a12 = view.new_annotation(AnnotationTypes.Alignment, source=tp1.long_id, target=bb2.long_id)
+        
+        bb3 = view.new_annotation(AnnotationTypes.BoundingBox, coordinates=((10, 10), (20, 20)))
+        a23 = view.new_annotation(AnnotationTypes.Alignment, source=tp2.long_id, target=bb3.long_id)
+        
+        bb4 = view.new_annotation(AnnotationTypes.BoundingBox, coordinates=((15, 15), (25, 25)))
+        a24 = view.new_annotation(AnnotationTypes.Alignment, source=tp2.long_id, target=bb4.long_id)
+        
+        concated = idh.concatenate_timestamped_boundingboxes(mmif_obj)
+        self.assertEqual(2, len(concated))
+        self.assertEqual(((0, 0), (15, 15)), concated[tp1])
+        self.assertEqual(((10, 10), (25, 25)), concated[tp2])
 
 
 if __name__ == '__main__':
