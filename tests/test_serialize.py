@@ -1269,6 +1269,28 @@ class TestDocument(unittest.TestCase):
             cap_anns = list(mmif_roundtrip.views[f'v{i}'].get_annotations(AnnotationTypes.Annotation))
             self.assertEqual(1, len(cap_anns))
             self.assertEqual(authors[i-1], cap_anns[0].get_property('author'))
+            
+    def test_capital_annotation_nongeneration_for_writable_documents(self):
+        mmif = Mmif(validate=False)
+        doc = Document()
+        doc.at_type = DocumentTypes.TextDocument
+        doc.id = f'doc0'
+        doc.location = f'aScheme:///data/doc0.txt'
+        mmif.add_document(doc)
+
+        v = mmif.new_view()
+        v.metadata.app = tester_appname
+        vid = v.id
+        new_td_id = mmif[vid].new_textdocument(text='new text', document='doc0', origin='transformation').id
+        doc.add_property('author', 'me')
+        
+        mmif_roundtrip = Mmif(mmif.serialize())
+        
+        self.assertTrue(AnnotationTypes.Annotation in mmif_roundtrip[vid].metadata.contains)
+        self.assertTrue(mmif_roundtrip.get_document_by_id('doc0').get_property('author'), 'me')
+        self.assertTrue(next(mmif_roundtrip[vid].get_annotations(AnnotationTypes.Annotation)).get_property('author'), 'me')
+        self.assertTrue(next(mmif_roundtrip[vid].get_annotations(AnnotationTypes.Annotation)).get_property('document'), doc.id)
+        self.assertTrue(mmif_roundtrip[new_td_id].get_property('origin'), 'transformation')
 
     def test_deserialize_with_whole_mmif(self):
         for i, datum in self.data.items():
