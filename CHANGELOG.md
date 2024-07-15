@@ -1,4 +1,13 @@
 
+## releasing 1.0.18 (2024-07-15)
+### Overview
+Patch release with a bugfix. 
+
+### Additions
+- document location (docloc) plugins now have a common function to provide formatting guidelines (https://github.com/clamsproject/mmif-python/issues/297)
+### Changes
+- fixed bug when adding custom properties to a newly generated `TextDocument` object (https://github.com/clamsproject/mmif-python/issues/290)
+
 ## releasing 1.0.17 (2024-06-26)
 ### Overview
 This release adds caching mechanism for annotation alignments (via `Alignment` annotation, the alignment via `targets` property is not yet supported). 

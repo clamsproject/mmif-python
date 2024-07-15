@@ -117,7 +117,7 @@ This documentation focuses on Python implementation of the MMIF. To learn more a
 </section>
 <section id="mmif-serialization">
 <h2>MMIF Serialization<a class="headerlink" href="#mmif-serialization" title="Permalink to this heading"></a></h2>
-<p><a class="reference internal" href="autodoc/mmif.serialize.html#mmif.serialize.mmif.Mmif" title="mmif.serialize.mmif.Mmif"><code class="xref py py-class docutils literal notranslate"><span class="pre">mmif.serialize.mmif.Mmif</span></code></a> represents the top-level MMIF object. For subcomponents of the MMIF (view objects, annotation objects, metadata for each object) are all subclass of <a class="reference internal" href="autodoc/mmif.serialize.html#mmif.serialize.model.MmifObject" title="mmif.serialize.model.MmifObject"><code class="xref py py-class docutils literal notranslate"><span class="pre">mmif.serialize.model.MmifObject</span></code></a>, including the <a class="reference internal" href="autodoc/mmif.serialize.html#mmif.serialize.mmif.Mmif" title="mmif.serialize.mmif.Mmif"><code class="xref py py-class docutils literal notranslate"><span class="pre">mmif.serialize.mmif.Mmif</span></code></a>. To start with an existing MMIF <code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code>, simple initiate a new <code class="docutils literal notranslate"><span class="pre">Mmif</span></code> object with the file.</p>
+<p><code class="xref py py-class docutils literal notranslate"><span class="pre">mmif.serialize.mmif.Mmif</span></code> represents the top-level MMIF object. For subcomponents of the MMIF (view objects, annotation objects, metadata for each object) are all subclass of <code class="xref py py-class docutils literal notranslate"><span class="pre">mmif.serialize.model.MmifObject</span></code>, including the <code class="xref py py-class docutils literal notranslate"><span class="pre">mmif.serialize.mmif.Mmif</span></code>. To start with an existing MMIF <code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code>, simple initiate a new <code class="docutils literal notranslate"><span class="pre">Mmif</span></code> object with the file.</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">mmif</span>
 <span class="kn">from</span> <span class="nn">mmif</span> <span class="kn">import</span> <span class="n">Mmif</span>
 
@@ -152,7 +152,7 @@ This documentation focuses on Python implementation of the MMIF. To learn more a
 <li><p>MMIF does not carry the primary source files in it.</p></li>
 <li><p>MMIF encode the specification version at the top. As not all MMIF versions are backward-compatible, a version <code class="docutils literal notranslate"><span class="pre">mmif-python</span></code> implementation of the MMIF might not be able to load an unsupported version of MMIF string.</p></li>
 </ol>
-<p>When serializing back to <code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code>, call <a class="reference internal" href="autodoc/mmif.serialize.html#mmif.serialize.model.MmifObject.serialize" title="mmif.serialize.model.MmifObject.serialize"><code class="xref py py-meth docutils literal notranslate"><span class="pre">mmif.serialize.model.MmifObject.serialize()</span></code></a> on the object.</p>
+<p>When serializing back to <code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code>, call <code class="xref py py-meth docutils literal notranslate"><span class="pre">mmif.serialize.model.MmifObject.serialize()</span></code> on the object.</p>
 <p>To get subcomponents, you can use various getters implemented in subclasses. For example;</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">mmif.vocabulary.document_types</span> <span class="kn">import</span> <span class="n">DocumentTypes</span>
 
@@ -227,6 +227,7 @@ This documentation focuses on Python implementation of the MMIF. To learn more a
       <dd><a href="../1.0.15/introduction.html">1.0.15</a></dd>
       <dd><a href="../1.0.16/introduction.html">1.0.16</a></dd>
       <dd><a href="../1.0.17/introduction.html">1.0.17</a></dd>
+      <dd><a href="../1.0.18/introduction.html">1.0.18</a></dd>
       <dd><a href="../1.0.2/introduction.html">1.0.2</a></dd>
       <dd><a href="../1.0.3/introduction.html">1.0.3</a></dd>
       <dd><a href="../1.0.4/introduction.html">1.0.4</a></dd>
