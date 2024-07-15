@@ -28,6 +28,7 @@ To add a document location handler plugin, you need to implement a Python `"pack
 
 #. the package must be named ``mmif_docloc_<SCHEME>``. For example, to implement a handler for ``s3`` scheme, the package name must be ``mmif_docloc_s3``. The prefix is important as it's used in the plugin discovery process from the core ``mmif-python`` modules.
 #. the top module of the package must have a function named ``resolve``. The function must take a single argument, which is a :class:`str` of the document location URI. The function must return a :class:`str` of the local file path. For example, if the document location is ``s3://mybucket/myfile.mp4``, a Python user should be able to to something like this; 
+#. Optionally (but highly recommended), the top module also can provide another function named ``help``. The function must take no arguments and return a :class:`str` that explains how the input string to the ``resolve`` function should be formatted.
 
 .. code-block:: python
 
@@ -75,6 +76,11 @@ And the plugin code.
            return f'/path/to/{doc_id}.{doc_types[doc_type]}'
        else:
            raise ValueError(f'cannot handle document location scheme: {docloc}')
+
+   def help():
+       return "location format: `<DOCUMENT_ID>.video`"
+
+
 
 Bulit-in Document Location Scheme Plugins
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

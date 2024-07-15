@@ -10,3 +10,7 @@ def resolve(docloc):
             raise ValueError(f'cannot handle document location scheme: {docloc}')
     except urllib.error.URLError as e:
         raise e
+    
+    
+def help():
+    return "location must be a URL string."
