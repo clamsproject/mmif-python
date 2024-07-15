@@ -323,6 +323,10 @@ class Document(Annotation):
            only keep the latest value (in order of appearances in views list) of 
            the property, effectively overwriting the previous values.
         """
+        # we don't checking if this k-v already exists in _original (new props) or _ephemeral (read from existing MMIF)
+        # because it is impossible to keep the _original updated when a new annotation is added (via `new_annotation`)
+        # without look across other views and top-level documents list. Also see 
+        # ``mmif.serialize.mmif.Mmif.generate_capital_annotations`` for where the "de-duplication" happens.
         if name == "text":
             self.properties.text = Text(value)
         elif name == "mime":
