@@ -441,7 +441,7 @@ class AnnotationsList(DataList[Union[Annotation, Document]]):
         """
         super()._append_with_key(value.id, value, overwrite)
         
-    def __getitem__(self, key: str) -> model.T:
+    def __getitem__(self, key: str):
         """
         specialized getter implementation to workaround https://github.com/clamsproject/mmif/issues/228
         # TODO (krim @ 7/12/24): annotation ids must be in the long form in the future, so this check will be unnecessary once https://github.com/clamsproject/mmif/issues/228 is resolved. 
