@@ -102,7 +102,7 @@ def extract_frames_as_images(video_document: Document, framenums: List[int], as_
 
 def get_mid_framenum(mmif: Mmif, time_frame: Annotation) -> int:
     warnings.warn('This function is deprecated. Use ``get_representative_framenums()`` instead.', DeprecationWarning, stacklevel=2)
-    _get_mid_framenum(mmif, time_frame)
+    return _get_mid_framenum(mmif, time_frame)
 
 
 def _get_mid_framenum(mmif: Mmif, time_frame: Annotation) -> int:
@@ -116,7 +116,7 @@ def _get_mid_framenum(mmif: Mmif, time_frame: Annotation) -> int:
     timeunit = time_frame.get_property('timeUnit')
     video_document = mmif[time_frame.get_property('document')]
     fps = get_framerate(video_document)
-    return convert(time_frame.get_property('start') + time_frame.get_property('end'), timeunit, 'frame', fps) // 2
+    return int(convert(time_frame.get_property('start') + time_frame.get_property('end'), timeunit, 'frame', fps) // 2)
 
 
 def extract_mid_frame(mmif: Mmif, time_frame: Annotation, as_PIL: bool = False):
@@ -159,7 +159,7 @@ def get_representative_framenums(mmif: Mmif, time_frame: Annotation) -> List[int
             rep_anno = mmif[rep_long_id]
         except KeyError:
             raise ValueError(f'Representative timepoint {rep_long_id} not found in any view.')
-        ref_frams.append(convert(rep_anno.get_property('timePoint'), timeunit, 'frame', fps))
+        ref_frams.append(int(convert(rep_anno.get_property('timePoint'), timeunit, 'frame', fps)))
     return ref_frams
 
 
@@ -185,7 +185,7 @@ def extract_representative_frame(mmif: Mmif, time_frame: Annotation, as_PIL: boo
     :return: frame as a :py:class:`numpy.ndarray` or :py:class:`PIL.Image.Image`
     """
     video_document = mmif[time_frame.get_property('document')]
-    rep_frame_num = [get_representative_framenum(mmif, time_frame)] if first_only else: get_representative_framenums(mmif, time_frame)
+    rep_frame_num = [get_representative_framenum(mmif, time_frame)] if first_only else get_representative_framenums(mmif, time_frame)
     return extract_frames_as_images(video_document, rep_frame_num, as_PIL=as_PIL)[0]
 
 
