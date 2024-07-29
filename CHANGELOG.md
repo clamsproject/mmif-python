@@ -1,4 +1,11 @@
 
+## releasing 1.0.19 (2024-07-29)
+### Overview
+Patch to fix a critical bug. 
+
+### Changes
+- bugfix when `Annotation` instance and "warnings" view both are involved, MMIF is not properly returned (#299)
+
 ## releasing 1.0.18 (2024-07-15)
 ### Overview
 Patch release with a bugfix. 
