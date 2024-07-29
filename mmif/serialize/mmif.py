@@ -120,7 +120,7 @@ class ViewsList(DataList[View]):
         Returns the last view that is contentful, i.e., has no error or warning .
         """
         for view in reversed(self._items.values()):
-            if 'error' not in view.metadata and 'warning' not in view.metadata:
+            if 'error' not in view.metadata and 'warnings' not in view.metadata:
                 return view
     
     def get_last_view(self) -> Optional[View]:

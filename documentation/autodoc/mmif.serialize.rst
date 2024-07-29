@@ -1,7 +1,9 @@
-mmif.serialize module
-=====================
+mmif.serialize package
+======================
 
-mmif.serialize.model module
+Core package to provide serialization and deserialization of MMIF format. 
+
+``model`` module
 ---------------------------
 
 .. automodule:: mmif.serialize.model
@@ -9,7 +11,7 @@ mmif.serialize.model module
    :undoc-members:
    :show-inheritance:
 
-mmif.serialize.mmif module
+``mmif`` module
 --------------------------
 
 .. automodule:: mmif.serialize.mmif
@@ -17,7 +19,7 @@ mmif.serialize.mmif module
    :undoc-members:
    :show-inheritance:
 
-mmif.serialize.view module
+``view`` module
 --------------------------
 
 .. automodule:: mmif.serialize.view
@@ -25,7 +27,7 @@ mmif.serialize.view module
    :undoc-members:
    :show-inheritance:
 
-mmif.serialize.annotation module
+``annotation`` module
 --------------------------------
 
 .. automodule:: mmif.serialize.annotation
