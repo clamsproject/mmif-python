@@ -105,6 +105,23 @@ class TestVideoDocumentHelper(unittest.TestCase):
         for times in zip((3.337, 6.674), vdh.convert_timeframe(self.mmif_obj, timeframe_ann, 's')):
             self.assertAlmostEqual(*times, places=0)
 
+    def test_extract_frams_as_images(self):
+        frame_list = [5, 10, 15]
+        target_images = vdh.extract_frames_as_images(self.video_doc, frame_list, as_PIL=False)
+        self.assertEqual(3, len(target_images))
+        # check if the extract_frames_as_images destroy the input frame list
+        self.assertEqual(3, len(frame_list))
+        # check return empty list if the frame list is empty
+        empty_flist = []
+        empty_target_images = vdh.extract_frames_as_images(self.video_doc, empty_flist, as_PIL=False)
+        self.assertEqual([], empty_target_images)
+        # check there is an error if there is a frame in the list that does not exist
+        tot_fcount = self.video_doc.get_property('frameCount')
+        frame_list.append(tot_fcount + 1)
+        new_target_images = vdh.extract_frames_as_images(self.video_doc, frame_list, as_PIL=False)
+        self.assertEqual(4, len(frame_list))
+        self.assertEqual(3, len(new_target_images))
+
 
 class TestSequenceHelper(unittest.TestCase):
 
