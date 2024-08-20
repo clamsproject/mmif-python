@@ -122,14 +122,14 @@ class ViewsList(DataList[View]):
         for view in reversed(self._items.values()):
             if 'error' not in view.metadata and 'warnings' not in view.metadata:
                 return view
-    
+
     def get_last_view(self) -> Optional[View]:
         """
         Returns the last view appended.
         """
         if self._items:
             return self._items[list(self._items.keys())[-1]]
-            
+
     def get_last(self) -> Optional[View]:
         warnings.warn('get_last() is deprecated, use get_last_contentful_view() instead.', DeprecationWarning)
         return self.get_last_contentful_view()
@@ -183,11 +183,11 @@ class Mmif(MmifObject):
         """
         Serializes the MMIF object to a JSON string.
 
-        :param sanitize: If True, performs some sanitization of before returning 
+        :param sanitize: If True, performs some sanitization of before returning
             the JSON string. See :meth:`sanitize` for details.
-        :param autogenerate_capital_annotations: If True, automatically convert 
-            any "pending" temporary properties from `Document` objects to 
-            `Annotation` objects. See :meth:`generate_capital_annotations` for 
+        :param autogenerate_capital_annotations: If True, automatically convert
+            any "pending" temporary properties from `Document` objects to
+            `Annotation` objects. See :meth:`generate_capital_annotations` for
             details.
         :param pretty: If True, returns string representation with indentation.
         :return: JSON string of the MMIF object.
@@ -202,24 +202,24 @@ class Mmif(MmifObject):
     def _deserialize(self, input_dict: dict) -> None:
         """
         Deserializes the MMIF JSON string into a Mmif object.
-        After *regular* deserialization, this method will perform the following 
-        *special* handling of Annotation.properties that allows apps to access 
-        Annotation/Document properties that are not encoded in the objects 
-        themselves. This is to allow apps to access in a more intuitive way, 
+        After *regular* deserialization, this method will perform the following
+        *special* handling of Annotation.properties that allows apps to access
+        Annotation/Document properties that are not encoded in the objects
+        themselves. This is to allow apps to access in a more intuitive way,
         without having too much hassle to iterate views and manually collect the properties.
-        
+
         1. This will read in existing *view*-scoped properties from *contains*
         metadata and attach them to the corresponding ``Annotation`` objects.
 
-        1. This will read in existing ``Annotation`` typed annotations and 
-        attach the document-level properties to the ``Document`` objects, 
-        using an ephemeral property dict. 
-        
+        1. This will read in existing ``Annotation`` typed annotations and
+        attach the document-level properties to the ``Document`` objects,
+        using an ephemeral property dict.
+
         """
         super()._deserialize(input_dict)
         for view in self.views:
             view._parent_mmif = self
-            # this dict will be populated with properties 
+            # this dict will be populated with properties
             # that are not encoded in individual annotations objects themselves
             extrinsic_props = defaultdict(dict)
             for at_type, type_lv_props in view.metadata.contains.items():
@@ -231,7 +231,7 @@ class Mmif(MmifObject):
                 # as "ephemeral" properties
                 for prop_key, prop_value in extrinsic_props[ann.at_type].items():
                     ann._props_ephemeral[prop_key] = prop_value
-                # then, do the same to associated Document objects. Note that, 
+                # then, do the same to associated Document objects. Note that,
                 # in a view, it is guaranteed that all Annotation objects are not duplicates
                 if ann.at_type == AnnotationTypes.Annotation:
                     doc_id = ann.get_property('document')
@@ -241,7 +241,7 @@ class Mmif(MmifObject):
                     except KeyError:
                         warnings.warn(f"Annotation {ann.id} (in view {view.id}) has a document ID {doc_id} that "
                                       f"does not exist in the MMIF object. Skipping.", RuntimeWarning)
-                        
+
                 ## caching start and end points for time-based annotations
                 # add quick access to `start` and `end` values if the annotation is using `targets` property
                 if 'targets' in ann.properties:
@@ -250,11 +250,11 @@ class Mmif(MmifObject):
                                          f"properties at the same time. Annotation anchors are ambiguous.")
                     ann._props_ephemeral['start'] = self._get_linear_anchor_point(ann, start=True)
                     ann._props_ephemeral['end'] = self._get_linear_anchor_point(ann, start=False)
-                
+
                 ## caching alignments
                 if ann.at_type == AnnotationTypes.Alignment:
                     self._cache_alignment(ann)
-    
+
     def _cache_alignment(self, alignment_ann: Annotation):
         view = self.views.get(alignment_ann.parent)
         if view is None:
@@ -282,31 +282,31 @@ class Mmif(MmifObject):
 
     def generate_capital_annotations(self):
         """
-        Automatically convert any "pending" temporary properties from 
-        `Document` objects to `Annotation` objects . The generated `Annotation` 
-        objects are then added to the last `View` in the views lists. 
-        
+        Automatically convert any "pending" temporary properties from
+        `Document` objects to `Annotation` objects . The generated `Annotation`
+        objects are then added to the last `View` in the views lists.
+
         See https://github.com/clamsproject/mmif-python/issues/226 for rationale
         behind this behavior and discussion.
         """
         # this view will be the default kitchen sink for all generated annotations.
         last_view = self.views.get_last_contentful_view()
-        
+
         # proceed only when there's at least one view
         if last_view:
-            
+
             # this app name is used to check a view is generated by the "currently running" app.
-            # knowing the currently running app is important so that properties of `Document` objects generated by the 
-            # current app can be properly recorded inside the `Document` objects (since they are "writable" to the 
+            # knowing the currently running app is important so that properties of `Document` objects generated by the
+            # current app can be properly recorded inside the `Document` objects (since they are "writable" to the
             # current app), instead of being recorded in a separate `Annotation` object.
             current_app = last_view.metadata.app
 
             # to avoid duplicate property recording, this will be populated with
             # existing Annotation objects from all existing views
             existing_anns = defaultdict(lambda: defaultdict(dict))
-            # ideally, if we can "de-duplicate" props at `add_property()` time, that'd be more efficient, 
+            # ideally, if we can "de-duplicate" props at `add_property()` time, that'd be more efficient,
             # but that is impossible without looking for the target `document` across other views and top documents list
-            
+
             # new properties to record in the current serialization call
             anns_to_write = defaultdict(dict)
             for view in self.views:
@@ -326,7 +326,7 @@ class Mmif(MmifObject):
                     anns_to_write[doc.long_id].update(doc._props_pending)
             for doc in self.documents:
                 anns_to_write[doc.long_id].update(doc._props_pending)
-            # additional iteration of views, to find a proper view to add the 
+            # additional iteration of views, to find a proper view to add the
             # generated annotations. If none found, use the last view as the kitchen sink
             last_view_for_docs = defaultdict(lambda: last_view)
             doc_ids = set(anns_to_write.keys())
@@ -345,8 +345,8 @@ class Mmif(MmifObject):
                         last_view_for_docs[doc_id] = view
                         break
             for doc_id, found_props in anns_to_write.items():
-                # ignore the "empty" id property from temporary dict 
-                # `id` is "required" attribute for `AnnotationProperty` class 
+                # ignore the "empty" id property from temporary dict
+                # `id` is "required" attribute for `AnnotationProperty` class
                 # thus will always be present in `props` dict as a key with emtpy value
                 # also ignore duplicate k-v pairs
                 props = {}
@@ -371,10 +371,10 @@ class Mmif(MmifObject):
         """
         Sanitizes a Mmif object by running some safeguards.
         Concretely, it performs the following before returning the JSON string.
-        
+
         #. validating output using built-in MMIF jsonschema
         #. remove non-existing annotation types from ``contains`` metadata
-    
+
         """
         for view in self.views:
             existing_at_types = set(annotation.at_type for annotation in view.annotations)
@@ -532,7 +532,7 @@ class Mmif(MmifObject):
             vid, did = doc_id.split(self.id_delimiter)
             view = self[vid]
             if isinstance(view, View):
-                return view.get_document_by_id(did) 
+                return view.get_document_by_id(did)
             else:
                 raise KeyError("{} view not found".format(vid))
         else:
@@ -567,7 +567,7 @@ class Mmif(MmifObject):
             alignments = []
             contains_meta = alignment_view.metadata.contains[AnnotationTypes.Alignment]
             if 'sourceType' in contains_meta and 'targetType' in contains_meta:
-                aligned_types = [ThingTypesBase.from_str(x) 
+                aligned_types = [ThingTypesBase.from_str(x)
                                  for x in {contains_meta['sourceType'], contains_meta['targetType']}]
                 if len(aligned_types) == 2 and at_type1 in aligned_types and at_type2 in aligned_types:
                     alignments.extend(alignment_view.annotations)
@@ -602,7 +602,7 @@ class Mmif(MmifObject):
                 next(annotations)
                 views.append(view)
             except StopIteration:
-                # means search failed by the full doc_id string, 
+                # means search failed by the full doc_id string,
                 # now try trimming the view_id from the string and re-do the search
                 if self.id_delimiter in doc_id:
                     vid, did = doc_id.split(self.id_delimiter)
@@ -618,14 +618,14 @@ class Mmif(MmifObject):
 
     def get_all_views_with_error(self) -> List[View]:
         """
-        Returns the list of all views in the MMIF that have errors. 
-        
+        Returns the list of all views in the MMIF that have errors.
+
         :return: the list of views that contain errors but no annotations
         """
         return [v for v in self.views if v.has_error()]
-    
+
     get_views_with_error = get_all_views_with_error
-            
+
     def get_all_views_contain(self, *at_types: Union[ThingTypesBase, str]) -> List[View]:
         """
         Returns the list of all views in the MMIF if given types
@@ -638,22 +638,22 @@ class Mmif(MmifObject):
                 if all(map(lambda x: x in view.metadata.contains, at_types))]
 
     get_views_contain = get_all_views_contain
-    
+
     def get_view_with_error(self) -> Optional[View]:
         """
         Returns the last view appended that contains an error.
-        
+
         :return: the view, or None if no error is found
         """
         for view in reversed(self.views):
             if view.has_error():
                 return view
         return None
-    
+
     def get_last_error(self) -> Optional[str]:
         """
         Returns the last error message found in the views.
-        
+
         :return: the error message in human-readable format, or None if no error is found
         """
         v = self.get_view_with_error()
@@ -680,7 +680,7 @@ class Mmif(MmifObject):
 
     def _is_in_time_range(self, ann: Annotation, range_s: Union[int, float], range_e: Union[int, float]) -> bool:
         """
-        Checks if the annotation is anchored within the given time range. Any overlap is considered included. 
+        Checks if the annotation is anchored within the given time range. Any overlap is considered included.
 
         :param ann: the Annotation object to check, must be time-based itself or anchored to time-based annotations
         :param range_s: the start time point of the range (in milliseconds)
@@ -705,7 +705,7 @@ class Mmif(MmifObject):
         assert start < end, f"Start time point must be smaller than the end time point, given {start} and {end}"
         assert start >= 0, f"Start time point must be non-negative, given {start}"
         assert end >= 0, f"End time point must be non-negative, given {end}"
-        
+
         from mmif.utils.timeunit_helper import convert
 
         time_anchors_in_range = []
@@ -713,7 +713,7 @@ class Mmif(MmifObject):
 
         for view in self.get_all_views_contain(AnnotationTypes.TimeFrame) + self.get_all_views_contain(AnnotationTypes.TimePoint):
             time_unit_in_view = view.metadata.contains.get(AnnotationTypes.TimeFrame)["timeUnit"]
-            
+
             start_time = convert(start, time_unit, time_unit_in_view, 1)
             end_time = convert(end, time_unit, time_unit_in_view, 1)
             for ann in view.get_annotations():
@@ -730,9 +730,9 @@ class Mmif(MmifObject):
     def _get_linear_anchor_point(self, ann: Annotation, targets_sorted=False, start: bool = True) -> Union[int, float]:
         # TODO (krim @ 2/5/24): Update the return type once timeunits are unified to `ms` as integers (https://github.com/clamsproject/mmif/issues/192)
         """
-        Retrieves the anchor point of the annotation. Currently, this method only supports linear anchors, 
+        Retrieves the anchor point of the annotation. Currently, this method only supports linear anchors,
         namely time and text, hence does not work with spatial anchors (polygons or video-object).
-        
+
         :param ann: An Annotation object that has a linear anchor point. Namely, some subtypes of `Region` vocabulary type.
         :param start: If True, returns the start anchor point. Otherwise, returns the end anchor point. N/A for `timePoint` anchors.
         :param targets_sorted: If True, the method will assume that the targets are sorted in the order of the anchor points.
@@ -742,12 +742,12 @@ class Mmif(MmifObject):
         if 'timePoint' in props:
             return ann.get_property('timePoint')
         elif 'targets' in props:
-            
+
             def get_target_ann(cur_ann, target_id):
                 if self.id_delimiter not in target_id:
                     target_id = self.id_delimiter.join((cur_ann.parent, target_id))
                 return self.__getitem__(target_id)
-            
+
             if not targets_sorted:
                 point = math.inf if start else -1
                 comp = min if start else max
@@ -762,13 +762,13 @@ class Mmif(MmifObject):
             return ann.get_property('start' if start else 'end')
         else:
             raise ValueError(f"{ann.id} ({ann.at_type}) does not have a valid anchor point. Is it a valid 'Region' type?")
-    
+
     def get_start(self, annotation: Annotation) -> Union[int, float]:
         """
         An alias to `get_anchor_point` method with `start=True`.
         """
         return self._get_linear_anchor_point(annotation, start=True)
-    
+
     def get_end(self, annotation: Annotation) -> Union[int, float]:
         """
         An alias to `get_anchor_point` method with `start=False`.
@@ -778,12 +778,12 @@ class Mmif(MmifObject):
     def __getitem__(self, item: str) \
             -> Union[Document, View, Annotation, MmifMetadata, DocumentsList, ViewsList]:
         """
-        getitem implementation for Mmif. This will try to find any object, given an identifier or an immediate 
-        attribute name. When nothing is found, this will raise an error rather than returning a None 
+        getitem implementation for Mmif. This will try to find any object, given an identifier or an immediate
+        attribute name. When nothing is found, this will raise an error rather than returning a None
 
         :raises KeyError: if the item is not found or if the search results are ambiguous
-        :param item: an attribute name or an object identifier (a document ID, a view ID, or an annotation ID). When 
-                     annotation ID is given as a "short" ID (without view ID prefix), the method will try to find a 
+        :param item: an attribute name or an object identifier (a document ID, a view ID, or an annotation ID). When
+                     annotation ID is given as a "short" ID (without view ID prefix), the method will try to find a
                      match from the first view, and return immediately if found.
         :return: the object searched for
         :raise KeyError: if the item is not found or multiple objects are found with the same ID
@@ -813,3 +813,21 @@ class Mmif(MmifObject):
             raise KeyError("ID not found: %s" % item)
         else:
             return found[-1]
+
+    def get(self, key: str, default=None) -> Optional[Union[Document,
+                                                            View,
+                                                            Annotation,
+                                                            MmifMetadata,
+                                                            DocumentsList,
+                                                            ViewsList]]:
+        """
+        A get method that returns the default value if the key is not found.
+
+        :param key: the key to search for
+        :param default: the default value to return if the key is not found
+        :return: the value of the key, or the default value if the key is not found
+        """
+        try:
+            return self.__getitem__(key)
+        except KeyError:
+            return default

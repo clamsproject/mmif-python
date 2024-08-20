@@ -44,49 +44,49 @@ class MmifObject(object):
 
     1. _unnamed_attributes:
        Only can be either None or an empty dictionary. If it's set to None,
-       it means the class won't take any ``Additional Attributes`` in the 
-       JSON schema sense. If it's an empty dict, users can throw any k-v 
-       pairs to the class, as long as the key is not a "reserved" name, 
+       it means the class won't take any ``Additional Attributes`` in the
+       JSON schema sense. If it's an empty dict, users can throw any k-v
+       pairs to the class, as long as the key is not a "reserved" name,
        and those additional attributes will be stored in this dict while
-       in memory. 
+       in memory.
     2. _attribute_classes:
        This is a dict from a key name to a specific python class to use for
        deserialize the value. Note that a key name in this dict does NOT
        have to be a *named* attribute, but is recommended to be one.
     3. _required_attributes:
-       This is a simple list of names of attributes that are required in 
-       the object. When serialize, an object will skip its *empty* (e.g. 
-       zero-length, or None) attributes unless they are in this list. 
-       Otherwise, the serialized JSON string would have empty 
+       This is a simple list of names of attributes that are required in
+       the object. When serialize, an object will skip its *empty* (e.g.
+       zero-length, or None) attributes unless they are in this list.
+       Otherwise, the serialized JSON string would have empty
        representations (e.g. ``""``, ``[]``).
     4. _exclude_from_diff:
-       This is a simple list of names of attributes that should be excluded 
-       from the diff calculation in ``__eq__``. 
+       This is a simple list of names of attributes that should be excluded
+       from the diff calculation in ``__eq__``.
 
     # TODO (krim @ 8/17/20): this dict is however, a duplicate with the type hints in the class definition.
-    Maybe there is a better way to utilize type hints (e.g. getting them 
-    as a programmatically), but for now developers should be careful to 
+    Maybe there is a better way to utilize type hints (e.g. getting them
+    as a programmatically), but for now developers should be careful to
     add types to hints as well as to this dict.
 
     Also note that those special attributes MUST be set in the __init__()
     before calling super method, otherwise deserialization will not work.
 
     And also, a subclass that has one or more *named* attributes, it must
-    set those attributes in the __init__() before calling super method. 
-    When serializing a MmifObject, all *empty* attributes will be ignored, 
-    so for optional named attributes, you must leave the values empty 
-    (len == 0), but NOT None. Any None-valued named attributes will cause 
+    set those attributes in the __init__() before calling super method.
+    When serializing a MmifObject, all *empty* attributes will be ignored,
+    so for optional named attributes, you must leave the values empty
+    (len == 0), but NOT None. Any None-valued named attributes will cause
     issues with current implementation.
 
     :param mmif_obj: JSON string or `dict` to initialize an object.
      If not given, an empty object will be initialized, sometimes with
      an ID value automatically generated, based on its parent object.
     """
-    
+
     view_prefix: ClassVar[str] = 'v_'
     id_delimiter: ClassVar[str] = ':'
 
-    # these are the reserved names that cannot be used as attribute names, and 
+    # these are the reserved names that cannot be used as attribute names, and
     # they won't be serialized
     reserved_names: Set[str] = {
         'reserved_names',
@@ -274,9 +274,9 @@ class MmifObject(object):
 
     def __len__(self) -> int:
         """
-        Returns number of attributes that are not *empty*. 
+        Returns number of attributes that are not *empty*.
         """
-        return (sum([named in self and not self.is_empty(self[named]) for named in self._named_attributes()]) 
+        return (sum([named in self and not self.is_empty(self[named]) for named in self._named_attributes()])
                 + (len(self._unnamed_attributes) if self._unnamed_attributes else 0))
 
     def __setitem__(self, key, value) -> None:
@@ -307,12 +307,27 @@ class MmifObject(object):
             value = self.__dict__[key]
         elif self._unnamed_attributes is None:
             raise AttributeError(f"Additional properties are disallowed by {self.__class__}: {key}")
-        else: 
+        else:
             value = self._unnamed_attributes[key]
         if key not in self._required_attributes and self.is_empty(value):
             raise KeyError(f"Property not found: {key} (is it set?)")
-        else: 
+        else:
             return value
+
+    def get(self, key, default=None) -> Optional[Union['MmifObject', str, datetime]]:
+        """
+        The dict-like get(key, default) method.
+        If the key is not found, it returns the default value instead of raising KeyError.
+        Note: Although KeyError is not raised, AttributeError can be raised if the key is not disallowed.
+
+        :param key: the key to search for
+        :param default: the default value to return if the key is not found
+        :return: the value matching that key or the default value
+        """
+        try:
+            return self.__getitem__(key)
+        except KeyError:
+            return default
 
 
 class MmifObjectEncoder(json.JSONEncoder):
@@ -362,14 +377,14 @@ class DataList(MmifObject, Generic[T]):
         """
         Passes the input data into the internal deserializer.
         """
-        super().deserialize(mmif_json)  
+        super().deserialize(mmif_json)
 
     @staticmethod
     def _load_json(json_list: Union[list, str]) -> list:
         if type(json_list) is str:
             json_list = json.loads(json_list)
         return [MmifObject._load_json(obj) for obj in json_list]
-    
+
     def _deserialize(self, input_list: list) -> None:
         raise NotImplementedError()
 
@@ -492,6 +507,6 @@ class DataDict(MmifObject, Generic[T, S]):
 
     def __contains__(self, item):
         return item in self._items
-    
+
     def empty(self):
         self._items = {}

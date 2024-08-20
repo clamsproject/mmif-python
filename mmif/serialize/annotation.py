@@ -59,59 +59,59 @@ class Annotation(MmifObject):
         self.disallow_additional_properties()
         self._required_attributes = ["_type", "properties"]
         super().__init__(anno_obj)
-    
+
     def __hash__(self):
         return hash(self.serialize())
-    
+
     def _deserialize(self, input_dict: dict) -> None:
         self.at_type = input_dict.pop('_type', '')
         # TODO (krim @ 6/1/21): If annotation IDs must follow a certain string format,
         # (e.g. currently auto-generated IDs will always have "prefix"_"number" format)
-        # here is the place to parse formatted IDs and store prefixes in the parent mmif object. 
+        # here is the place to parse formatted IDs and store prefixes in the parent mmif object.
         # (see https://github.com/clamsproject/mmif/issues/64#issuecomment-849241309 for discussion)
         super()._deserialize(input_dict)
         for k, v in self.properties.items():
             self._add_prop_aliases(k, v)
-                            
+
     def _cache_alignment(self, alignment_ann: 'Annotation', alignedto_ann: 'Annotation') -> None:
         """
-        Cache alignment information. This cache will not be serialized. 
-        
+        Cache alignment information. This cache will not be serialized.
+
         :param alignment_ann: the Alignment annotation that has this annotation on one side
         :param alignedto_ann: the annotation that this annotation is aligned to (other side of Alignment)
         """
         self._alignments[alignment_ann] = alignedto_ann
-    
+
     def aligned_to_by(self, alignment: 'Annotation') -> Optional['Annotation']:
         """
-        Retrieves the other side of ``Alignment`` annotation that has this annotation on one side. 
-        
+        Retrieves the other side of ``Alignment`` annotation that has this annotation on one side.
+
         :param alignment: ``Alignment`` annotation that has this annotation on one side
-        :return: the annotation that this annotation is aligned to (other side of ``Alignment``), 
+        :return: the annotation that this annotation is aligned to (other side of ``Alignment``),
                  or None if this annotation is not used in the ``Alignment``.
         """
         return self._alignments.get(alignment)
-    
+
     def get_all_aligned(self) -> Iterator['Annotation']:
         """
         Generator to iterate through all alignments and aligned annotations. Note that this generator will yield
         the `Alignment` annotations as well. Every odd-numbered yield will be an `Alignment` annotation, and every
         even-numbered yield will be the aligned annotation. If there's a specific annotation type that you're looking
-        for, you need to filter the generated results outside. 
-        
+        for, you need to filter the generated results outside.
+
         :return: yields the alignment annotation and the aligned annotation.
                  The order is decided by the order of appearance of Alignment annotations in the MMIF
         """
         for alignment, aligned in self._alignments.items():
             yield alignment
             yield aligned
-        
-        
+
+
     def _add_prop_aliases(self, key_to_add, val_to_add):
         """
         Method to handle aliases of the same property.
-        Annotation property aliases were first introduced in MMIF 1.0.2, 
-        with addition of general `label` property to all `Annotation` 
+        Annotation property aliases were first introduced in MMIF 1.0.2,
+        with addition of general `label` property to all `Annotation`
         subtypes, and effectively deprecated `frameType` and `boxType`
         in `TimeFrame` and `BoundingBox` respectively.
         """
@@ -164,31 +164,31 @@ class Annotation(MmifObject):
     @id.setter
     def id(self, aid: str) -> None:
         self.properties.id = aid
-        
+
     @property
     def long_id(self) -> str:
         if self.parent is not None and len(self.parent) > 0:
             return f"{self.parent}{self.id_delimiter}{self.id}"
         else:
             return self.id
-    
+
     @long_id.setter
     def long_id(self, long_id: str) -> None:
         if self.id_delimiter in long_id:
             self.parent, self.id = long_id.split(self.id_delimiter)
         else:
             self.id = long_id
-    
+
     @staticmethod
     def check_prop_value_is_simple_enough(
             value: Union[PRMTV_TYPES, LIST_PRMTV, LIST_LIST_PRMTV, DICT_PRMTV, DICT_LIST_PRMTV]) -> bool:
-        
-        def json_primitives(x): 
+
+        def json_primitives(x):
             return isinstance(x, typing.get_args(PRMTV_TYPES))
-        
+
         def json_primitives_list(x):
             return isinstance(x, list) and all(map(json_primitives, x))
-        
+
         def json_primitives_list_of_list(x):
             return all(map(lambda elem: isinstance(elem, list), x) and map(json_primitives, [subelem for elem in x for subelem in elem]))
 
@@ -201,7 +201,7 @@ class Annotation(MmifObject):
                      value: Union[PRMTV_TYPES, LIST_PRMTV, LIST_LIST_PRMTV, DICT_PRMTV, DICT_LIST_PRMTV]) -> None:
         """
         Adds a property to the annotation's properties.
-        
+
         :param name: the name of the property
         :param value: the property's desired value
         :return: None
@@ -215,13 +215,22 @@ class Annotation(MmifObject):
         #                      f"(\"{name}\": \"{str(value)}\"")
         self._add_prop_aliases(name, value)
 
-    def get(self, prop_name: str) -> Union['AnnotationProperties', PRMTV_TYPES, LIST_PRMTV, LIST_LIST_PRMTV, DICT_PRMTV, DICT_LIST_PRMTV]:
+    def get_property(self, prop_name: str, default=None) -> Union['AnnotationProperties',
+                                                                  PRMTV_TYPES,
+                                                                  LIST_PRMTV,
+                                                                  LIST_LIST_PRMTV,
+                                                                  DICT_PRMTV,
+                                                                  DICT_LIST_PRMTV]:
         """
         A special getter for Annotation properties. This is to allow for
         directly accessing properties without having to go through the
-        properties object, or view-level annotation properties encoded in the 
-        ``view.metadata.contains`` dict. Note that the regular props will take 
+        properties object, or view-level annotation properties encoded in the
+        ``view.metadata.contains`` dict. Note that the regular props will take
         the priority over the ephemeral props when there are conflicts.
+
+        :param prop_name: the name of the property to retrieve
+        :param default: the default value to return if the property does not exist
+        :return: the value of the property, or the default value if it does not exist
         """
         if prop_name in {'at_type', '@type'}:
             return str(self._type)
@@ -232,27 +241,22 @@ class Annotation(MmifObject):
         elif prop_name in self._props_ephemeral:
             return self._props_ephemeral[prop_name]
         else:
-            raise KeyError(f"Property {prop_name} does not exist in this annotation.")
+            return default
 
-    get_property = get
-
-    def __getitem__(self, prop_name: str):
-        return self.get(prop_name)
-    
     def __contains__(self, item):
         try:
             self.get(item)
             return True
         except KeyError:
             return False
-    
+
     def _get_label(self) -> str:
         """
         Another prototypical method to handle property aliases.
-        See :meth:`.Annotation._add_prop_aliases` for more details on 
+        See :meth:`.Annotation._add_prop_aliases` for more details on
         what property aliases are.
-        Not recommended to use this method as `_add_prop_aliases` method 
-        is preferred. 
+        Not recommended to use this method as `_add_prop_aliases` method
+        is preferred.
         """
         if 'label' in self:
             return str(self.get('label'))
@@ -262,7 +266,7 @@ class Annotation(MmifObject):
             return str(self.get('boxType'))
         else:
             raise KeyError("No label found in this annotation.")
-    
+
     def is_document(self):
         return isinstance(self._type, DocumentTypesBase)
 
@@ -287,45 +291,45 @@ class Document(Annotation):
         self._props_original: DocumentProperties = DocumentProperties()
         self._props_pending: AnnotationProperties = AnnotationProperties()
         self.reserved_names.update(('_props_original', '_props_pending'))
-        
+
         self._type: Union[ThingTypesBase, DocumentTypesBase] = ThingTypesBase('')
         self.properties = self._props_original
         self.disallow_additional_properties()
         self._attribute_classes = {'properties': DocumentProperties}
         super().__init__(doc_obj)
-    
+
     def add_property(self, name: str,
                      value: Union[PRMTV_TYPES, LIST_PRMTV]
                      ) -> None:
         """
         Adds a property to the document's properties.
-        
-        Unlike the parent :class:`Annotation` class, added properties of a 
-        ``Document`` object can be lost during serialization unless it belongs 
-        to somewhere in a ``Mmif`` object. This is because we want to keep 
-        ``Document`` object as "read-only" as possible. Thus, if you want to add 
-        a property to a ``Document`` object, 
-        
-        * add the document to a ``Mmif`` object (either in the documents list or 
+
+        Unlike the parent :class:`Annotation` class, added properties of a
+        ``Document`` object can be lost during serialization unless it belongs
+        to somewhere in a ``Mmif`` object. This is because we want to keep
+        ``Document`` object as "read-only" as possible. Thus, if you want to add
+        a property to a ``Document`` object,
+
+        * add the document to a ``Mmif`` object (either in the documents list or
           in a view from the views list), or
         * directly write to ``Document.properties`` instead of using this method
-          (which is not recommended). 
-        
-        With the former method, the SDK will record the added property as a 
-        `Annotation` annotation object, separate from the original `Document` 
+          (which is not recommended).
+
+        With the former method, the SDK will record the added property as a
+        `Annotation` annotation object, separate from the original `Document`
         object. See :meth:`.Mmif.generate_capital_annotations()` for more.
-        
+
         A few notes to keep in mind:
-        
-        #. You can't overwrite an existing property of a ``Document`` object. 
-        #. A MMIF can have multiple ``Annotation`` objects with the same 
+
+        #. You can't overwrite an existing property of a ``Document`` object.
+        #. A MMIF can have multiple ``Annotation`` objects with the same
            property name but different values. When this happens, the SDK will
-           only keep the latest value (in order of appearances in views list) of 
+           only keep the latest value (in order of appearances in views list) of
            the property, effectively overwriting the previous values.
         """
         # we don't checking if this k-v already exists in _original (new props) or _ephemeral (read from existing MMIF)
         # because it is impossible to keep the _original updated when a new annotation is added (via `new_annotation`)
-        # without look across other views and top-level documents list. Also see 
+        # without look across other views and top-level documents list. Also see
         # ``mmif.serialize.mmif.Mmif.generate_capital_annotations`` for where the "de-duplication" happens.
         if name == "text":
             self.properties.text = Text(value)
@@ -339,14 +343,14 @@ class Document(Annotation):
             else:
                 super().add_property(name, value)
 
-    def get(self, prop_name):
+    def get_property(self, prop_name: str, default=None):
         """
         A special getter for Document properties. The major difference from
-        the super class's :py:meth:`Annotation.get` method is that Document 
-        class has one more set of *"pending"* properties, that are added after 
-        the Document object is created and will be serialized as a separate 
-        :py:class:`Annotation` object of which ``@type = Annotation``. The 
-        pending properties will take the priority over the regular properties 
+        the super class's :py:meth:`Annotation.get` method is that Document
+        class has one more set of *"pending"* properties, that are added after
+        the Document object is created and will be serialized as a separate
+        :py:class:`Annotation` object of which ``@type = Annotation``. The
+        pending properties will take the priority over the regular properties
         when there are conflicts.
         """
         if prop_name == 'id':
@@ -362,10 +366,8 @@ class Document(Annotation):
         elif prop_name in self._props_ephemeral:
             return self._props_ephemeral[prop_name]
         else:
-            return super().get(prop_name)
+            return super().get_property(prop_name, default)
 
-    get_property = get
-    
     @property
     def text_language(self) -> str:
         if self._type == DocumentTypes.TextDocument:
@@ -433,7 +435,7 @@ class Document(Annotation):
         To obtain the original value of the "path" part in the location string
         (before resolving), use ``properties.location_path_literal`` method.
         Returns None when no location is set.
-        
+
         :param nonexist_ok: if False, raise FileNotFoundError when the resolved path doesn't exist
         """
         return self.properties.location_path_resolved(nonexist_ok=nonexist_ok)
@@ -455,22 +457,22 @@ class AnnotationProperties(MmifObject, MutableMapping[str, T]):
                 else:
                     raise AttributeError(f'Cannot delete a required attribute "{key}"!')
         raise KeyError(f'Key "{key}" not found.')
-                
+
     def __iter__(self) -> Iterator[str]:
         """
-        ``__iter__`` on Mapping should basically work as ``keys()`` method 
+        ``__iter__`` on Mapping should basically work as ``keys()`` method
         of vanilla dict.
         """
         for key in itertools.chain(self._named_attributes(), self._unnamed_attributes):
             yield key
-                
-    def __getitem__(self, key):
+
+    def __getitem__(self, key: str) -> Optional[T]:
         """
-        Parent MmifObject class has a __getitem__ method that checks if 
-        the value is empty when asked for an unnamed attribute. But for 
-        AnnotationProperties, any arbitrary property that's added 
-        explicitly by the user (developer) should not be ignored and 
-        returned even the value is empty. 
+        Parent MmifObject class has a __getitem__ method that checks if
+        the value is empty when asked for an unnamed attribute. But for
+        AnnotationProperties, any arbitrary property that's added
+        explicitly by the user (developer) should not be ignored and
+        returned even the value is empty.
         """
         if key in self._named_attributes():
             return self.__dict__[key]
@@ -504,9 +506,9 @@ class DocumentProperties(AnnotationProperties):
         self.text: Text = Text()
         self._attribute_classes = {'text': Text}
         # in theory, either `location` or `text` should appear in a `document`
-        # but with current implementation, there's no easy way to set a condition 
-        # for `oneOf` requirement 
-        # see MmifObject::_required_attributes in model.py 
+        # but with current implementation, there's no easy way to set a condition
+        # for `oneOf` requirement
+        # see MmifObject::_required_attributes in model.py
         super().__init__(mmif_obj)
 
     def _deserialize(self, input_dict: dict) -> None:
@@ -519,7 +521,7 @@ class DocumentProperties(AnnotationProperties):
         if "location_" in serialized:
             serialized["location"] = serialized.pop("location_")
         return serialized
-    
+
     @property
     def text_language(self) -> str:
         return self.text.lang
@@ -539,8 +541,8 @@ class DocumentProperties(AnnotationProperties):
     @property
     def location(self) -> Optional[str]:
         """
-        ``location`` property must be a legitimate URI. That is, should the document be a local file 
-        then the file:// scheme must be used. 
+        ``location`` property must be a legitimate URI. That is, should the document be a local file
+        then the file:// scheme must be used.
         Returns None when no location is set.
         """
         return self.location_ if len(self.location_) > 0 else None
@@ -578,14 +580,14 @@ class DocumentProperties(AnnotationProperties):
     def location_path(self) -> Optional[str]:
         warnings.warn('location_path() is deprecated. Use location_path_resolved() instead.', DeprecationWarning)
         return self.location_path_resolved()
-    
+
     def location_path_resolved(self, nonexist_ok=True) -> Optional[str]:
         """
-        Retrieves only path name of the document location (hostname is ignored), 
+        Retrieves only path name of the document location (hostname is ignored),
         and then try to resolve the path name in the local file system.
         This method should be used when the document scheme is ``file`` or empty.
         For other schemes, users should install ``mmif-locdoc-<scheme>`` plugin.
-        
+
         Returns None when no location is set.
         Raise ValueError when no code found to resolve the given location scheme.
         """
@@ -605,7 +607,7 @@ class DocumentProperties(AnnotationProperties):
 
     def location_path_literal(self) -> Optional[str]:
         """
-        Retrieves only path name of the document location (hostname is ignored). 
+        Retrieves only path name of the document location (hostname is ignored).
         Returns None when no location is set.
         """
         if self.location is None:

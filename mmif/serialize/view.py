@@ -37,7 +37,7 @@ class View(MmifObject):
         self._parent_mmif = parent_mmif
         self.reserved_names.update(("_parent_mmif", "_id_counts"))
         self._exclude_from_diff = {"_id_counts"}
-        
+
         self.id: str = ''
         self.metadata: ViewMetadata = ViewMetadata()
         self.annotations: AnnotationsList = AnnotationsList()
@@ -63,7 +63,7 @@ class View(MmifObject):
             raise ValueError("@type must not be empty.")
         else:
             return self.metadata.new_contain(at_type, **contains_metadata)
-    
+
     def _set_ann_id(self, annotation: Annotation, identifier):
         if identifier is not None:
             annotation.id = identifier
@@ -73,8 +73,8 @@ class View(MmifObject):
             new_id = f'{prefix}_{new_num}'
             self._id_counts[prefix] = new_num
             annotation.id = new_id
-    
-    def new_annotation(self, at_type: Union[str, ThingTypesBase], aid: Optional[str] = None, 
+
+    def new_annotation(self, at_type: Union[str, ThingTypesBase], aid: Optional[str] = None,
                        overwrite=False, **properties) -> 'Annotation':
         """
         Generates a new :class:`mmif.serialize.annotation.Annotation`
@@ -84,9 +84,9 @@ class View(MmifObject):
         in the view, unless ``overwrite`` is set to True.
 
         :param at_type: the desired ``@type`` of the annotation.
-        :param aid: the desired ID of the annotation, when not given, 
-                    the mmif SDK tries to automatically generate an ID based on 
-                    Annotation type and existing annotations in the view. 
+        :param aid: the desired ID of the annotation, when not given,
+                    the mmif SDK tries to automatically generate an ID based on
+                    Annotation type and existing annotations in the view.
         :param overwrite: if set to True, will overwrite an
                           existing annotation with the same ID.
         :raises KeyError: if ``overwrite`` is set to False and
@@ -125,8 +125,8 @@ class View(MmifObject):
         if annotation.at_type == AnnotationTypes.Alignment:
             self._parent_mmif._cache_alignment(annotation)
         return annotation
-    
-    def new_textdocument(self, text: str, lang: str = "en", did: Optional[str] = None, 
+
+    def new_textdocument(self, text: str, lang: str = "en", did: Optional[str] = None,
                          overwrite=False, **properties) -> 'Document':
         """
         Generates a new :class:`mmif.serialize.annotation.Document`
@@ -137,9 +137,9 @@ class View(MmifObject):
 
         :param text: text content of the new document
         :param lang: ISO 639-1 code of the language used in the new document
-        :param did: the desired ID of the document, when not given, 
-                    the mmif SDK tries to automatically generate an ID based on 
-                    Annotation type and existing documents in the view. 
+        :param did: the desired ID of the document, when not given,
+                    the mmif SDK tries to automatically generate an ID based on
+                    Annotation type and existing documents in the view.
         :param overwrite: if set to True, will overwrite an
                           existing document with the same ID
         :raises KeyError: if ``overwrite`` is set to False and
@@ -170,7 +170,7 @@ class View(MmifObject):
         """
         return self.add_annotation(document, overwrite)
 
-    def get_annotations(self, at_type: Optional[Union[str, ThingTypesBase]] = None, 
+    def get_annotations(self, at_type: Optional[Union[str, ThingTypesBase]] = None,
                         **properties) -> Generator[Annotation, None, None]:
         """
         Look for certain annotations in this view, specified by parameters
@@ -186,10 +186,10 @@ class View(MmifObject):
         for annotation in self.annotations:
             at_type_metadata = self.metadata.contains.get(annotation.at_type, {})
             if not at_type or (at_type and annotation.at_type == at_type):
-                if all(map(lambda kv: prop_check(kv[0], kv[1], annotation.properties, at_type_metadata), 
+                if all(map(lambda kv: prop_check(kv[0], kv[1], annotation.properties, at_type_metadata),
                            properties.items())):
                     yield annotation
-    
+
     def get_annotation_by_id(self, ann_id) -> Annotation:
         if self.id_delimiter in ann_id and not ann_id.startswith(self.id):
             try:
@@ -205,7 +205,7 @@ class View(MmifObject):
                 raise KeyError(f"Annotation \"{ann_id}\" is not found in view {self.id}.")
         else:
             return ann_found
-        
+
     def get_documents(self) -> List[Document]:
         return [cast(Document, annotation) for annotation in self.annotations if annotation.is_document()]
 
@@ -238,15 +238,28 @@ class View(MmifObject):
         if not anno_result:
             raise KeyError("Annotation ID not found: %s" % key)
         return anno_result
-    
+
+    def get(self, key: str, default=None) -> Optional['Annotation']:
+        """
+        get implementation for View.
+
+        :param key: the search string.
+        :param default: the default value to return if the key is not found
+        :return: the :class:`mmif.serialize.annotation.Annotation` object searched for
+        """
+        try:
+            return self.__getitem__(key)
+        except KeyError:
+            return default
+
     def set_error(self, err_message: str, err_trace: str) -> None:
         self.metadata.set_error(err_message, err_trace)
         self.annotations.empty()
-    
+
     def get_error(self) -> Optional[str]:
         """
-        Get the "text" representation of the error occurred during 
-        processing. Text representation is supposed to be human-readable. 
+        Get the "text" representation of the error occurred during
+        processing. Text representation is supposed to be human-readable.
         When ths view does not have any error, returns None.
         """
         if self.has_error():
@@ -283,26 +296,26 @@ class ViewMetadata(MmifObject):
             'contains': ContainsDict
         }
         # in theory, *oneOf* `contains`, `error`, or `warnings` should appear in a `view`
-        # but with current implementation, there's no easy way to set a condition 
-        # for `oneOf` requirement 
-        # see MmifObject::_required_attributes in model.py 
+        # but with current implementation, there's no easy way to set a condition
+        # for `oneOf` requirement
+        # see MmifObject::_required_attributes in model.py
         # also see this class' `_serialize()` override implementation
         super().__init__(viewmetadata_obj)
 
     def _serialize(self, alt_container: Optional[Dict] = None) -> dict:
         serialized = super()._serialize()
-        # `_serialize()` eliminates any *empty* attributes, so 
+        # `_serialize()` eliminates any *empty* attributes, so
         # when no "contains", "errors", nor "warnings", at least add an empty contains back
         if not (self.contains.items() or self.error or self.warnings):
             serialized['contains'] = {}
         return serialized
-    
+
     def has_error(self) -> bool:
         return len(self.error) > 0
-    
+
     def has_warnings(self):
         return len(self.warnings) > 0
-    
+
     def get_error_as_text(self) -> str:
         if self.has_error():
             if isinstance(self.error, ErrorDict):
@@ -313,7 +326,7 @@ class ViewMetadata(MmifObject):
                 return f"Error (unknown error format): {self.error}"
         else:
             raise KeyError(f"No error found")
-            
+
     def new_contain(self, at_type: Union[str, ThingTypesBase], **contains_metadata) -> Optional['Contain']:
         """
         Adds a new element to the ``contains`` dictionary.
@@ -324,12 +337,12 @@ class ViewMetadata(MmifObject):
         """
         if isinstance(at_type, str):
             at_type = ThingTypesBase.from_str(at_type)
-            
+
         if at_type not in self.contains:
             new_contain = Contain(contains_metadata)
             self.add_contain(new_contain, at_type)
             return new_contain
-    
+
     def add_contain(self, contain: 'Contain', at_type: Union[str, ThingTypesBase]) -> None:
         self.contains[at_type] = contain
 
@@ -371,11 +384,11 @@ class ViewMetadata(MmifObject):
             return self.parameters[param_key]
         except KeyError:
             raise KeyError(f"parameter \"{param_key}\" is not set in the view: {self.serialize()}")
-    
+
     def set_error(self, message: str, stack_trace: str):
         self.error = ErrorDict({"message": message, "stackTrace": stack_trace})
         self.contains.empty()
-    
+
     def add_warnings(self, *warnings: Warning):
         for warning in warnings:
             self.warnings.append(f'{warning.__class__.__name__}: {" - ".join(warning.args)}')
@@ -386,16 +399,16 @@ class ViewMetadata(MmifObject):
 
 class ErrorDict(MmifObject):
     """
-    Error object that stores information about error occurred during processing. 
+    Error object that stores information about error occurred during processing.
     """
     def __init__(self, error_obj: Optional[Union[bytes, str, dict]] = None, *_) -> None:
         self.message: str = ''
         self.stackTrace: str = ''
         super().__init__(error_obj)
-    
+
     def __str__(self):
         return f"({self.message})\n\n{self.stackTrace}"
-        
+
 
 class Contain(DataDict[str, str]):
     """
@@ -440,11 +453,11 @@ class AnnotationsList(DataList[Union[Annotation, Document]]):
         :return: None
         """
         super()._append_with_key(value.id, value, overwrite)
-        
+
     def __getitem__(self, key: str):
         """
         specialized getter implementation to workaround https://github.com/clamsproject/mmif/issues/228
-        # TODO (krim @ 7/12/24): annotation ids must be in the long form in the future, so this check will be unnecessary once https://github.com/clamsproject/mmif/issues/228 is resolved. 
+        # TODO (krim @ 7/12/24): annotation ids must be in the long form in the future, so this check will be unnecessary once https://github.com/clamsproject/mmif/issues/228 is resolved.
         """
         if ":" in key:
             _, aid = key.split(":")
@@ -465,12 +478,12 @@ class ContainsDict(DataDict[ThingTypesBase, Contain]):
             if isinstance(k, str):
                 k = ThingTypesBase.from_str(k)
             self._append_with_key(k, v, overwrite=overwrite)
-            
+
     def get(self, key: Union[str, ThingTypesBase], default=None):
         if isinstance(key, str):
             key = ThingTypesBase.from_str(key)
         return self._items.get(key, default)
-    
+
     def __contains__(self, item: Union[str, ThingTypesBase]):
         if isinstance(item, str):
             string_keys = [str(k) for k in self._items.keys()]
