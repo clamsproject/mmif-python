@@ -1,3 +1,4 @@
+import pathlib
 import unittest
 
 import pytest
@@ -31,7 +32,7 @@ class TestVideoDocumentHelper(unittest.TestCase):
             "properties": {
                 "mime": "video",
                 "id": "d1",
-                "location": "file:///home/snewman/Documents/test_vid.mp4"
+                "location": f"file://{pathlib.Path(__file__).parent}/black-2997fps.mp4"
             }
         })
         self.video_doc.add_property('fps', self.fps)
@@ -105,7 +106,7 @@ class TestVideoDocumentHelper(unittest.TestCase):
         for times in zip((3.337, 6.674), vdh.convert_timeframe(self.mmif_obj, timeframe_ann, 's')):
             self.assertAlmostEqual(*times, places=0)
 
-    def test_extract_frams_as_images(self):
+    def test_extract_frames_as_images(self):
         frame_list = [5, 10, 15]
         target_images = vdh.extract_frames_as_images(self.video_doc, frame_list, as_PIL=False)
         self.assertEqual(3, len(target_images))
