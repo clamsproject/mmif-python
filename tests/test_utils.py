@@ -1,3 +1,4 @@
+import pathlib
 import unittest
 
 import pytest
@@ -31,7 +32,7 @@ class TestVideoDocumentHelper(unittest.TestCase):
             "properties": {
                 "mime": "video",
                 "id": "d1",
-                "location": "file:///home/snewman/Documents/test_vid.mp4"
+                "location": f"file://{pathlib.Path(__file__).parent}/black-2997fps.mp4"
             }
         })
         self.video_doc.add_property('fps', self.fps)
@@ -102,6 +103,23 @@ class TestVideoDocumentHelper(unittest.TestCase):
         timeframe_ann = self.a_view.new_annotation(AnnotationTypes.TimeFrame, start=100, end=200)
         for times in zip((3.337, 6.674), vdh.convert_timeframe(self.mmif_obj, timeframe_ann, 's')):
             self.assertAlmostEqual(*times, places=0)
+
+    def test_extract_frames_as_images(self):
+        frame_list = [5, 10, 15]
+        target_images = vdh.extract_frames_as_images(self.video_doc, frame_list, as_PIL=False)
+        self.assertEqual(3, len(target_images))
+        # check if the extract_frames_as_images destroy the input frame list
+        self.assertEqual(3, len(frame_list))
+        # check return empty list if the frame list is empty
+        empty_flist = []
+        empty_target_images = vdh.extract_frames_as_images(self.video_doc, empty_flist, as_PIL=False)
+        self.assertEqual([], empty_target_images)
+        # check there is an error if there is a frame in the list that does not exist
+        tot_fcount = self.video_doc.get_property('frameCount')
+        frame_list.append(tot_fcount + 1)
+        new_target_images = vdh.extract_frames_as_images(self.video_doc, frame_list, as_PIL=False)
+        self.assertEqual(4, len(frame_list))
+        self.assertEqual(3, len(new_target_images))
 
 
 class TestSequenceHelper(unittest.TestCase):

@@ -1,18 +1,28 @@
 mmif.vocabulary module
 ======================
 
-mmif.vocabulary.annotation\_types module
-----------------------------------------
+Module contains Enum-like classes for CLAMS vocabulary.
 
-.. automodule:: mmif.vocabulary.annotation_types
+.. autoclass:: mmif.vocabulary.ThingTypesBase
+   :show-inheritance:
+.. autoclass:: mmif.vocabulary.ThingType
    :members:
    :undoc-members:
    :show-inheritance:
 
-mmif.vocabulary.document\_types module
---------------------------------------
+.. autoclass:: mmif.vocabulary.ClamsTypesBase
+   :show-inheritance:
+.. autoclass:: mmif.vocabulary.AnnotationTypesBase
+   :show-inheritance:
+.. autoclass:: mmif.vocabulary.DocumentTypesBase
+   :show-inheritance:
 
-.. automodule:: mmif.vocabulary.document_types
+.. autoclass:: mmif.vocabulary.AnnotationTypes
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+.. autoclass:: mmif.vocabulary.DocumentTypes
    :members:
    :undoc-members:
    :show-inheritance:
