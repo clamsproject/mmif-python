@@ -123,17 +123,6 @@ class ViewsList(DataList[View]):
             if 'error' not in view.metadata and 'warnings' not in view.metadata:
                 return view
 
-    def get_last_view(self) -> Optional[View]:
-        """
-        Returns the last view appended.
-        """
-        if self._items:
-            return self._items[list(self._items.keys())[-1]]
-
-    def get_last(self) -> Optional[View]:
-        warnings.warn('get_last() is deprecated, use get_last_contentful_view() instead.', DeprecationWarning)
-        return self.get_last_contentful_view()
-
 
 class Mmif(MmifObject):
     """
@@ -256,7 +245,7 @@ class Mmif(MmifObject):
                     self._cache_alignment(ann)
 
     def _cache_alignment(self, alignment_ann: Annotation):
-        view = self.views.get(alignment_ann.parent)
+        view = self.views.get_item(alignment_ann.parent)
         if view is None:
             warnings.warn(f"Alignment {alignment_ann.long_id} doesn't have a parent view, but it should.", RuntimeWarning)
             return
@@ -355,7 +344,7 @@ class Mmif(MmifObject):
                         props[k] = v
                 if props:
                     view_to_write = last_view_for_docs[doc_id]
-                    if view_to_write.metadata.app == current_app and view_to_write.annotations.get(doc_id) is not None:
+                    if view_to_write.metadata.app == current_app and view_to_write.annotations.get_item(doc_id) is not None:
                         view_to_write.get_document_by_id(doc_id).properties.update(props)
                     else:
                         if len(anns_to_write) == 1:
@@ -446,7 +435,7 @@ class Mmif(MmifObject):
         :param vid: the source view ID to search for
         :return: a list of documents matching the requested source view ID, or an empty list if the view not found
         """
-        view = self.views.get(vid)
+        view = self.views.get_item(vid)
         if view is not None:
             return view.get_documents()
         else:
@@ -490,7 +479,7 @@ class Mmif(MmifObject):
         docs = []
         for view in self.views:
             for doc in view.get_documents():
-                if prop_key in doc and doc.get(prop_key) == prop_value:
+                if prop_key in doc and doc.get_property(prop_key) == prop_value:
                     docs.append(doc)
         docs.extend([document for document in self.documents if document[prop_key] == prop_value])
         return docs
@@ -536,7 +525,7 @@ class Mmif(MmifObject):
             else:
                 raise KeyError("{} view not found".format(vid))
         else:
-            doc_found = self.documents.get(doc_id)
+            doc_found = self.documents.get_item(doc_id)
         if doc_found is None:
             raise KeyError("{} document not found".format(doc_id))
         return cast(Document, doc_found)
@@ -549,7 +538,7 @@ class Mmif(MmifObject):
         :return: a reference to the corresponding view, if it exists
         :raises Exception: if there is no corresponding view
         """
-        result = self.views.get(req_view_id)
+        result = self.views.get_item(req_view_id)
         if result is None:
             raise KeyError("{} view not found".format(req_view_id))
         return result
@@ -795,14 +784,14 @@ class Mmif(MmifObject):
         found = []
 
         if len(split_attempt) == 1:
-            found.append(self.documents.get(split_attempt[0]))
-            found.append(self.views.get(split_attempt[0]))
+            found.append(self.documents.get_item(split_attempt[0]))
+            found.append(self.views.get_item(split_attempt[0]))
             for view in self.views:
-                found.append(view.annotations.get(split_attempt[0]))
+                found.append(view.annotations.get_item(split_attempt[0]))
         elif len(split_attempt) == 2:
             v = self.get_view_by_id(split_attempt[0])
             if v is not None:
-                found.append(v.annotations.get(split_attempt[1]))
+                found.append(v.annotations.get_item(split_attempt[1]))
         else:
             raise KeyError("Tried to subscript into a view that doesn't exist")
         found = [x for x in found if x is not None]

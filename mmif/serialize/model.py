@@ -14,7 +14,8 @@ for the different components of MMIF is added in the subclasses.
 
 import json
 from datetime import datetime
-from typing import Union, Any, Dict, Optional, TypeVar, Generic, Generator, Iterator, Type, Set, ClassVar
+from collections import OrderedDict
+from typing import Union, Any, Dict, Optional, TypeVar, Generic, Generator, Iterator, Type, Set, ClassVar, List
 
 from deepdiff import DeepDiff
 
@@ -325,7 +326,7 @@ class MmifObject(object):
         :return: the value matching that key or the default value
         """
         try:
-            return self.__getitem__(key)
+            return self[key]
         except KeyError:
             return default
 
@@ -388,18 +389,24 @@ class DataList(MmifObject, Generic[T]):
     def _deserialize(self, input_list: list) -> None:
         raise NotImplementedError()
 
-    def get(self, key: str) -> Optional[T]:
+    def get_item(self, key: str) -> Optional[T]:
         """
-        Standard dictionary-style get() method, albeit with no ``default``
-        parameter. Relies on the implementation of __getitem__.
-
-        Will return ``None`` if the key is not found.
+        Mimic to standard dictionary-style get() method,
+        albeit with no ``default`` parameter (which will return ``None``).
+        However, it doesn't rely on the implementation of __getitem__,
+        so it can be understood as a backdoor underneath the list property of the class.
 
         :param key: the key to search for
         :return: the value matching that key
         """
+        key_id = None
+        if ":" in key:
+            _, key_id = key.split(":")
         try:
-            return self[key]
+            if key_id:
+                return self._items[key_id]
+            else:
+                return self._items[key]
         except KeyError:
             return None
 
@@ -426,28 +433,51 @@ class DataList(MmifObject, Generic[T]):
     def append(self, value, overwrite):
         raise NotImplementedError()
 
-    def __getitem__(self, key: str) -> T:
-        if key not in self.reserved_names:
-            return self._items.__getitem__(key)
-        else:
-            raise KeyError("Don't use __getitem__ to access a reserved name")
+    def __getitem__(self, index: int) -> T:
+        """
+        Index-based access for list-like behavior.
 
-    def __setitem__(self, key: str, value: T):
-        if key not in self.reserved_names:
-            self._items.__setitem__(key, value)
-        else:
-            super().__setitem__(key, value)
+        FIXME:
+        --------
+        Since this implementation makes use of python's built-in list,
+        I didn't explicitly handle the `IndexError` manually. Instead,
+        I depended on the built-in list's behavior to raise the error.
+        --------
+
+        :param idx: the index of the item to access
+        :return: the item at the specified index
+        """
+        return list(self._items.values()).__getitem__(index)
+
+    def __setitem__(self, index: int, value: T) -> None:
+        """
+        Set up the item at the specified index.
+
+        IMPORTANT:
+        --------
+        For any subclass that needs to implement this method, it's list-like but
+        assumed to be read-only. That's to say, once the data list is built, the
+        items are not supposed to be changed. If any attempt that changes the items,
+        an error would be raised by this method.
+        --------
+
+        :param index: the index of the item to set
+        :param value: the value to set at the specified index
+
+        :raise TypeError: the list is assumed to be read-only
+        """
+        raise TypeError("The list is read-only.")
 
     def __iter__(self) -> Iterator[T]:
-        return self._items.values().__iter__()
+        return self._items.__iter__()
 
     def __len__(self) -> int:
         return self._items.__len__()
 
     def __reversed__(self) -> Iterator[T]:
-        return reversed(self._items.values())
+        return reversed(self._items)
 
-    def __contains__(self, item) -> bool:
+    def __contains__(self, item: T) -> bool:
         return item in self._items
 
     def empty(self):

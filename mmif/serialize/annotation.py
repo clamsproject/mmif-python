@@ -259,11 +259,11 @@ class Annotation(MmifObject):
         is preferred.
         """
         if 'label' in self:
-            return str(self.get('label'))
+            return str(self.get_property('label'))
         elif self._type.shortname == 'TimeFrame' and 'frameType' in self:
-            return str(self.get('frameType'))
+            return str(self.get_property('frameType'))
         elif self._type.shortname == 'BoundingBox' and 'boxType' in self:
-            return str(self.get('boxType'))
+            return str(self.get_property('boxType'))
         else:
             raise KeyError("No label found in this annotation.")
 

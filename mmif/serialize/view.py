@@ -197,7 +197,7 @@ class View(MmifObject):
             except KeyError:
                 ann_found = None
         else:
-            ann_found = self.annotations.get(ann_id.split(self.id_delimiter)[-1])
+            ann_found = self.annotations.get_item(ann_id.split(self.id_delimiter)[-1])
         if ann_found is None or not isinstance(ann_found, Annotation):
             if self.id_delimiter in ann_id:
                 raise KeyError(f"Annotation \"{ann_id}\" is not found in the MMIF.")
@@ -210,7 +210,7 @@ class View(MmifObject):
         return [cast(Document, annotation) for annotation in self.annotations if annotation.is_document()]
 
     def get_document_by_id(self, doc_id) -> Document:
-        doc_found = self.annotations.get(doc_id)
+        doc_found = self.annotations.get_item(doc_id)
         if doc_found is None or not isinstance(doc_found, Document):
             raise KeyError(f"Document \"{doc_id}\" not found in view {self.id}.")
         else:
@@ -234,7 +234,7 @@ class View(MmifObject):
         """
         if key in self._named_attributes():
             return self.__dict__[key]
-        anno_result = self.annotations.get(key)
+        anno_result = self.annotations.get_item(key)
         if not anno_result:
             raise KeyError("Annotation ID not found: %s" % key)
         return anno_result
@@ -453,16 +453,6 @@ class AnnotationsList(DataList[Union[Annotation, Document]]):
         :return: None
         """
         super()._append_with_key(value.id, value, overwrite)
-
-    def __getitem__(self, key: str):
-        """
-        specialized getter implementation to workaround https://github.com/clamsproject/mmif/issues/228
-        # TODO (krim @ 7/12/24): annotation ids must be in the long form in the future, so this check will be unnecessary once https://github.com/clamsproject/mmif/issues/228 is resolved.
-        """
-        if ":" in key:
-            _, aid = key.split(":")
-            return self._items.__getitem__(aid)
-        return self._items.get(key, None)
 
 
 class ContainsDict(DataDict[ThingTypesBase, Contain]):
