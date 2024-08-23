@@ -330,8 +330,8 @@ class TestMmif(unittest.TestCase):
         for vid, alignments in views_and_alignments.items():
             v = mmif_obj.get_view_by_id(vid)
             for alignment in alignments:
-                s = v.get_annotation_by_id(alignment.get('source'))
-                t = v.get_annotation_by_id(alignment.get('target'))
+                s = v.get_annotation_by_id(alignment.get_property('source'))
+                t = v.get_annotation_by_id(alignment.get_property('target'))
                 self.assertTrue(s.aligned_to_by(alignment).long_id.endswith(t.long_id))
                 self.assertTrue(t.aligned_to_by(alignment).long_id.endswith(s.long_id))
 
@@ -500,9 +500,14 @@ class TestMmif(unittest.TestCase):
         self.assertEqual(a._get_label(), "text")
         a = v.new_annotation(AnnotationTypes.BoundingBox, boxType="text")
         self.assertEqual(a._get_label(), "text")
-        with self.assertRaises(KeyError):
-            a = v.new_annotation(AnnotationTypes.BoundingBox)
-            _ = a._get_label()
+
+        # NOTE:
+        # In PR #304 (https://github.com/clamsproject/mmif-python/pull/304):
+        # ``get_property`` no longer raise ``KeyError``
+
+        # with self.assertRaises(KeyError):
+        #     a = v.new_annotation(AnnotationTypes.BoundingBox)
+        #     _ = a._get_label()
 
     def test_get_anchor_point(self):
         mmif = Mmif(validate=False)
@@ -582,7 +587,7 @@ class TestGetItem(unittest.TestCase):
     def test_mmif_getitem_document(self):
         try:
             m1 = self.mmif_obj['m1']
-            self.assertIs(m1, self.mmif_obj.documents.get('m1'))
+            self.assertIs(m1, self.mmif_obj.documents.get_item('m1'))
         except TypeError:
             self.fail("__getitem__ not implemented")
         except KeyError:
@@ -614,7 +619,7 @@ class TestGetItem(unittest.TestCase):
     def test_mmif_getitem_view(self):
         try:
             v1 = self.mmif_obj['v1']
-            self.assertIs(v1, self.mmif_obj.views.get('v1'))
+            self.assertIs(v1, self.mmif_obj.views.get_item('v1'))
         except TypeError:
             self.fail("__getitem__ not implemented")
         except KeyError:
@@ -623,7 +628,7 @@ class TestGetItem(unittest.TestCase):
     def test_mmif_getitem_annotation(self):
         try:
             v1_bb1 = self.mmif_obj['v5:bb1']
-            self.assertIs(v1_bb1, self.mmif_obj.views.get('v5').annotations.get('bb1'))
+            self.assertIs(v1_bb1, self.mmif_obj.views.get_item('v5').annotations.get_item('bb1'))
         except TypeError:
             self.fail("__getitem__ not implemented")
         except KeyError:
@@ -653,7 +658,7 @@ class TestGetItem(unittest.TestCase):
     def test_view_getitem(self):
         try:
             s1 = self.mmif_obj['v1:s1']
-            self.assertIs(s1, self.mmif_obj.get_view_by_id('v1').annotations.get('s1'))
+            self.assertIs(s1, self.mmif_obj.get_view_by_id('v1').annotations.get_item('s1'))
         except TypeError:
             self.fail("__getitem__ not implemented")
         except KeyError:
@@ -780,7 +785,7 @@ class TestView(unittest.TestCase):
         self.assertTrue(td1.properties.text_value == td1.text_value)
         self.assertNotEqual(td1.text_language, td2.text_language)
         self.assertEqual(english_text, td1.text_value)
-        self.assertEqual(td1, self.view_obj.annotations.get(td1.id))
+        self.assertEqual(td1, self.view_obj.annotations.get_item(td1.id))
         td3 = self.view_obj.new_textdocument(english_text, mime='plain/text')
         self.assertEqual(td1.text_value, td3.text_value)
         self.assertEqual(len(td1.properties), len(td3.properties) - 1)
@@ -937,8 +942,8 @@ class TestAnnotation(unittest.TestCase):
                 'empty_lst_prop': []
             }
         })
-        self.assertEqual(a['empty_str_prop'], "")
-        self.assertEqual(a['empty_lst_prop'], [])
+        self.assertEqual(a.get_property('empty_str_prop'), "")
+        self.assertEqual(a.get_property('empty_lst_prop'), [])
         self.assertEqual(4, len(a.properties.keys()))
         a_serialized = a.serialize()
         json.loads(a_serialized)
@@ -976,7 +981,7 @@ class TestAnnotation(unittest.TestCase):
                 props.pop(removed_prop_key)
                 try:
                     new_mmif = Mmif(datum['json'])
-                    new_mmif.get_view_by_id(view_id).annotations[anno_id].add_property(removed_prop_key, removed_prop_value)
+                    new_mmif.get_view_by_id(view_id).annotations.get_item(anno_id).add_property(removed_prop_key, removed_prop_value)
                     self.assertEqual(json.loads(datum['string'])['views'][j],
                                      json.loads(new_mmif.serialize())['views'][j],
                                      f'Failed on {i}, {view_id}')
@@ -990,8 +995,6 @@ class TestAnnotation(unittest.TestCase):
         self.assertEqual(a.properties['prop1'], 'value1')
         self.assertEqual(a['properties']['prop1'], 'value1')
         self.assertEqual(a.get_property('prop1'), 'value1')
-        self.assertEqual(a['prop1'], 'value1')
-        self.assertEqual(a.id, a['id'])
         self.assertEqual(a.id, a.get_property('id'))
     
     def test_get_property_with_alias(self):
@@ -1109,7 +1112,7 @@ class TestDocument(unittest.TestCase):
         # `mime` is a special prop and shouldn't be added to "temporary" props
         doc1.add_property('mime', 'text')
         doc1_roundtrip = Document(doc1.serialize())
-        self.assertTrue(doc1_roundtrip.get('mime'), 'text')
+        self.assertTrue(doc1_roundtrip.get_property('mime'), 'text')
         # but a generic prop should be added to "temporary" props
         # ("temporary" props dict will be lost after `Document`-level serialization)
         doc1.add_property('author', 'me')
@@ -1178,9 +1181,9 @@ class TestDocument(unittest.TestCase):
         doc1.add_property('publisher', 'they')
         self.assertEqual(2, len(doc1._props_pending))
         mmif_roundtrip3 = Mmif(mmif_roundtrip2.serialize())
-        r0_v_anns = list(mmif_roundtrip3.views[r0_vid].get_annotations(AnnotationTypes.Annotation))
-        r1_v_anns = list(mmif_roundtrip3.views[r1_vid].get_annotations(AnnotationTypes.Annotation))
-        r2_v_anns = list(mmif_roundtrip3.views[r2_vid].get_annotations(AnnotationTypes.Annotation))
+        r0_v_anns = list(mmif_roundtrip3.views.get_item(r0_vid).get_annotations(AnnotationTypes.Annotation))
+        r1_v_anns = list(mmif_roundtrip3.views.get_item(r1_vid).get_annotations(AnnotationTypes.Annotation))
+        r2_v_anns = list(mmif_roundtrip3.views.get_item(r2_vid).get_annotations(AnnotationTypes.Annotation))
         # two props (`author` and `publisher`) are serialized to one `Annotation` objects
         self.assertEqual(1, len(r0_v_anns))  
         self.assertEqual(0, len(r1_v_anns))
@@ -1266,7 +1269,7 @@ class TestDocument(unittest.TestCase):
             mmif.get_document_by_id(f'doc{i+1}').add_property('author', authors[i])
         mmif_roundtrip = Mmif(mmif.serialize())
         for i in range(1, 3):
-            cap_anns = list(mmif_roundtrip.views[f'v{i}'].get_annotations(AnnotationTypes.Annotation))
+            cap_anns = list(mmif_roundtrip.views.get_item(f'v{i}').get_annotations(AnnotationTypes.Annotation))
             self.assertEqual(1, len(cap_anns))
             self.assertEqual(authors[i-1], cap_anns[0].get_property('author'))
             
@@ -1343,16 +1346,16 @@ class TestDataStructure(unittest.TestCase):
         self.mmif_obj = Mmif(MMIF_EXAMPLES['everything'])
         self.datalist = self.mmif_obj.views
 
-    def test_setitem(self):
-        self.datalist['v1'] = View({'id': 'v1'})
-        self.datalist['v2'] = View({'id': 'v2'})
+    def test_setitem_raise(self):
+        with self.assertRaises(TypeError):
+            self.datalist[0] = View({'id': 'v1'})
 
     def test_getitem(self):
-        self.assertIs(self.mmif_obj['v1'], self.datalist['v1'])
+        self.assertIs(self.mmif_obj['v1'], self.datalist[0])
+        self.assertIs(self.mmif_obj['v1'], self.datalist.get_item('v1'))
 
-    def test_getitem_raises(self):
-        with self.assertRaises(KeyError):
-            _ = self.datalist['reserved_names']
+    def test_getitem_no_raises(self):
+        self.assertFalse(self.datalist.get_item('reserved_names'))
 
     def test_append(self):
         self.assertTrue('v256' not in self.datalist._items)
@@ -1377,18 +1380,18 @@ class TestDataStructure(unittest.TestCase):
         self.assertIn('v1', self.datalist)
 
         self.assertNotIn('v200', self.datalist)
-        self.datalist['v200'] = View({'id': 'v200'})
+        self.datalist.append(View({'id': 'v200'}))
         self.assertIn('v200', self.datalist)
 
     def test_len(self):
         self.assertEqual(8, len(self.datalist))
         for i in range(9, 19):
-            self.datalist[f'v{i}'] = View({'id': f'v{i}'})
+            self.datalist.append(View({'id': f'v{i}'}))
             self.assertEqual(i, len(self.datalist))
 
     def test_iter(self):
         for i in range(9, 19):
-            self.datalist[f'v{i}'] = View({'id': f'v{i}'})
+            self.datalist.append(View({'id': f'v{i}'}))
 
         for expected_index, (actual_index, item) in zip(range(18), enumerate(self.datalist)):
             self.assertEqual(expected_index, actual_index, "here")
@@ -1397,13 +1400,13 @@ class TestDataStructure(unittest.TestCase):
     def test_setitem_fail_on_reserved_name(self):
         for i, name in enumerate(self.datalist.reserved_names):
             try:
-                self.datalist[name] = View({'id': f'v{i+1}'})
+                self.datalist[i] = View({'id': f'v{i+1}'})
                 self.fail("was able to setitem on reserved name")
-            except KeyError as ke:
-                self.assertEqual("can't set item on a reserved name", ke.args[0])
+            except TypeError as te:
+                self.assertEqual("The list is read-only.", te.args[0])
 
     def test_get(self):
-        self.assertEqual(self.datalist['v1'], self.datalist.get('v1'))
+        self.assertEqual(self.datalist[0], self.datalist.get_item('v1'))
 
     def test_update(self):
         other_contains = """{

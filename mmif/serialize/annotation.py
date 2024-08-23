@@ -244,11 +244,7 @@ class Annotation(MmifObject):
             return default
 
     def __contains__(self, item):
-        try:
-            self.get(item)
-            return True
-        except KeyError:
-            return False
+        return self.get_property(item)
 
     def _get_label(self) -> str:
         """
@@ -466,7 +462,7 @@ class AnnotationProperties(MmifObject, MutableMapping[str, T]):
         for key in itertools.chain(self._named_attributes(), self._unnamed_attributes):
             yield key
 
-    def __getitem__(self, key: str) -> Optional[T]:
+    def __getitem__(self, key):
         """
         Parent MmifObject class has a __getitem__ method that checks if
         the value is empty when asked for an unnamed attribute. But for

@@ -259,8 +259,8 @@ class Mmif(MmifObject):
                 return self.__getitem__(ann_short_id)
 
         if all(map(lambda x: x in alignment_ann.properties, ('source', 'target'))):
-            source_ann = _desprately_search_annotation_object(alignment_ann.get('source'))
-            target_ann = _desprately_search_annotation_object(alignment_ann.get('target'))
+            source_ann = _desprately_search_annotation_object(alignment_ann.get_property('source'))
+            target_ann = _desprately_search_annotation_object(alignment_ann.get_property('target'))
             if isinstance(source_ann, Annotation) and isinstance(target_ann, Annotation):
                 source_ann._cache_alignment(alignment_ann, target_ann)
                 target_ann._cache_alignment(alignment_ann, source_ann)
@@ -481,7 +481,7 @@ class Mmif(MmifObject):
             for doc in view.get_documents():
                 if prop_key in doc and doc.get_property(prop_key) == prop_value:
                     docs.append(doc)
-        docs.extend([document for document in self.documents if document[prop_key] == prop_value])
+        docs.extend([document for document in self.documents if document.get_property(prop_key) == prop_value])
         return docs
 
     def get_documents_locations(self, m_type: Union[DocumentTypes, str], path_only=False) -> List[Union[str, None]]:
@@ -563,7 +563,7 @@ class Mmif(MmifObject):
             else:
                 for alignment in alignment_view.get_annotations(AnnotationTypes.Alignment):
                     aligned_types = set()
-                    for ann_id in [alignment['target'], alignment['source']]:
+                    for ann_id in [alignment.get_property('target'), alignment.get_property('source')]:
                         ann_id = cast(str, ann_id)
                         if self.id_delimiter in ann_id:
                             view_id, ann_id = ann_id.split(self.id_delimiter)

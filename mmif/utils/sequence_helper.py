@@ -241,10 +241,13 @@ def validate_labelset(annotations: Iterable[Annotation]) -> List[str]:
 
     # and validate that all annotations have the same label set
     for a in annotations:
-        if set(a.get_property('labelset')) != src_labels:
-            raise ValueError("All annotations must have the same label set, "
-                             f"but found {a.get_property('labelset')}, "
-                             f"different from {src_labels}")
+        if ann_labels := a.get_property('labelset'):
+            if set(ann_labels) != src_labels:
+                raise ValueError("All annotations must have the same label set, "
+                                 f"but found {a.get_property('labelset')}, "
+                                 f"different from {src_labels}")
+        else:
+            return ann_labels
     return list(src_labels)
 
 

@@ -428,7 +428,7 @@ class DataList(MmifObject, Generic[T]):
         if not overwrite and key in self._items:
             raise KeyError(f"Key {key} already exists")
         else:
-            self[key] = value
+            self._items[key] = value
 
     def append(self, value, overwrite):
         raise NotImplementedError()
@@ -469,13 +469,13 @@ class DataList(MmifObject, Generic[T]):
         raise TypeError("The list is read-only.")
 
     def __iter__(self) -> Iterator[T]:
-        return self._items.__iter__()
+        return self._items.values().__iter__()
 
     def __len__(self) -> int:
         return self._items.__len__()
 
     def __reversed__(self) -> Iterator[T]:
-        return reversed(self._items)
+        return reversed(self._items.values())
 
     def __contains__(self, item: T) -> bool:
         return item in self._items

@@ -118,8 +118,12 @@ class TestSequenceHelper(unittest.TestCase):
             self.assertFalse(sqh.validate_labelset(anns))
         anns.pop()
         anns.append(view.new_annotation(AnnotationTypes.TimePoint))
-        with pytest.raises(KeyError):
-            self.assertFalse(sqh.validate_labelset(anns))
+
+        # NOTE: As of PR #301, ``get_property`` no longer raises ``KeyError``
+        # with pytest.raises(KeyError):
+        #     self.assertFalse(sqh.validate_labelset(anns))
+
+        self.assertFalse(sqh.validate_labelset(anns))
 
     def test_build_remapper(self):
         self.assertEqual({'a': 'a', 'b': 'b', 'c': 'c', 'd': 'd', 'e': 'e', 'f': 'f'},

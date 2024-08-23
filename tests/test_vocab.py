@@ -30,7 +30,7 @@ class TestAnnotationTypes(unittest.TestCase):
 
     def test_type_checking(self):
         mmif_obj = Mmif(MMIF_EXAMPLES['everything'])
-        ann_obj = mmif_obj.get_view_by_id('v1').annotations['s1']
+        ann_obj = mmif_obj.get_view_by_id('v1').annotations.get_item('s1')
         self.assertTrue(ann_obj.is_type(ann_obj.at_type))
         self.assertTrue(ann_obj.is_type(str(ann_obj.at_type)))
         self.assertFalse(ann_obj.is_type(DocumentTypes.VideoDocument))
