@@ -205,7 +205,9 @@ def sample_frames(start_frame: int, end_frame: int, sample_rate: float = 1) -> L
     frame_nums: List[int] = []
     cur_f = start_frame
     while cur_f < end_frame:
-        frame_nums.append(math.ceil(cur_f))
+        ceiling = math.ceil(cur_f)
+        if ceiling < end_frame:
+            frame_nums.append(math.ceil(cur_f))
         cur_f += sample_rate
     return frame_nums
 
