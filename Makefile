@@ -40,7 +40,7 @@ docs: VERSION $(generatedcode)
 	rm -rf docs
 	pip install --upgrade -r requirements.txt
 	pip install --upgrade -r requirements.old
-	sphinx-multiversion documentation docs -b html -a -vvv
+	sphinx-multiversion documentation docs -b html -a
 	touch docs/.nojekyll
 	ln -sf $(latest) docs/latest
 	echo "<!DOCTYPE html> <html> <head> <title>Redirect to latest version</title> <meta charset=\"utf-8\"> <meta http-equiv=\"refresh\" content=\"0; url=./latest/index.html\"> </head> </html>" > docs/index.html
@@ -107,5 +107,8 @@ distclean:
 	@rm -rf dist $(artifact) build/bdist*
 clean: distclean
 	@rm -rf VERSION VERSION.dev $(testcaches) $(buildcaches) $(generatedcode)
+	@rm -rf docs
+	@rm -rf .*cache
+	@rm -rf .hypothesis tests/.hypothesis
 	@git checkout -- documentation/target-versions.csv
 
