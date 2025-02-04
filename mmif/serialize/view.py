@@ -66,15 +66,18 @@ class View(MmifObject):
     
     def _set_ann_id(self, annotation: Annotation, identifier):
         if identifier is not None:
-            annotation.id = identifier
+            if self.id_delimiter in identifier:
+                annotation.id = identifier
+            else:
+                annotation.id = f"{self.id}{self.id_delimiter}{identifier}"
         else:
             prefix = annotation.at_type.get_prefix()
             new_num = self._id_counts.get(prefix, 0) + 1
             new_id = f'{prefix}_{new_num}'
             self._id_counts[prefix] = new_num
-            annotation.id = new_id
+            annotation.id = f"{self.id}{self.id_delimiter}{new_id}"
     
-    def new_annotation(self, at_type: Union[str, ThingTypesBase], aid: Optional[str] = None, 
+    def new_annotation(self, at_type: Union[str, ThingTypesBase], aid: Optional[str] = None,
                        overwrite=False, **properties) -> 'Annotation':
         """
         Generates a new :class:`mmif.serialize.annotation.Annotation`
@@ -186,23 +189,28 @@ class View(MmifObject):
         for annotation in self.annotations:
             at_type_metadata = self.metadata.contains.get(annotation.at_type, {})
             if not at_type or (at_type and annotation.at_type == at_type):
-                if all(map(lambda kv: prop_check(kv[0], kv[1], annotation.properties, at_type_metadata), 
+                if all(map(lambda kv: prop_check(kv[0], kv[1], annotation.properties, at_type_metadata),
                            properties.items())):
                     yield annotation
     
     def get_annotation_by_id(self, ann_id) -> Annotation:
-        if self.id_delimiter in ann_id and not ann_id.startswith(self.id):
-            try:
-                ann_found = self._parent_mmif[ann_id]
-            except KeyError:
-                ann_found = None
-        else:
-            ann_found = self.annotations.get(ann_id.split(self.id_delimiter)[-1])
-        if ann_found is None or not isinstance(ann_found, Annotation):
-            if self.id_delimiter in ann_id:
-                raise KeyError(f"Annotation \"{ann_id}\" is not found in the MMIF.")
-            else:
-                raise KeyError(f"Annotation \"{ann_id}\" is not found in view {self.id}.")
+        # if self.id_delimiter in ann_id and not ann_id.startswith(self.id):
+        #     try:
+        #         ann_found = self._parent_mmif[ann_id]
+        #     except KeyError:
+        #         ann_found = None
+        # else:
+        #     ann_found = self.annotations.get(ann_id.split(self.id_delimiter)[-1])
+        # if ann_found is None or not isinstance(ann_found, Annotation):
+        #     if self.id_delimiter in ann_id:
+        #         raise KeyError(f"Annotation \"{ann_id}\" is not found in the MMIF.")
+        #     else:
+        #         raise KeyError(f"Annotation \"{ann_id}\" is not found in view {self.id}.")
+        # else:
+        #     return ann_found
+        ann_found = self.annotations.get(ann_id)
+        if not ann_found or not isinstance(ann_found, Annotation):
+            raise KeyError(f"Annotation \"{ann_id}\" is not found in the MMIF.")
         else:
             return ann_found
         
@@ -419,6 +427,9 @@ class AnnotationsList(DataList[Union[Annotation, Document]]):
         :param input_list: the JSON data that defines the list of annotations
         :return: None
         """
+        # Note:
+        # In MMIF 1.x, we still assume that annotation id lives in properties of MMIF JSON
+        # TODO: However, in MMIF 2.x, annotation id would be assumed live outside of MMIF JSON
         self._items = {item['properties']['id']: Document(item)
                        if ClamsTypesBase.attype_iri_isdocument(item['_type']) else Annotation(item)
                        for item in input_list}
@@ -444,11 +455,11 @@ class AnnotationsList(DataList[Union[Annotation, Document]]):
     def __getitem__(self, key: str):
         """
         specialized getter implementation to workaround https://github.com/clamsproject/mmif/issues/228
-        # TODO (krim @ 7/12/24): annotation ids must be in the long form in the future, so this check will be unnecessary once https://github.com/clamsproject/mmif/issues/228 is resolved. 
+        # TODO (krim @ 7/12/24): annotation ids must be in the long form in the future, so this check will be unnecessary once https://github.com/clamsproject/mmif/issues/228 is resolved.
         """
-        if ":" in key:
-            _, aid = key.split(":")
-            return self._items.__getitem__(aid)
+        # if ":" in key:
+        #     _, aid = key.split(":")
+        #     return self._items.__getitem__(aid)
         return self._items.get(key, None)
 
 

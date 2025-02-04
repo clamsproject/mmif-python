@@ -54,6 +54,9 @@ class DocumentsList(DataList[Document]):
         :return: None
         """
         self._items = {item['properties']['id']: Document(item) for item in input_list}
+        # Note:
+        # by doing above, the results would map short ids to ``Document`` objects
+        # if we assume the raw MMIF JSON has ``Document``/``Annotation`` id as short form
 
     def append(self, value: Document, overwrite=False) -> None:
         """
@@ -258,16 +261,12 @@ class Mmif(MmifObject):
     def _cache_alignment(self, alignment_ann: Annotation):
         view = self.views.get(alignment_ann.parent)
         if view is None:
-            warnings.warn(f"Alignment {alignment_ann.long_id} doesn't have a parent view, but it should.", RuntimeWarning)
+            warnings.warn(f"Alignment {alignment_ann.id} doesn't have a parent view, but it should.", RuntimeWarning)
             return
 
         ## caching alignments
-        def _desprately_search_annotation_object(ann_short_id):
-            ann_long_id = f"{view.id}{self.id_delimiter}{ann_short_id}"
-            try:
-                return self.__getitem__(ann_long_id)
-            except KeyError:
-                return self.__getitem__(ann_short_id)
+        def _desprately_search_annotation_object(ann_id):
+            return self.__getitem__(ann_id)
 
         if all(map(lambda x: x in alignment_ann.properties, ('source', 'target'))):
             source_ann = _desprately_search_annotation_object(alignment_ann.get('source'))
@@ -277,7 +276,7 @@ class Mmif(MmifObject):
                 target_ann._cache_alignment(alignment_ann, source_ann)
             else:
                 warnings.warn(
-                    f"Alignment {alignment_ann.long_id} has `source` and `target` properties that do not point to Annotation objects.",
+                    f"Alignment {alignment_ann.id} has `source` and `target` properties that do not point to Annotation objects.",
                     RuntimeWarning)
 
     def generate_capital_annotations(self):
@@ -323,9 +322,9 @@ class Mmif(MmifObject):
                             doc_id = f"{view.id}{Mmif.id_delimiter}{doc_id}"
                         existing_anns[doc_id].update(ann.properties)
                 for doc in view.get_documents():
-                    anns_to_write[doc.long_id].update(doc._props_pending)
+                    anns_to_write[doc.id].update(doc._props_pending)
             for doc in self.documents:
-                anns_to_write[doc.long_id].update(doc._props_pending)
+                anns_to_write[doc.id].update(doc._props_pending)
             # additional iteration of views, to find a proper view to add the 
             # generated annotations. If none found, use the last view as the kitchen sink
             last_view_for_docs = defaultdict(lambda: last_view)

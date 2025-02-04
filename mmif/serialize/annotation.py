@@ -50,6 +50,15 @@ class Annotation(MmifObject):
         self._type: ThingTypesBase = ThingTypesBase('')
         # to store the parent view ID
         self._parent_view_id = ''
+
+        # FIXME:
+        #  ============================
+        #  in solving issue #296,
+        #  To level up the annotation id from `AnnotationProperties`,
+        #  simply eliminated the attribute `self.id` from `AnnotationProperties` class
+        #  and added private attribute `self._id` here because we want "id" to be a property
+        self._id: str = ''
+
         self._props_ephemeral: AnnotationProperties = AnnotationProperties()
         self._alignments = {}  # to hold alignment information (Alignment anno long_id -> aligned anno long_id)
         self.reserved_names.update(('_parent_view_id', '_props_ephemeral', '_alignments'))
@@ -57,7 +66,7 @@ class Annotation(MmifObject):
             self.properties: AnnotationProperties = AnnotationProperties()
             self._attribute_classes = {'properties': AnnotationProperties}
         self.disallow_additional_properties()
-        self._required_attributes = ["_type", "properties"]
+        self._required_attributes = ["id", "_type", "properties"]
         super().__init__(anno_obj)
     
     def __hash__(self):
@@ -157,28 +166,52 @@ class Annotation(MmifObject):
         # but import `View` will break the code due to circular imports
         self._parent_view_id = parent_view_id
 
+    # @property
+    # def id(self) -> str:
+    #     return self.properties.id
+    #
+    # @id.setter
+    # def id(self, aid: str) -> None:
+    #     self.properties.id = aid
+
     @property
     def id(self) -> str:
-        return self.properties.id
+        return self._get_long_id()
 
     @id.setter
-    def id(self, aid: str) -> None:
-        self.properties.id = aid
-        
-    @property
-    def long_id(self) -> str:
+    def id(self, new_id: str) -> None:
+        self._set_long_id(new_id)
+
+    # FIXME:
+    #  ==============
+    #  To cause less confusion to users/developers, I suggest we use
+    #  `id` as a universal property and `long_id` works as its internal process
+    #  , which means the property `long_id` is deprecated
+    def _get_long_id(self) -> str:
+        """
+        The internal function of id.getter
+        @return: long form of id or deprecated short form of id while raising RuntimeWarning
+        """
         if self.parent is not None and len(self.parent) > 0:
-            return f"{self.parent}{self.id_delimiter}{self.id}"
+            return f"{self.parent}{self.id_delimiter}{self._id}"
         else:
-            return self.id
-    
-    @long_id.setter
-    def long_id(self, long_id: str) -> None:
+            warnings.warn("Parent view id is empty, return a deprecated annotation id")
+            return self._id
+
+    def _set_long_id(self, long_id: str) -> None:
+        """
+        The internal function of id.setter
+        @param long_id: new long form of id or deprecated short form of id
+        @return: None
+        """
         if self.id_delimiter in long_id:
-            self.parent, self.id = long_id.split(self.id_delimiter)
+            self.parent, self._id = long_id.split(self.id_delimiter)
         else:
-            self.id = long_id
-    
+            # This case only adapts to when set the id of existing `Annotation` object
+            # However, it doesn't fit to the case when a new `Annotation` is added to a `View`
+            # , which needs another revise at `View` level.
+            self._id = long_id
+
     @staticmethod
     def check_prop_value_is_simple_enough(
             value: Union[PRMTV_TYPES, LIST_PRMTV, LIST_LIST_PRMTV, DICT_PRMTV, DICT_LIST_PRMTV]) -> bool:
@@ -478,9 +511,9 @@ class AnnotationProperties(MmifObject, MutableMapping[str, T]):
             return self._unnamed_attributes[key]
 
     def __init__(self, mmif_obj: Optional[Union[bytes, str, dict]] = None, *_) -> None:
-        self.id: str = ''
-        # any individual at_type (subclassing this class) can have its own set of required attributes
-        self._required_attributes = ["id"]
+        # self.id: str = ''
+        # # any individual at_type (subclassing this class) can have its own set of required attributes
+        # self._required_attributes = ["id"]
         # allowing additional attributes for arbitrary annotation properties
         self._unnamed_attributes = {}
         super().__init__(mmif_obj)

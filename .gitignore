@@ -32,6 +32,9 @@ $RECYCLE.BIN/
 *.msp
 *.lnk # Windows shortcuts
 
+# vscode
+.vscode
+
 # idea
 .idea
 *.iml
