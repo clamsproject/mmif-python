@@ -1,7 +1,8 @@
 import importlib
 import math
 import warnings
-from typing import List, Union, Tuple
+from typing import Iterable  # todo: replace with collections.abc.Iterable in Python 3.9
+from typing import List, Union, Tuple, Iterator
 
 import mmif
 from mmif import Annotation, Document, Mmif
@@ -67,36 +68,36 @@ def get_framerate(video_document: Document) -> float:
     return video_document.get_property(FPS_DOCPROP_KEY)
 
 
-def extract_frames_as_images(video_document: Document, framenums: List[int], as_PIL: bool = False):
+def extract_frames_as_images(video_document: Document, framenums: Iterable[int], as_PIL: bool = False):
     """
     Extracts frames from a video document as a list of :py:class:`numpy.ndarray`.
     Use with :py:func:`sample_frames` function to get the list of frame numbers first. 
     
     :param video_document: :py:class:`~mmif.serialize.annotation.Document` instance that holds a video document (``"@type": ".../VideoDocument/..."``)
-    :param framenums: integers representing the frame numbers to extract
+    :param framenums: iterable integers representing the frame numbers to extract
     :param as_PIL: return :py:class:`PIL.Image.Image` instead of :py:class:`~numpy.ndarray`
     :return: frames as a list of :py:class:`~numpy.ndarray` or :py:class:`~PIL.Image.Image`
     """
-    import cv2  # pytype: disable=import-error
     if as_PIL:
         from PIL import Image
     frames = []
     video = capture(video_document)
     cur_f = 0
     tot_fcount = video_document.get_property(FRAMECOUNT_DOCPROP_KEY)
-    framenums_copy = framenums.copy()
+    framenumi = iter(framenums)  # make sure that it's actually an iterator, in case a list is passed
+    next_target_f = next(framenumi, None)
     while True:
-        if not framenums_copy or cur_f > tot_fcount:
+        if next_target_f is None or cur_f > tot_fcount:
             break
         ret, frame = video.read()
-        if cur_f == framenums_copy[0]:
+        if cur_f == next_target_f:
             if not ret:
                 sec = convert(cur_f, 'f', 's', video_document.get_property(FPS_DOCPROP_KEY))
                 warnings.warn(f'Frame #{cur_f} ({sec}s) could not be read from the video {video_document.id}.')
                 cur_f += 1
                 continue
             frames.append(Image.fromarray(frame[:, :, ::-1]) if as_PIL else frame)
-            framenums_copy.pop(0)
+            next_target_f = next(framenumi, None)
         cur_f += 1
     return frames
 
