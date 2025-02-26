@@ -101,9 +101,8 @@ def extract_frames_as_images(video_document: Document, framenums: Iterable[int],
                 if not ret:
                     sec = convert(cur_f, 'f', 's', video_document.get_property(FPS_DOCPROP_KEY))
                     warnings.warn(f'Frame #{cur_f} ({sec}s) could not be read from the video {video_document.id} @ {video_document.location} .')
-                    cur_f += 1
-                    continue
-                frames.append(Image.fromarray(frame[:, :, ::-1]) if as_PIL else frame)
+                else:
+                    frames.append(Image.fromarray(frame[:, :, ::-1]) if as_PIL else frame)
                 next_target_f = next(framenumi, None)
             cur_f += 1
     ffmpeg_err_str = ffmpeg_errs.getvalue()
