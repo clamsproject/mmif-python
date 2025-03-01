@@ -1,4 +1,6 @@
 import importlib
+import sys
+
 import math
 import warnings
 from io import StringIO
@@ -81,21 +83,30 @@ def extract_frames_as_images(video_document: Document, framenums: Iterable[int],
     :param as_PIL: return :py:class:`PIL.Image.Image` instead of :py:class:`~numpy.ndarray`
     :return: frames as a list of :py:class:`~numpy.ndarray` or :py:class:`~PIL.Image.Image`
     """
+    import cv2
     if as_PIL:
         from PIL import Image
     frames = []
     video = capture(video_document)
     cur_f = 0
     tot_fcount = video_document.get_property(FRAMECOUNT_DOCPROP_KEY)
+    # when the target frame is more than this frames away, fast-forward instead of reading frame by frame
+    # this is sanity-checked with a small number of video samples 
+    # (frame-by-frame ndarrays are compared with fast-forwarded ndarrays)
+    skip_threadhold = 1000  
     framenumi = iter(framenums)  # make sure that it's actually an iterator, in case a list is passed
     next_target_f = next(framenumi, None)
     from wurlitzer import pipes as cpipes
-    ffmpeg_outs = StringIO()
     ffmpeg_errs = StringIO()
-    with cpipes(stderr=ffmpeg_errs, stdout=ffmpeg_outs):
+    with cpipes(stderr=ffmpeg_errs, stdout=sys.stdout):
         while True:
-            if next_target_f is None or cur_f > tot_fcount:
+            if next_target_f is None or cur_f > tot_fcount or next_target_f > tot_fcount:
                 break
+            if next_target_f - cur_f > skip_threadhold:
+                while next_target_f - cur_f > skip_threadhold:
+                    cur_f += skip_threadhold
+                else:
+                    video.set(cv2.CAP_PROP_POS_FRAMES, cur_f)
             ret, frame = video.read()
             if cur_f == next_target_f:
                 if not ret:
