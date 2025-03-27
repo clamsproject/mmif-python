@@ -306,7 +306,7 @@ setuptools.setup(
             'pytype',
         ]
     },
-    python_requires='>=3.8',
+    python_requires='>=3.10',
     classifiers=[
         'Development Status :: 2 - Pre-Alpha',
         'Intended Audience :: Developers ',
