@@ -1,7 +1,6 @@
 import argparse
 import sys
 import textwrap
-from pathlib import Path as P
 
 import mmif
 

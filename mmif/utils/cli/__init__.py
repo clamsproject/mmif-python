@@ -1,3 +1,3 @@
-from clams.mmif_utils import rewind
-from clams.mmif_utils import source
+from mmif.utils.cli import rewind
+from mmif.utils.cli import source
 
