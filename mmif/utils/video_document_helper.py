@@ -1,6 +1,10 @@
 import importlib
+import sys
+
 import math
 import warnings
+from io import StringIO
+from typing import Iterable  # todo: replace with collections.abc.Iterable in Python 3.9
 from typing import List, Union, Tuple
 
 import mmif
@@ -8,7 +12,7 @@ from mmif import Annotation, Document, Mmif
 from mmif.utils.timeunit_helper import convert
 from mmif.vocabulary import DocumentTypes
 
-for cv_dep in ('cv2', 'ffmpeg', 'PIL'):
+for cv_dep in ('cv2', 'ffmpeg', 'PIL', 'wurlitzer'):
     try:
         importlib.__import__(cv_dep)
     except ImportError as e:
@@ -63,41 +67,59 @@ def get_framerate(video_document: Document) -> float:
         if k in video_document:
             fps = round(video_document.get_property(k), 2)
             return fps
-    capture(video_document)
-    return video_document.get_property(FPS_DOCPROP_KEY)
+    cap = capture(video_document)
+    fps = video_document.get_property(FPS_DOCPROP_KEY)
+    cap.release()
+    return fps
 
 
-def extract_frames_as_images(video_document: Document, framenums: List[int], as_PIL: bool = False):
+def extract_frames_as_images(video_document: Document, framenums: Iterable[int], as_PIL: bool = False, record_ffmpeg_errors: bool = False):
     """
     Extracts frames from a video document as a list of :py:class:`numpy.ndarray`.
     Use with :py:func:`sample_frames` function to get the list of frame numbers first. 
     
     :param video_document: :py:class:`~mmif.serialize.annotation.Document` instance that holds a video document (``"@type": ".../VideoDocument/..."``)
-    :param framenums: integers representing the frame numbers to extract
+    :param framenums: iterable integers representing the frame numbers to extract
     :param as_PIL: return :py:class:`PIL.Image.Image` instead of :py:class:`~numpy.ndarray`
     :return: frames as a list of :py:class:`~numpy.ndarray` or :py:class:`~PIL.Image.Image`
     """
-    import cv2  # pytype: disable=import-error
+    import cv2
     if as_PIL:
         from PIL import Image
     frames = []
     video = capture(video_document)
     cur_f = 0
     tot_fcount = video_document.get_property(FRAMECOUNT_DOCPROP_KEY)
-    framenums_copy = framenums.copy()
-    while True:
-        if not framenums_copy or cur_f > tot_fcount:
-            break
-        ret, frame = video.read()
-        if cur_f == framenums_copy[0]:
-            if not ret:
-                sec = convert(cur_f, 'f', 's', video_document.get_property(FPS_DOCPROP_KEY))
-                warnings.warn(f'Frame #{cur_f} ({sec}s) could not be read from the video {video_document.id}.')
-                cur_f += 1
-                continue
-            frames.append(Image.fromarray(frame[:, :, ::-1]) if as_PIL else frame)
-            framenums_copy.pop(0)
-        cur_f += 1
+    # when the target frame is more than this frames away, fast-forward instead of reading frame by frame
+    # this is sanity-checked with a small number of video samples 
+    # (frame-by-frame ndarrays are compared with fast-forwarded ndarrays)
+    skip_threadhold = 1000  
+    framenumi = iter(framenums)  # make sure that it's actually an iterator, in case a list is passed
+    next_target_f = next(framenumi, None)
+    from wurlitzer import pipes as cpipes
+    ffmpeg_errs = StringIO()
+    with cpipes(stderr=ffmpeg_errs, stdout=sys.stdout):
+        while True:
+            if next_target_f is None or cur_f > tot_fcount or next_target_f > tot_fcount:
+                break
+            if next_target_f - cur_f > skip_threadhold:
+                while next_target_f - cur_f > skip_threadhold:
+                    cur_f += skip_threadhold
+                else:
+                    video.set(cv2.CAP_PROP_POS_FRAMES, cur_f)
+            ret, frame = video.read()
+            if cur_f == next_target_f:
+                if not ret:
+                    sec = convert(cur_f, 'f', 's', video_document.get_property(FPS_DOCPROP_KEY))
+                    warnings.warn(f'Frame #{cur_f} ({sec}s) could not be read from the video {video_document.id} @ {video_document.location} .')
+                else:
+                    frames.append(Image.fromarray(frame[:, :, ::-1]) if as_PIL else frame)
+                next_target_f = next(framenumi, None)
+            cur_f += 1
+    ffmpeg_err_str = ffmpeg_errs.getvalue()
+    if ffmpeg_err_str and record_ffmpeg_errors:
+        warnings.warn(f'FFmpeg output during extracting frames: {ffmpeg_err_str}')
+    video.release()
     return frames
 
 
