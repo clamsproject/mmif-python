@@ -173,15 +173,11 @@ def get_representative_framenums(mmif: Mmif, time_frame: Annotation) -> List[int
     fps = get_framerate(video_document)
     representatives = time_frame.get_property('representatives')
     ref_frams = []
-    for rep in representatives:
-        if Mmif.id_delimiter in rep:
-            rep_long_id = rep 
-        else:
-            rep_long_id = time_frame._parent_view_id+time_frame.id_delimiter+rep
+    for rep_id in representatives:
         try:
-            rep_anno = mmif[rep_long_id]
-        except KeyError:
-            raise ValueError(f'Representative timepoint {rep_long_id} not found in any view.')
+            rep_anno = mmif[rep_id]
+        except KeyError as ke:
+            raise ValueError(f'Representative timepoint {rep_id} not found in any view. ({ke})')
         ref_frams.append(int(convert(rep_anno.get_property('timePoint'), timeunit, 'frame', fps)))
     return ref_frams
 
@@ -237,6 +233,7 @@ def sample_frames(start_frame: int, end_frame: int, sample_rate: float = 1) -> L
 def get_annotation_property(mmif, annotation, prop_name):
     """
     .. deprecated:: 1.0.8
+       Will be removed in 2.0.0.
        Use :py:meth:`mmif.serialize.annotation.Annotation.get_property` method instead.
     
     Get a property value from an annotation. If the property is not found in the annotation, it will look up the metadata of the annotation's parent view and return the value from there.

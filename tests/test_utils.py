@@ -51,22 +51,22 @@ class TestVideoDocumentHelper(unittest.TestCase):
         self.mmif_obj.add_document(self.video_doc)
 
     def test_extract_mid_frame(self):
-        tf = self.a_view.new_annotation(AnnotationTypes.TimeFrame, start=100, end=200, timeUnit='frame', document='d1')
+        tf = self.a_view.new_annotation(AnnotationTypes.TimeFrame, start=100, end=200, timeUnit='frame', document=self.video_doc.id)
         self.assertEqual(150, vdh.get_mid_framenum(self.mmif_obj, tf))
-        tf = self.a_view.new_annotation(AnnotationTypes.TimeFrame, start=0, end=200, timeUnit='frame', document='d1')
+        tf = self.a_view.new_annotation(AnnotationTypes.TimeFrame, start=0, end=200, timeUnit='frame', document=self.video_doc.id)
         self.assertEqual(100, vdh.get_mid_framenum(self.mmif_obj, tf))
-        tf = self.a_view.new_annotation(AnnotationTypes.TimeFrame, start=0, end=3, timeUnit='seconds', document='d1')
+        tf = self.a_view.new_annotation(AnnotationTypes.TimeFrame, start=0, end=3, timeUnit='seconds', document=self.video_doc.id)
         self.assertEqual(vdh.convert(1.5, 's', 'f', self.fps), vdh.get_mid_framenum(self.mmif_obj, tf))
 
     def test_extract_representative_frame(self):
-        tp = self.a_view.new_annotation(AnnotationTypes.TimePoint, timePoint=1500, timeUnit='milliseconds', document='d1')
-        tf = self.a_view.new_annotation(AnnotationTypes.TimeFrame, start=1000, end=2000, timeUnit='milliseconds', document='d1')
+        tp = self.a_view.new_annotation(AnnotationTypes.TimePoint, timePoint=1500, timeUnit='milliseconds', document=self.video_doc.id)
+        tf = self.a_view.new_annotation(AnnotationTypes.TimeFrame, start=1000, end=2000, timeUnit='milliseconds', document=self.video_doc.id)
         tf.add_property('representatives', [tp.id])
         rep_frame_num = vdh.get_representative_framenum(self.mmif_obj, tf)
         expected_frame_num = vdh.millisecond_to_framenum(self.video_doc, tp.get_property('timePoint'))
         self.assertEqual(expected_frame_num, rep_frame_num)
         # and should work even if no representatives are provided
-        tf = self.a_view.new_annotation(AnnotationTypes.TimeFrame, start=1000, end=2000, timeUnit='milliseconds', document='d1')
+        tf = self.a_view.new_annotation(AnnotationTypes.TimeFrame, start=1000, end=2000, timeUnit='milliseconds', document=self.video_doc.id)
         self.assertEqual(vdh.get_representative_framenum(self.mmif_obj, tf), vdh.get_mid_framenum(self.mmif_obj, tf))
         # check there is an error if there is a representative referencing a timepoint that does not exist
         tf.add_property('representatives', ['fake_tp_id'])
@@ -111,7 +111,7 @@ class TestVideoDocumentHelper(unittest.TestCase):
         self.assertEqual(vdh.convert(3, 's', 'f', self.fps), vdh.convert_timepoint(self.mmif_obj, timepoint_ann, 'f'))
 
     def test_convert_timeframe(self):
-        self.a_view.metadata.new_contain(AnnotationTypes.TimeFrame, timeUnit='frame', document='d1')
+        self.a_view.metadata.new_contain(AnnotationTypes.TimeFrame, timeUnit='frame', document=self.video_doc.id)
         timeframe_ann = self.a_view.new_annotation(AnnotationTypes.TimeFrame, start=100, end=200)
         for times in zip((3.337, 6.674), vdh.convert_timeframe(self.mmif_obj, timeframe_ann, 's')):
             self.assertAlmostEqual(*times, places=0)

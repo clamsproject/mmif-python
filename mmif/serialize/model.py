@@ -373,7 +373,7 @@ class DataList(MmifObject, Generic[T]):
     def _deserialize(self, input_list: list) -> None:
         raise NotImplementedError()
 
-    def get(self, key: str) -> Optional[T]:
+    def get(self, key: str, default=None) -> Optional[T]:
         """
         Standard dictionary-style get() method, albeit with no ``default``
         parameter. Relies on the implementation of __getitem__.
@@ -381,12 +381,13 @@ class DataList(MmifObject, Generic[T]):
         Will return ``None`` if the key is not found.
 
         :param key: the key to search for
+        :param default: the default value to return if the key is not found
         :return: the value matching that key
         """
         try:
             return self[key]
         except KeyError:
-            return None
+            return default
 
     def _append_with_key(self, key: str, value: T, overwrite=False) -> None:
         """
