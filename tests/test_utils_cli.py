@@ -30,6 +30,7 @@ class TestSource(unittest.TestCase):
         self.parser = mmif.source.prep_argparser()
         self.prefix = None
         self.scheme = None
+        self.mmif_jsonschema = mmif.get_mmif_json_schema()  # for when testing for mock windows (importlib.resources will try to read from unix file system and fails)
         self.docs = []
 
     def get_params(self):
@@ -64,6 +65,7 @@ class TestSource(unittest.TestCase):
 
     @unittest.mock.patch('os.name', 'nt')
     def test_on_windows(self):
+        mmif.get_mmif_json_schema = lambda: self.mmif_jsonschema  # mock the schema to avoid importlib.resources issues on windows
         self.test_accept_file_paths()
 
     def test_accept_prefixed_file_paths(self):

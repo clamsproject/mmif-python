@@ -1,6 +1,7 @@
+from importlib.resources import files
+
 import argparse
 import importlib
-import importlib.resources
 import pkgutil
 import sys
 
@@ -20,8 +21,7 @@ version_template = "{} (based on MMIF spec: {})"
 
 
 def get_mmif_json_schema():
-    # TODO (krim @ 7/14/23): use `as_file` after dropping support for Python 3.8
-    return importlib.resources.read_text(f'{__package__}.{_res_pkg}', _schema_res_name)
+    return files(f'{__package__}.{_res_pkg}').joinpath(_schema_res_name).read_text()
 
 
 def find_all_modules(pkgname):

@@ -1,7 +1,7 @@
-mmif.vocabulary module
-======================
+mmif.vocabulary package
+=======================
 
-Module contains Enum-like classes for CLAMS vocabulary.
+Package contains Enum-like classes for CLAMS vocabulary.
 
 .. autoclass:: mmif.vocabulary.ThingTypesBase
    :show-inheritance:
