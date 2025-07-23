@@ -6,13 +6,14 @@ In MMIF, views are created by apps in a pipeline that are annotating
 data that was previously present in the MMIF file.
 """
 import json
+import warnings
 from datetime import datetime
 from typing import Dict, Union, Optional, Generator, List, cast
 
 from mmif import DocumentTypes, AnnotationTypes, ThingTypesBase, ClamsTypesBase
-from mmif.serialize import model
 from mmif.serialize.annotation import Annotation, Document
 from mmif.serialize.model import PRMTV_TYPES, MmifObject, DataList, DataDict
+from mmif.vocabulary.base_types import AnnotationTypesBase
 
 __all__ = ['View', 'ViewMetadata', 'Contain']
 
@@ -48,8 +49,49 @@ class View(MmifObject):
         }
         self._required_attributes = ["id", "metadata", "annotations"]
         super().__init__(view_obj)
-        for item in self.annotations:
-            item.parent = self.id
+        self._fix_old_short_ids()
+
+    def _fix_old_short_ids(self):
+        """
+        to "update" old MMIF files that used "short" form of annotation IDs
+        this will prepend the view ID to all annotation IDs, then persist 
+        in the serialized MMIF file as well.
+        """
+        aids = list(self.annotations._items.keys())
+        for aid in aids:
+            if self.id_delimiter not in aid:
+                # this is a short ID, prepend the view ID
+                annotation = self.annotations._items.pop(aid)
+                # first fix the ID assignment
+                annotation.id = f"{self.id}{self.id_delimiter}{aid}"
+                # then fix ID references; the prop keys here is NOT an exhaustive list,
+                # hence need ad-hoc fixes in the future if we find more props used in the past
+                # string references 
+                mmif_docs = set(self._parent_mmif.documents._items.keys()) if self._parent_mmif else set()
+                for propk in 'document source target'.split():
+                    if propk in self.metadata.contains.get(annotation.at_type, {}):
+                        propv = self.metadata.contains[annotation.at_type][propk]
+                        if propv not in mmif_docs and self.id_delimiter not in propv:
+                            self.metadata.contains[annotation.at_type][propk] = f"{self.id}{self.id_delimiter}{propv}"
+                    if propk in annotation.properties:
+                        propv = annotation.properties[propk]
+                        if propv not in mmif_docs and self.id_delimiter not in propv:
+                            annotation.properties[propk] = f"{self.id}{self.id_delimiter}{propv}"
+                # list of string references
+                for propk in 'targets representatives'.split():
+                    if propk in self.metadata.contains.get(annotation.at_type, {}):
+                        propv = self.metadata.contains[annotation.at_type][propk]
+                        if isinstance(propv, list):
+                            for i, item in enumerate(propv):
+                                if propv not in mmif_docs and self.id_delimiter not in item:
+                                    propv[i] = f"{self.id}{self.id_delimiter}{item}"
+                    if propk in annotation.properties:
+                        propv = annotation.properties[propk]
+                        if isinstance(propv, list):
+                            for i, item in enumerate(propv):
+                                if propv not in mmif_docs and self.id_delimiter not in item:
+                                    propv[i] = f"{self.id}{self.id_delimiter}{item}"
+                self.annotations.append(annotation)
 
     def new_contain(self, at_type: Union[str, ThingTypesBase], **contains_metadata) -> Optional['Contain']:
         """
@@ -66,13 +108,18 @@ class View(MmifObject):
     
     def _set_ann_id(self, annotation: Annotation, identifier):
         if identifier is not None:
+            # this if conditional is for backwards compatibility with 
+            # old MMIF files that used short IDs
+            # TODO will be removed in 2.0.0
+            if self.id_delimiter not in identifier:
+                annotation.id = f"{self.id}{self.id_delimiter}{identifier}"
             annotation.id = identifier
         else:
             prefix = annotation.at_type.get_prefix()
             new_num = self._id_counts.get(prefix, 0) + 1
             new_id = f'{prefix}_{new_num}'
             self._id_counts[prefix] = new_num
-            annotation.id = new_id
+            annotation.id = self.id + self.id_delimiter + new_id
     
     def new_annotation(self, at_type: Union[str, ThingTypesBase], aid: Optional[str] = None, 
                        overwrite=False, **properties) -> 'Annotation':
@@ -119,7 +166,9 @@ class View(MmifObject):
                           in the view
         :return: the same Annotation object passed in as ``annotation``
         """
-        annotation.parent = self.id
+        if self.id_delimiter not in annotation.id:
+            # this is a short ID, prepend the view ID
+            annotation.id = f"{self.id}{self.id_delimiter}{annotation.id}"
         self.annotations.append(annotation, overwrite)
         self.new_contain(annotation.at_type)
         if annotation.at_type == AnnotationTypes.Alignment:
@@ -191,42 +240,61 @@ class View(MmifObject):
                     yield annotation
     
     def get_annotation_by_id(self, ann_id) -> Annotation:
-        if self.id_delimiter in ann_id and not ann_id.startswith(self.id):
-            try:
-                ann_found = self._parent_mmif[ann_id]
-            except KeyError:
-                ann_found = None
-        else:
-            ann_found = self.annotations.get(ann_id.split(self.id_delimiter)[-1])
-        if ann_found is None or not isinstance(ann_found, Annotation):
-            if self.id_delimiter in ann_id:
-                raise KeyError(f"Annotation \"{ann_id}\" is not found in the MMIF.")
-            else:
-                raise KeyError(f"Annotation \"{ann_id}\" is not found in view {self.id}.")
-        else:
-            return ann_found
+        """
+        .. deprecated:: 1.1.0
+           Will be removed in 2.0.0. 
+           Use general ``Mmif.__getitem__()`` method instead to retrieve 
+           any annotation across the MMIF, or View.__getitems__() to 
+           retrieve annotations within the view.
+           
+        Thinly wraps the Mmif.__getitem__ method and returns an Annotation 
+        object. Note that although this method is under View class, it can 
+        be used to retrieve any annotation across the entire MMIF.
+        
+        :param ann_id: the ID of the annotation to retrieve.
+        :return: found :class:`mmif.serialize.annotation.Annotation` object.
+        :raises KeyError: if the annotation with the given ID is not found
+        """
+        warnings.warn(
+            "View.get_annotation_by_id() is deprecated, use view[ann_id] instead.",
+            DeprecationWarning
+        )
+        ann_found = self._parent_mmif.__getitem__(ann_id)
+        if not isinstance(ann_found, Annotation):
+            raise KeyError(f"Annotation with ID {ann_id} not found in the MMIF object.")
+        return cast(Annotation, ann_found)
         
     def get_documents(self) -> List[Document]:
         return [cast(Document, annotation) for annotation in self.annotations if annotation.is_document()]
 
     def get_document_by_id(self, doc_id) -> Document:
-        doc_found = self.annotations.get(doc_id)
-        if doc_found is None or not isinstance(doc_found, Document):
+        """
+        .. deprecated:: 1.1.0
+           Will be removed in 2.0.0. 
+           Use general ``Mmif.__getitem__()`` method instead to retrieve 
+           any document across the MMIF, or View.__getitems__() to 
+           retrieve documents within the view.
+
+        Thinly wraps the Mmif.__getitem__ method and returns an Annotation 
+        object. Note that although this method is under View class, it can 
+        be used to retrieve any annotation across the entire MMIF.
+
+        :param ann_id: the ID of the annotation to retrieve.
+        :return: found :class:`mmif.serialize.annotation.Annotation` object.
+        :raises KeyError: if the annotation with the given ID is not found
+        """
+        warnings.warn(
+            "View.get_document_by_id() is deprecated, use view[doc_id] instead.",
+            DeprecationWarning
+        )
+        doc_found = self.annotations[doc_id]
+        if not isinstance(doc_found, Document):
             raise KeyError(f"Document \"{doc_id}\" not found in view {self.id}.")
-        else:
-            return doc_found
+        return cast(Document, doc_found)
 
     def __getitem__(self, key: str) -> 'Annotation':
         """
-        getitem implementation for View.
-
-        >>> obj = View('''{"id": "v1","metadata": {"contains": {"BoundingBox": {}},"document": "m1","tool": "http://tools.clams.io/east/1.0.4"},"annotations": [{"@type": "BoundingBox","properties": {"id": "bb1","coordinates": [[90,40], [110,40], [90,50], [110,50]] }}]}''')
-        >>> type(obj['bb1'])
-        <class 'mmif.serialize.annotation.Annotation'>
-        >>> obj['asdf']
-        Traceback (most recent call last):
-            ...
-        KeyError: 'Annotation ID not found: asdf'
+        index ([]) implementation for View.
 
         :raises KeyError: if the key is not found
         :param key: the search string.
@@ -440,16 +508,6 @@ class AnnotationsList(DataList[Union[Annotation, Document]]):
         :return: None
         """
         super()._append_with_key(value.id, value, overwrite)
-        
-    def __getitem__(self, key: str):
-        """
-        specialized getter implementation to workaround https://github.com/clamsproject/mmif/issues/228
-        # TODO (krim @ 7/12/24): annotation ids must be in the long form in the future, so this check will be unnecessary once https://github.com/clamsproject/mmif/issues/228 is resolved. 
-        """
-        if ":" in key:
-            _, aid = key.split(":")
-            return self._items.__getitem__(aid)
-        return self._items.get(key, None)
 
 
 class ContainsDict(DataDict[ThingTypesBase, Contain]):
@@ -473,8 +531,19 @@ class ContainsDict(DataDict[ThingTypesBase, Contain]):
     
     def __contains__(self, item: Union[str, ThingTypesBase]):
         if isinstance(item, str):
-            string_keys = [str(k) for k in self._items.keys()]
-            return item in string_keys
+            # in general, when querying with a string, do not use fuzzy equality
+            if 'vocab.lappsgrid.org' in item and item.split('/')[-1] in ThingTypesBase.old_lapps_type_shortnames:
+                # first, some quirks for legacy LAPPSgrid types
+                shortname = item.split('/')[-1]
+                item = AnnotationTypesBase(f'http://mmif.clams.ai/vocabulary/{shortname}/v1')
+                for key in self._items.keys():
+                    if item._eq_internal(key, fuzzy=False):
+                        return True
+                return False
+            else:
+                # otherwise just string match 
+                string_keys = [str(k) for k in self._items.keys()]
+                return item in string_keys
         else:
             return item in self._items
 

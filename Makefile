@@ -40,7 +40,7 @@ docs: VERSION $(generatedcode)
 	rm -rf docs
 	pip install --upgrade -r requirements.txt
 	pip install --upgrade -r requirements.old
-	sphinx-multiversion documentation docs -b html -a -vvv
+	sphinx-multiversion documentation docs -b html -a
 	touch docs/.nojekyll
 	ln -sf $(latest) docs/latest
 	echo "<!DOCTYPE html> <html> <head> <title>Redirect to latest version</title> <meta charset=\"utf-8\"> <meta http-equiv=\"refresh\" content=\"0; url=./latest/index.html\"> </head> </html>" > docs/index.html
@@ -84,8 +84,10 @@ devversion: VERSION.dev VERSION; cat VERSION
 version: VERSION; cat VERSION
 
 # since the GH api will return tags in chronological order, we can just grab the last one without sorting
-VERSION.dev: devver := $(shell curl --silent "https://api.github.com/repos/clamsproject/mmif-python/git/refs/tags" | grep '"ref":' | sed -E 's/.+refs\/tags\/([0-9.]+)",/\1/g' | tail -n 1)
-VERSION.dev: specver := $(shell curl --silent "https://api.github.com/repos/clamsproject/mmif/git/refs/tags" | grep '"ref":' | grep -v 'py-' | sed -E 's/.+refs\/tags\/(spec-)?([0-9.]+)",/\2/g' | tail -n 1)
+AUTH_ARG := $(if $(GITHUB_TOKEN),-H "Authorization: token $(GITHUB_TOKEN)")
+
+VERSION.dev: devver := $(shell curl --silent $(AUTH_ARG) "https://api.github.com/repos/clamsproject/mmif-python/git/refs/tags" | grep '"ref":' | sed -E 's/.+refs\/tags\/([0-9.]+)",/\1/g' | tail -n 1)
+VERSION.dev: specver := $(shell curl --silent $(AUTH_ARG) "https://api.github.com/repos/clamsproject/mmif/git/refs/tags" | grep '"ref":' | grep -v 'py-' | sed -E 's/.+refs\/tags\/(spec-)?([0-9.]+)",/\2/g' | tail -n 1)
 VERSION.dev:
 	@echo DEVVER: $(devver)
 	@echo SPECVER: $(specver)
@@ -107,5 +109,8 @@ distclean:
 	@rm -rf dist $(artifact) build/bdist*
 clean: distclean
 	@rm -rf VERSION VERSION.dev $(testcaches) $(buildcaches) $(generatedcode)
+	@rm -rf docs
+	@rm -rf .*cache
+	@rm -rf .hypothesis tests/.hypothesis
 	@git checkout -- documentation/target-versions.csv
 

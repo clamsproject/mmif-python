@@ -49,10 +49,9 @@ class Annotation(MmifObject):
     def __init__(self, anno_obj: Optional[Union[bytes, str, dict]] = None, *_) -> None:
         self._type: ThingTypesBase = ThingTypesBase('')
         # to store the parent view ID
-        self._parent_view_id = ''
         self._props_ephemeral: AnnotationProperties = AnnotationProperties()
         self._alignments = {}  # to hold alignment information (Alignment anno long_id -> aligned anno long_id)
-        self.reserved_names.update(('_parent_view_id', '_props_ephemeral', '_alignments'))
+        self.reserved_names.update(('_props_ephemeral', '_alignments'))
         if not hasattr(self, 'properties'):  # don't overwrite DocumentProperties on super() call
             self.properties: AnnotationProperties = AnnotationProperties()
             self._attribute_classes = {'properties': AnnotationProperties}
@@ -116,17 +115,18 @@ class Annotation(MmifObject):
         in `TimeFrame` and `BoundingBox` respectively.
         """
         prop_aliases = AnnotationTypes._prop_aliases.get(self._type.shortname, {})
-        for alias_reprep, alias_group in prop_aliases.items():
+        for alias_rep, alias_group in prop_aliases.items():
             if key_to_add in alias_group:
                 for alias in alias_group:
                     if alias != key_to_add:
                         self._props_ephemeral[alias] = val_to_add
                         if alias in self.properties.keys():
-                            warning_msg = f'Found both "{key_to_add}" and "{alias}" in the properties of "{self.id}" annotation in "{self.parent}" view. '
-                            if alias == alias_reprep:
-                                warning_msg += f'However "{key_to_add}" is an alias of "{alias_reprep}".'
+                            warning_msg = (f'Both "{key_to_add}" and "{alias}" are in the properties of "{self.id}", '
+                                           f'however ')
+                            if alias == alias_rep:
+                                warning_msg += f'"{key_to_add}" is an alias of "{alias_rep}".'
                             else:
-                                warning_msg += f'However "{key_to_add}" and "{alias}" are boath aliases of "{alias_reprep}".'
+                                warning_msg += f'"{key_to_add}" and "{alias}" are both aliases of "{alias_rep}".'
                             warning_msg += f'Having two synonyms in the same annotation can cause unexpected behavior. '
                             warnings.warn(warning_msg, UserWarning)
 
@@ -134,6 +134,8 @@ class Annotation(MmifObject):
         """
         Check if the @type of this object matches.
         """
+        if isinstance(at_type, str):
+            at_type = ThingTypesBase.from_str(at_type)
         return self.at_type == at_type
 
     @property
@@ -149,13 +151,28 @@ class Annotation(MmifObject):
 
     @property
     def parent(self) -> str:
-        return self._parent_view_id
-
+        if self.id_delimiter in self.properties.id:
+            id_split = self.properties.id.split(self.id_delimiter)
+            if len(id_split) == 2:
+                return id_split[0]
+        raise ValueError(f'Annotation {self.id} does not have a parent view, or its ID does not follow the expected format. ')
+    
     @parent.setter
-    def parent(self, parent_view_id: str) -> None:
-        # I want to make this to accept `View` object as an input too,
-        # but import `View` will break the code due to circular imports
-        self._parent_view_id = parent_view_id
+    def parent(self, parent_id: str) -> None:
+        """
+        .. deprecated:: 1.1.0
+           Will be removed in 2.0.0. 
+           Setting parent ID is no longer allowed. Instead, the parent ID
+           should be prefixed to the annotation ID. 
+          
+        Sets the parent view ID of this annotation.
+        :param parent_id: 
+        """
+        warnings.warn(
+            "Setting parent ID is deprecated and nothing happened. Use prefixed annotation ID instead.",
+            DeprecationWarning
+        )
+
 
     @property
     def id(self) -> str:
@@ -167,17 +184,27 @@ class Annotation(MmifObject):
         
     @property
     def long_id(self) -> str:
-        if self.parent is not None and len(self.parent) > 0:
-            return f"{self.parent}{self.id_delimiter}{self.id}"
-        else:
-            return self.id
+        warnings.warn(
+            'long_id is deprecated. Use `id` instead. ', DeprecationWarning
+        )
+        return self.id
     
     @long_id.setter
     def long_id(self, long_id: str) -> None:
-        if self.id_delimiter in long_id:
-            self.parent, self.id = long_id.split(self.id_delimiter)
-        else:
-            self.id = long_id
+        warnings.warn(
+            'long_id is deprecated. Use `id` instead. ', DeprecationWarning
+        )
+        self.id = long_id
+    
+    @property
+    def _short_id(self) -> str:
+        # TODO (krim @ 6/27/25): DELETE THIS METHOD!
+        """
+        Method to directly get "short" form of the ID, not supposed to be used for general purpose, since 
+        we want to force usage of "long" form ID when recording and referring annotations. 
+        :return: 
+        """
+        return self.properties.id
     
     @staticmethod
     def check_prop_value_is_simple_enough(
@@ -215,14 +242,7 @@ class Annotation(MmifObject):
         #                      f"(\"{name}\": \"{str(value)}\"")
         self._add_prop_aliases(name, value)
 
-    def get(self, prop_name: str) -> Union['AnnotationProperties', PRMTV_TYPES, LIST_PRMTV, LIST_LIST_PRMTV, DICT_PRMTV, DICT_LIST_PRMTV]:
-        """
-        A special getter for Annotation properties. This is to allow for
-        directly accessing properties without having to go through the
-        properties object, or view-level annotation properties encoded in the 
-        ``view.metadata.contains`` dict. Note that the regular props will take 
-        the priority over the ephemeral props when there are conflicts.
-        """
+    def __getitem__(self, prop_name: str):
         if prop_name in {'at_type', '@type'}:
             return str(self._type)
         elif prop_name == 'properties':
@@ -234,14 +254,31 @@ class Annotation(MmifObject):
         else:
             raise KeyError(f"Property {prop_name} does not exist in this annotation.")
 
+    def get(self, prop_name: str, default=None):
+        """
+        A getter for Annotation, will search for a property by its name, 
+        and return the value if found, or the default value if not found.
+        This is designed to allow for directly accessing properties without 
+        having to go through the properties object, or view-level 
+        annotation metadata (common properties) encoded in the 
+        ``view.metadata.contains`` dict. Note that the regular properties 
+        will take the priority over the view-level common properties when 
+        there are name conflicts.
+        
+        :param prop_name: the name of the property to get
+        :param default: the value to return if the property is not found
+        :return: the value of the property
+        """
+        try:
+            return self.__getitem__(prop_name)
+        except KeyError:
+            return default
+
     get_property = get
 
-    def __getitem__(self, prop_name: str):
-        return self.get(prop_name)
-    
     def __contains__(self, item):
         try:
-            self.get(item)
+            self.__getitem__(item)
             return True
         except KeyError:
             return False
@@ -339,7 +376,7 @@ class Document(Annotation):
             else:
                 super().add_property(name, value)
 
-    def get(self, prop_name):
+    def get(self, prop_name, default=None):
         """
         A special getter for Document properties. The major difference from
         the super class's :py:meth:`Annotation.get` method is that Document 
@@ -448,13 +485,21 @@ class AnnotationProperties(MmifObject, MutableMapping[str, T]):
     """
 
     def __delitem__(self, key: str) -> None:
+        frm = None
         for k in self.__iter__():
             if k == key:
-                if k not in self._required_attributes:
-                    del self.__dict__[k]
-                else:
+                if k in self._required_attributes:
                     raise AttributeError(f'Cannot delete a required attribute "{key}"!')
-        raise KeyError(f'Key "{key}" not found.')
+                elif k in self._unnamed_attributes:
+                    frm = self._unnamed_attributes
+                    break
+                else:
+                    frm = self.__dict__
+                    break
+        if frm is not None:
+            del frm[key]
+        else:
+            raise KeyError(f'Key "{key}" not found.')
                 
     def __iter__(self) -> Iterator[str]:
         """
@@ -576,6 +621,11 @@ class DocumentProperties(AnnotationProperties):
             return "".join((parsed_location.netloc, parsed_location.path))
 
     def location_path(self) -> Optional[str]:
+        """
+        .. deprecated:: 1.0.2
+           Will be removed in 2.0.0. 
+           Use :meth:`location_path_resolved` instead.
+        """
         warnings.warn('location_path() is deprecated. Use location_path_resolved() instead.', DeprecationWarning)
         return self.location_path_resolved()
     

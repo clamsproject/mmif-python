@@ -288,6 +288,11 @@ setuptools.setup(
     long_description=long_desc,
     long_description_content_type="text/markdown",
     url="https://mmif.clams.ai",
+    entry_points={
+        'console_scripts': [
+            'mmif = mmif.__init__:cli',
+        ],
+    },
     packages=setuptools.find_packages(),
     cmdclass=cmdclass,
     # this is for *building*, building (build, bdist_*) doesn't get along with MANIFEST.in
@@ -306,7 +311,7 @@ setuptools.setup(
             'pytype',
         ]
     },
-    python_requires='>=3.8',
+    python_requires='>=3.10',
     classifiers=[
         'Development Status :: 2 - Pre-Alpha',
         'Intended Audience :: Developers ',

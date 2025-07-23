@@ -147,7 +147,7 @@ class Mmif(MmifObject):
         self.metadata: MmifMetadata = MmifMetadata()
         self.documents: DocumentsList = DocumentsList()
         self.views: ViewsList = ViewsList()
-        if validate:
+        if validate and mmif_obj is not None:
             self.validate(mmif_obj)
         self.disallow_additional_properties()
         self._attribute_classes = {
@@ -237,16 +237,19 @@ class Mmif(MmifObject):
                     doc_id = ann.get_property('document')
                     try:
                         for prop_key, prop_value in ann.properties.items():
-                            self.get_document_by_id(doc_id)._props_ephemeral[prop_key] = prop_value
+                            doc = cast(Document, self.__getitem__(doc_id))
+                            if not isinstance(doc, Document):
+                                raise KeyError
+                            doc._props_ephemeral[prop_key] = prop_value
                     except KeyError:
-                        warnings.warn(f"Annotation {ann.id} (in view {view.id}) has a document ID {doc_id} that "
+                        warnings.warn(f"Annotation {ann.id} has a document ID {doc_id} that "
                                       f"does not exist in the MMIF object. Skipping.", RuntimeWarning)
                         
                 ## caching start and end points for time-based annotations
                 # add quick access to `start` and `end` values if the annotation is using `targets` property
                 if 'targets' in ann.properties:
                     if 'start' in ann.properties or 'end' in ann.properties:
-                        raise ValueError(f"Annotation {ann.id} (in view {view.id}) has `targets` and `start`/`end/` "
+                        raise ValueError(f"Annotation {ann.id} has `targets` and `start`/`end` "
                                          f"properties at the same time. Annotation anchors are ambiguous.")
                     ann._props_ephemeral['start'] = self._get_linear_anchor_point(ann, start=True)
                     ann._props_ephemeral['end'] = self._get_linear_anchor_point(ann, start=False)
@@ -256,29 +259,22 @@ class Mmif(MmifObject):
                     self._cache_alignment(ann)
     
     def _cache_alignment(self, alignment_ann: Annotation):
-        view = self.views.get(alignment_ann.parent)
-        if view is None:
-            warnings.warn(f"Alignment {alignment_ann.long_id} doesn't have a parent view, but it should.", RuntimeWarning)
-            return
-
+        def _when_failed():
+            warnings.warn(
+                f"Alignment {alignment_ann.id} has `source` and `target` properties that do not point to Annotation objects.",
+                RuntimeWarning)
         ## caching alignments
-        def _desprately_search_annotation_object(ann_short_id):
-            ann_long_id = f"{view.id}{self.id_delimiter}{ann_short_id}"
-            try:
-                return self.__getitem__(ann_long_id)
-            except KeyError:
-                return self.__getitem__(ann_short_id)
-
         if all(map(lambda x: x in alignment_ann.properties, ('source', 'target'))):
-            source_ann = _desprately_search_annotation_object(alignment_ann.get('source'))
-            target_ann = _desprately_search_annotation_object(alignment_ann.get('target'))
-            if isinstance(source_ann, Annotation) and isinstance(target_ann, Annotation):
-                source_ann._cache_alignment(alignment_ann, target_ann)
-                target_ann._cache_alignment(alignment_ann, source_ann)
-            else:
-                warnings.warn(
-                    f"Alignment {alignment_ann.long_id} has `source` and `target` properties that do not point to Annotation objects.",
-                    RuntimeWarning)
+            try:
+                source_ann = self[alignment_ann.get('source')]
+                target_ann = self[alignment_ann.get('target')]
+                if isinstance(source_ann, Annotation) and isinstance(target_ann, Annotation):
+                    source_ann._cache_alignment(alignment_ann, target_ann)
+                    target_ann._cache_alignment(alignment_ann, source_ann)
+                else:
+                    _when_failed()
+            except KeyError:
+                _when_failed()
 
     def generate_capital_annotations(self):
         """
@@ -316,16 +312,16 @@ class Mmif(MmifObject):
                         doc_id = view.metadata.contains[AnnotationTypes.Annotation]['document']
                     for ann in view.get_annotations(AnnotationTypes.Annotation):
                         if doc_id is None:
+                            # note that in the input MMIF that generated with old implementation,
+                            # this value can be in the "short" form, i.e., without view ID prefix
+                            # however, after deserialization, all document IDs should have the 
+                            # view ID prefix, at least within in-memory representation.
                             doc_id = ann.get_property('document')
-                        # only if we are sure that the document ID is unique across all views... (with v_id prefix)
-                        # TODO (krim @ 7/15/24): update id checking once https://github.com/clamsproject/mmif/issues/228 is resolved
-                        if not any([doc_id == doc.id for doc in self.documents]) and Mmif.id_delimiter not in doc_id:
-                            doc_id = f"{view.id}{Mmif.id_delimiter}{doc_id}"
-                        existing_anns[doc_id].update(ann.properties)
+                        existing_anns[doc_id].update(ann.properties.items())
                 for doc in view.get_documents():
-                    anns_to_write[doc.long_id].update(doc._props_pending)
+                    anns_to_write[doc.id].update(doc._props_pending.items())
             for doc in self.documents:
-                anns_to_write[doc.long_id].update(doc._props_pending)
+                anns_to_write[doc.id].update(doc._props_pending.items())
             # additional iteration of views, to find a proper view to add the 
             # generated annotations. If none found, use the last view as the kitchen sink
             last_view_for_docs = defaultdict(lambda: last_view)
@@ -337,12 +333,8 @@ class Mmif(MmifObject):
                     last_view_for_docs[doc_id] = last_view
                     break
                 for view in reversed(self.views):
-                    # first try to find out if this view "contains" any annotation to the doc
-                    # then, check for individual annotations
-                    # TODO (krim @ 7/15/24): update id checking once https://github.com/clamsproject/mmif/issues/228 is resolved
-                    if [cont for cont in view.metadata.contains.values() if doc_id.endswith(cont.get('document', 'TODO:this endswith test is a temporal solution we use until long_id is forced everywhere'))] \
-                            or list(view.get_annotations(document=doc_id)):
-                        last_view_for_docs[doc_id] = view
+                    if any(view.get_annotations(document=doc_id)):
+                        last_view_for_docs[doc_id] = view 
                         break
             for doc_id, found_props in anns_to_write.items():
                 # ignore the "empty" id property from temporary dict 
@@ -355,8 +347,8 @@ class Mmif(MmifObject):
                         props[k] = v
                 if props:
                     view_to_write = last_view_for_docs[doc_id]
-                    if view_to_write.metadata.app == current_app and view_to_write.annotations.get(doc_id) is not None:
-                        view_to_write.get_document_by_id(doc_id).properties.update(props)
+                    if view_to_write.metadata.app == current_app and doc_id in view_to_write.annotations:
+                        view_to_write[doc_id].properties.update(props)
                     else:
                         if len(anns_to_write) == 1:
                             # if there's only one document, we can record the doc_id in the contains metadata
@@ -416,13 +408,18 @@ class Mmif(MmifObject):
         """
         Appends a View object to the views list.
 
-        Fails if there is already a view with the same ID in the MMIF object.
+        Fails if there is already a view with the same ID or a document 
+        with the same ID in the MMIF object.
 
         :param view: the Document object to add
         :param overwrite: if set to True, will overwrite
                           an existing view with the same ID
+        :raises KeyError: if ``overwrite`` is set to False and existing 
+                          object (document or view) with the same ID exists
         :return: None
         """
+        if view.id in self.documents:
+            raise KeyError(f"{view.id} already exists in the documents list. ")
         view._parent_mmif = self
         self.views.append(view, overwrite)
 
@@ -430,13 +427,18 @@ class Mmif(MmifObject):
         """
         Appends a Document object to the documents list.
 
-        Fails if there is already a document with the same ID in the MMIF object.
+        Fails if there is already a document with the same ID or a view 
+        with the same ID in the MMIF object.
 
         :param document: the Document object to add
         :param overwrite: if set to True, will overwrite
                           an existing view with the same ID
+        :raises KeyError: if ``overwrite`` is set to False and existing 
+                          object (document or view) with the same ID exists
         :return: None
         """
+        if document.id in self.views:
+            raise KeyError(f"{document.id} already exists in the views list. ")
         self.documents.append(document, overwrite)
 
     def get_documents_in_view(self, vid: Optional[str] = None) -> List[Document]:
@@ -522,37 +524,45 @@ class Mmif(MmifObject):
 
     def get_document_by_id(self, doc_id: str) -> Document:
         """
+        .. deprecated:: 1.1.0
+           Will be removed in 2.0.0. 
+           Use general ``__getitem__()`` method instead, e.g., ``mmif[doc_id]``.
+           
         Finds a Document object with the given ID.
 
         :param doc_id: the ID to search for
         :return: a reference to the corresponding document, if it exists
         :raises KeyError: if there is no corresponding document
         """
-        if self.id_delimiter in doc_id:
-            vid, did = doc_id.split(self.id_delimiter)
-            view = self[vid]
-            if isinstance(view, View):
-                return view.get_document_by_id(did) 
-            else:
-                raise KeyError("{} view not found".format(vid))
-        else:
-            doc_found = self.documents.get(doc_id)
-        if doc_found is None:
-            raise KeyError("{} document not found".format(doc_id))
+        warnings.warn(
+            "Mmif.get_document_by_id() is deprecated, use mmif[doc_id] instead.",
+            DeprecationWarning
+        )
+        doc_found = self.__getitem__(doc_id)
+        if not isinstance(doc_found, Document):
+            raise KeyError(f"Document with ID {doc_id} not found in the MMIF object.")
         return cast(Document, doc_found)
 
-    def get_view_by_id(self, req_view_id: str) -> View:
+    def get_view_by_id(self, view_id: str) -> View:
         """
+        .. deprecated:: 1.1.0
+           Will be removed in 2.0.0. 
+           Use general ``__getitem__()`` method instead, e.g., ``mmif[view_id]``.
+           
         Finds a View object with the given ID.
 
-        :param req_view_id: the ID to search for
+        :param view_id: the ID to search for
         :return: a reference to the corresponding view, if it exists
         :raises Exception: if there is no corresponding view
         """
-        result = self.views.get(req_view_id)
-        if result is None:
-            raise KeyError("{} view not found".format(req_view_id))
-        return result
+        warnings.warn(
+            "Mmif.get_view_by_id() is deprecated, use mmif[view_id] instead.",
+            DeprecationWarning
+        )
+        view_found = self.__getitem__(view_id)
+        if not isinstance(view_found, View):
+            raise KeyError(f"View with ID {view_id} not found in the MMIF object.")
+        return cast(View, view_found)
 
     def get_alignments(self, at_type1: Union[str, ThingTypesBase], at_type2: Union[str, ThingTypesBase]) -> Dict[str, List[Annotation]]:
         """
@@ -576,11 +586,7 @@ class Mmif(MmifObject):
                     aligned_types = set()
                     for ann_id in [alignment['target'], alignment['source']]:
                         ann_id = cast(str, ann_id)
-                        if self.id_delimiter in ann_id:
-                            view_id, ann_id = ann_id.split(self.id_delimiter)
-                            aligned_type = cast(Annotation, self[view_id][ann_id]).at_type
-                        else:
-                            aligned_type = cast(Annotation, alignment_view[ann_id]).at_type
+                        aligned_type = cast(Annotation, self[ann_id]).at_type
                         aligned_types.add(aligned_type)
                     aligned_types = list(aligned_types)  # because membership check for sets also checks hash() values
                     if len(aligned_types) == 2 and at_type1 in aligned_types and at_type2 in aligned_types:
@@ -602,18 +608,7 @@ class Mmif(MmifObject):
                 next(annotations)
                 views.append(view)
             except StopIteration:
-                # means search failed by the full doc_id string, 
-                # now try trimming the view_id from the string and re-do the search
-                if self.id_delimiter in doc_id:
-                    vid, did = doc_id.split(self.id_delimiter)
-                    if view.id == vid:
-                        annotations = view.get_annotations(document=did)
-                        try:
-                            next(annotations)
-                            views.append(view)
-                        except StopIteration:
-                            # both search failed, give up and move to next view
-                            pass
+                pass
         return views
 
     def get_all_views_with_error(self) -> List[View]:
@@ -709,7 +704,7 @@ class Mmif(MmifObject):
         from mmif.utils.timeunit_helper import convert
 
         time_anchors_in_range = []
-        at_types = set(at_types)
+        uniq_types = set(ThingTypesBase.from_str(t) if isinstance(t, str) else t for t in at_types)
 
         for view in self.get_all_views_contain(AnnotationTypes.TimeFrame) + self.get_all_views_contain(AnnotationTypes.TimePoint):
             time_unit_in_view = view.metadata.contains.get(AnnotationTypes.TimeFrame)["timeUnit"]
@@ -721,10 +716,10 @@ class Mmif(MmifObject):
                     time_anchors_in_range.append(ann)
         time_anchors_in_range.sort(key=lambda x: self.get_start(x))
         for time_anchor in time_anchors_in_range:
-            if not at_types or time_anchor.at_type in at_types:
+            if not uniq_types or time_anchor.at_type in uniq_types:
                 yield time_anchor
             for aligned in time_anchor.get_all_aligned():
-                if not at_types or aligned.at_type in at_types:
+                if not uniq_types or aligned.at_type in uniq_types:
                     yield aligned
 
     def _get_linear_anchor_point(self, ann: Annotation, targets_sorted=False, start: bool = True) -> Union[int, float]:
@@ -742,22 +737,18 @@ class Mmif(MmifObject):
         if 'timePoint' in props:
             return ann.get_property('timePoint')
         elif 'targets' in props:
-            
-            def get_target_ann(cur_ann, target_id):
-                if self.id_delimiter not in target_id:
-                    target_id = self.id_delimiter.join((cur_ann.parent, target_id))
-                return self.__getitem__(target_id)
-            
+            if 'start' in props or 'end' in props:
+                raise ValueError(f"Annotation {ann.id} has `targets` and `start`/`end` "
+                                 f"properties at the same time. Annotation anchors are ambiguous.")
+
             if not targets_sorted:
                 point = math.inf if start else -1
                 comp = min if start else max
                 for target_id in ann.get_property('targets'):
-                    target = get_target_ann(ann, target_id)
-                    point = comp(point, self._get_linear_anchor_point(target, start=start))
+                    point = comp(point, self._get_linear_anchor_point(self[target_id], start=start))
                 return point
             target_id = ann.get_property('targets')[0 if start else -1]
-            target = get_target_ann(ann, target_id)
-            return self._get_linear_anchor_point(target, start=start)
+            return self._get_linear_anchor_point(self[target_id], start=start)
         elif (start and 'start' in props) or (not start and 'end' in props):
             return ann.get_property('start' if start else 'end')
         else:
@@ -778,7 +769,7 @@ class Mmif(MmifObject):
     def __getitem__(self, item: str) \
             -> Union[Document, View, Annotation, MmifMetadata, DocumentsList, ViewsList]:
         """
-        getitem implementation for Mmif. This will try to find any object, given an identifier or an immediate 
+        index ([]) implementation for Mmif. This will try to find any object, given an identifier or an immediate 
         attribute name. When nothing is found, this will raise an error rather than returning a None 
 
         :raises KeyError: if the item is not found or if the search results are ambiguous
@@ -790,26 +781,35 @@ class Mmif(MmifObject):
         """
         if item in self._named_attributes():
             return self.__dict__[item]
-        split_attempt = item.split(self.id_delimiter)
-
-        found = []
-
-        if len(split_attempt) == 1:
-            found.append(self.documents.get(split_attempt[0]))
-            found.append(self.views.get(split_attempt[0]))
-            for view in self.views:
-                found.append(view.annotations.get(split_attempt[0]))
-        elif len(split_attempt) == 2:
-            v = self.get_view_by_id(split_attempt[0])
-            if v is not None:
-                found.append(v.annotations.get(split_attempt[1]))
+        if self.id_delimiter in item:
+            vid, _ = item.split(self.id_delimiter, 1)
+            return self.views[vid].annotations[item]
         else:
-            raise KeyError("Tried to subscript into a view that doesn't exist")
-        found = [x for x in found if x is not None]
+            # search for document first, then views
+            # raise KeyError if nothing is found
+            try:
+                return self.documents.__getitem__(item)
+            except KeyError:
+                try:
+                    return self.views.__getitem__(item)
+                except KeyError:
+                    raise KeyError(f"Object with ID {item} not found in the MMIF object. ")
+    
+    def get(self, obj_id, default=None):
+        """
+        High-level getter for Mmif. This will try to find any object, given 
+        an identifier or an immediate attribute name. When nothing is found, 
+        this will return a default value instead of raising an error.
 
-        if len(found) > 1:
-            raise KeyError("Ambiguous ID search result")
-        elif len(found) == 0:
-            raise KeyError("ID not found: %s" % item)
-        else:
-            return found[-1]
+        :param obj_id: an immediate attribute name or an object identifier 
+                     (a document ID, a view ID, or an annotation ID). When 
+                     annotation ID is given as a "short" ID (without view 
+                     ID prefix), the method will try to find a match from 
+                     the first view, and return immediately if found.
+        :param default: the default value to return if none is found
+        :return: the object searched for or the default value
+        """
+        try:
+            return self.__getitem__(obj_id)
+        except KeyError:
+            return default
