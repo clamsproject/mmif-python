@@ -26,5 +26,12 @@ class AnnotationTypes(AnnotationTypesBase):
         'Polygon': {'classification': {'classifications', 'classification'}},
         'VideoObject': {'classification': {'classifications', 'classification'}},
         'Relation': {'classification': {'classifications', 'classification'}},
+        'Span': {'text': {'word', 'text'}},
+        'Token': {'text': {'word', 'text'}},
+        'Sentence': {'text': {'word', 'text'}},
+        'Paragraph': {'text': {'word', 'text'}},
+        'NamedEntity': {'text': {'word', 'text'}},
+        'NounChunk': {'text': {'word', 'text'}},
+        'VerbChunk': {'text': {'word', 'text'}},
     }
 
