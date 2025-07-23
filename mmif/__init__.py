@@ -23,6 +23,7 @@ version_template = "{} (based on MMIF spec: {})"
 def get_mmif_json_schema():
     return files(f'{__package__}.{_res_pkg}').joinpath(_schema_res_name).read_text()
 
+
 def find_all_modules(pkgname):
     parent = importlib.import_module(pkgname)
     if not hasattr(parent, '__path__'):
