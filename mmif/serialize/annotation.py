@@ -134,6 +134,8 @@ class Annotation(MmifObject):
         """
         Check if the @type of this object matches.
         """
+        if isinstance(at_type, str):
+            at_type = ThingTypesBase.from_str(at_type)
         return self.at_type == at_type
 
     @property
