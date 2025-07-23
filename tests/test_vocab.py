@@ -30,7 +30,7 @@ class TestAnnotationTypes(unittest.TestCase):
 
     def test_type_checking(self):
         mmif_obj = Mmif(MMIF_EXAMPLES['everything'])
-        ann_obj = mmif_obj.get_view_by_id('v1').annotations['s1']
+        ann_obj = mmif_obj['v1:s1']
         self.assertTrue(ann_obj.is_type(ann_obj.at_type))
         self.assertTrue(ann_obj.is_type(str(ann_obj.at_type)))
         self.assertFalse(ann_obj.is_type(DocumentTypes.VideoDocument))
@@ -38,8 +38,8 @@ class TestAnnotationTypes(unittest.TestCase):
     def test_serialize_within_mmif(self):
         mmif_obj = Mmif(MMIF_EXAMPLES['everything'])
         view_obj = mmif_obj.get_view_by_id('v5')
-        popped_ann = view_obj.annotations._items.pop('bb25')
-        new_ann = view_obj.new_annotation(AnnotationTypes.BoundingBox, 'bb25')
+        popped_ann = view_obj.annotations._items.pop('v5:bb25')
+        new_ann = view_obj.new_annotation(AnnotationTypes.BoundingBox, 'v5:bb25')
         for propk, propv in popped_ann.properties.items():
             if propk == 'id':
                 continue
