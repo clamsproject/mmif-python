@@ -1,23 +1,21 @@
+
+
 <!DOCTYPE html>
-<html class="writer-html5" lang="en">
+<html class="writer-html5" lang="en" data-content_root="./">
 <head>
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Getting Started &mdash; mmif-python  documentation</title>
-      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=80d5e7a1" />
-      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=19f00094" />
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=e59714d7" />
 
   
-  <!--[if lt IE 9]>
-    <script src="_static/js/html5shiv.min.js"></script>
-  <![endif]-->
-  
-        <script src="_static/jquery.js?v=5d32c60e"></script>
-        <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-        <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js?v=b3ba4146"></script>
-        <script src="_static/doctools.js?v=888ff710"></script>
-        <script src="_static/sphinx_highlight.js?v=4825356b"></script>
+      <script src="_static/jquery.js?v=5d32c60e"></script>
+      <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="_static/documentation_options.js?v=5929fcd5"></script>
+      <script src="_static/doctools.js?v=9bcbadda"></script>
+      <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="_static/js/theme.js"></script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
@@ -36,9 +34,6 @@
           <a href="index.html" class="icon icon-home">
             mmif-python
           </a>
-              <div class="version">
-                0.3.1
-              </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
     <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
@@ -87,21 +82,21 @@
            <div itemprop="articleBody">
              
   <section id="getting-started">
-<span id="instroduction"></span><h1>Getting Started<a class="headerlink" href="#getting-started" title="Permalink to this heading"></a></h1>
+<span id="instroduction"></span><h1>Getting Started<a class="headerlink" href="#getting-started" title="Link to this heading"></a></h1>
 <section id="overview">
-<h2>Overview<a class="headerlink" href="#overview" title="Permalink to this heading"></a></h2>
+<h2>Overview<a class="headerlink" href="#overview" title="Link to this heading"></a></h2>
 <p>MultiMedia Interchange Format (MMIF) is a JSON(-LD)-based data format designed for transparency and interoperability for customized computational analysis application workflows.
 This documentation focuses on Python implementation of the MMIF. To learn more about the data format specification, please visit the <a class="reference external" href="https://mmif.clams.ai">MMIF wbesite</a>.
 <code class="docutils literal notranslate"><span class="pre">mmif-python</span></code> is a public, open source implementation of the MMIF data format. <code class="docutils literal notranslate"><span class="pre">mmif-python</span></code> supports de-/serialization of MMIF objects, as well as many navigation and manipulation helpers for MMIF objects.</p>
 </section>
 <section id="prerequisites">
-<h2>Prerequisites<a class="headerlink" href="#prerequisites" title="Permalink to this heading"></a></h2>
+<h2>Prerequisites<a class="headerlink" href="#prerequisites" title="Link to this heading"></a></h2>
 <ul class="simple">
 <li><p><a class="reference external" href="https://www.python.org">Python</a>: <code class="docutils literal notranslate"><span class="pre">mmif-python</span></code> requires Python 3.6 or newer. We have no plan to support <a class="reference external" href="https://pythonclock.org/">Python 2.7</a>.</p></li>
 </ul>
 </section>
 <section id="installation">
-<h2>Installation<a class="headerlink" href="#installation" title="Permalink to this heading"></a></h2>
+<h2>Installation<a class="headerlink" href="#installation" title="Link to this heading"></a></h2>
 <p>Package <code class="docutils literal notranslate"><span class="pre">mmif-python</span></code> is distributed via the official PyPI. Users are supposed to pip-install to get latest release.</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span>mmif-python
 </pre></div>
@@ -110,10 +105,10 @@ This documentation focuses on Python implementation of the MMIF. To learn more a
 The MMIF format and specification is evolving over time, and <code class="docutils literal notranslate"><span class="pre">mmif-python</span></code> package will be updated along with the changes in MMIF format. Note that MMIF format is not always backward-compatible. To find out more about relations between MMIF versions and <code class="docutils literal notranslate"><span class="pre">mmif-python</span></code> versions, and which supports which, please take time to read our decision on the subject <a class="reference external" href="https://mmif.clams.ai/versioning/">here</a>.</p>
 </section>
 <section id="mmif-serialization">
-<h2>MMIF Serialization<a class="headerlink" href="#mmif-serialization" title="Permalink to this heading"></a></h2>
+<h2>MMIF Serialization<a class="headerlink" href="#mmif-serialization" title="Link to this heading"></a></h2>
 <p><code class="xref py py-class docutils literal notranslate"><span class="pre">mmif.serialize.mmif.Mmif</span></code> represents the top-level MMIF object. For subcomponents of the MMIF (view objects, annotation objects, metadata for each object) are all subclass of <code class="xref py py-class docutils literal notranslate"><span class="pre">mmif.serialize.model.MmifObject</span></code>, including the <code class="xref py py-class docutils literal notranslate"><span class="pre">mmif.serialize.mmif.Mmif</span></code>. To start with an existing MMIF <code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code>, simple initiate a new <code class="docutils literal notranslate"><span class="pre">Mmif</span></code> object with the file.</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">mmif</span>
-<span class="kn">from</span> <span class="nn">mmif</span> <span class="kn">import</span> <span class="n">Mmif</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">mmif</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">mmif</span><span class="w"> </span><span class="kn">import</span> <span class="n">Mmif</span>
 
 <span class="n">mmif_str</span> <span class="o">=</span> <span class="s2">&quot;&quot;&quot;{</span>
 <span class="s2">&quot;metadata&quot;: {</span>
@@ -162,7 +157,7 @@ The MMIF format and specification is evolving over time, and <code class="docuti
   <hr/>
 
   <div role="contentinfo">
-    <p>&#169; Copyright 2024, Brandeis LLC.</p>
+    <p>&#169; Copyright 2025, Brandeis LLC.</p>
   </div>
 
   Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
@@ -223,6 +218,7 @@ The MMIF format and specification is evolving over time, and <code class="docuti
       <dd><a href="../1.0.7/introduction.html">1.0.7</a></dd>
       <dd><a href="../1.0.8/introduction.html">1.0.8</a></dd>
       <dd><a href="../1.0.9/introduction.html">1.0.9</a></dd>
+      <dd><a href="../1.1.0/introduction.html">1.1.0</a></dd>
     </dl>
   </div>
 </div><script>

@@ -1,23 +1,21 @@
+
+
 <!DOCTYPE html>
-<html class="writer-html5" lang="en">
+<html class="writer-html5" lang="en" data-content_root="../">
 <head>
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>mmif.vocabulary module &mdash; mmif-python  documentation</title>
-      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=80d5e7a1" />
-      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=19f00094" />
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=e59714d7" />
 
   
-  <!--[if lt IE 9]>
-    <script src="../_static/js/html5shiv.min.js"></script>
-  <![endif]-->
-  
-        <script src="../_static/jquery.js?v=5d32c60e"></script>
-        <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-        <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js?v=b3ba4146"></script>
-        <script src="../_static/doctools.js?v=888ff710"></script>
-        <script src="../_static/sphinx_highlight.js?v=4825356b"></script>
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=5929fcd5"></script>
+      <script src="../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
@@ -36,9 +34,6 @@
           <a href="../index.html" class="icon icon-home">
             mmif-python
           </a>
-              <div class="version">
-                1.0.19
-              </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
     <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
@@ -61,9 +56,6 @@
 <li class="toctree-l3"><a class="reference internal" href="#mmif.vocabulary.ThingTypesBase"><code class="docutils literal notranslate"><span class="pre">ThingTypesBase</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#mmif.vocabulary.ThingType"><code class="docutils literal notranslate"><span class="pre">ThingType</span></code></a><ul>
 <li class="toctree-l4"><a class="reference internal" href="#mmif.vocabulary.ThingType.Thing"><code class="docutils literal notranslate"><span class="pre">ThingType.Thing</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="#mmif.vocabulary.ThingType.base_uri"><code class="docutils literal notranslate"><span class="pre">ThingType.base_uri</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="#mmif.vocabulary.ThingType.fuzzy_eq"><code class="docutils literal notranslate"><span class="pre">ThingType.fuzzy_eq</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="#mmif.vocabulary.ThingType.shortname"><code class="docutils literal notranslate"><span class="pre">ThingType.shortname</span></code></a></li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="#mmif.vocabulary.ClamsTypesBase"><code class="docutils literal notranslate"><span class="pre">ClamsTypesBase</span></code></a></li>
@@ -75,14 +67,19 @@
 <li class="toctree-l4"><a class="reference internal" href="#mmif.vocabulary.AnnotationTypes.BoundingBox"><code class="docutils literal notranslate"><span class="pre">AnnotationTypes.BoundingBox</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="#mmif.vocabulary.AnnotationTypes.Chapter"><code class="docutils literal notranslate"><span class="pre">AnnotationTypes.Chapter</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="#mmif.vocabulary.AnnotationTypes.Interval"><code class="docutils literal notranslate"><span class="pre">AnnotationTypes.Interval</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#mmif.vocabulary.AnnotationTypes.NamedEntity"><code class="docutils literal notranslate"><span class="pre">AnnotationTypes.NamedEntity</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#mmif.vocabulary.AnnotationTypes.NounChunk"><code class="docutils literal notranslate"><span class="pre">AnnotationTypes.NounChunk</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#mmif.vocabulary.AnnotationTypes.Paragraph"><code class="docutils literal notranslate"><span class="pre">AnnotationTypes.Paragraph</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="#mmif.vocabulary.AnnotationTypes.Polygon"><code class="docutils literal notranslate"><span class="pre">AnnotationTypes.Polygon</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="#mmif.vocabulary.AnnotationTypes.Region"><code class="docutils literal notranslate"><span class="pre">AnnotationTypes.Region</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="#mmif.vocabulary.AnnotationTypes.Relation"><code class="docutils literal notranslate"><span class="pre">AnnotationTypes.Relation</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#mmif.vocabulary.AnnotationTypes.Sentence"><code class="docutils literal notranslate"><span class="pre">AnnotationTypes.Sentence</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="#mmif.vocabulary.AnnotationTypes.Span"><code class="docutils literal notranslate"><span class="pre">AnnotationTypes.Span</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="#mmif.vocabulary.AnnotationTypes.TimeFrame"><code class="docutils literal notranslate"><span class="pre">AnnotationTypes.TimeFrame</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="#mmif.vocabulary.AnnotationTypes.TimePoint"><code class="docutils literal notranslate"><span class="pre">AnnotationTypes.TimePoint</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#mmif.vocabulary.AnnotationTypes.Token"><code class="docutils literal notranslate"><span class="pre">AnnotationTypes.Token</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#mmif.vocabulary.AnnotationTypes.VerbChunk"><code class="docutils literal notranslate"><span class="pre">AnnotationTypes.VerbChunk</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="#mmif.vocabulary.AnnotationTypes.VideoObject"><code class="docutils literal notranslate"><span class="pre">AnnotationTypes.VideoObject</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="#mmif.vocabulary.AnnotationTypes.version"><code class="docutils literal notranslate"><span class="pre">AnnotationTypes.version</span></code></a></li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="#mmif.vocabulary.DocumentTypes"><code class="docutils literal notranslate"><span class="pre">DocumentTypes</span></code></a><ul>
@@ -91,7 +88,6 @@
 <li class="toctree-l4"><a class="reference internal" href="#mmif.vocabulary.DocumentTypes.ImageDocument"><code class="docutils literal notranslate"><span class="pre">DocumentTypes.ImageDocument</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="#mmif.vocabulary.DocumentTypes.TextDocument"><code class="docutils literal notranslate"><span class="pre">DocumentTypes.TextDocument</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="#mmif.vocabulary.DocumentTypes.VideoDocument"><code class="docutils literal notranslate"><span class="pre">DocumentTypes.VideoDocument</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="#mmif.vocabulary.DocumentTypes.version"><code class="docutils literal notranslate"><span class="pre">DocumentTypes.version</span></code></a></li>
 </ul>
 </li>
 </ul>
@@ -127,45 +123,30 @@
            <div itemprop="articleBody">
              
   <section id="mmif-vocabulary-module">
-<h1>mmif.vocabulary module<a class="headerlink" href="#mmif-vocabulary-module" title="Permalink to this heading"></a></h1>
+<h1>mmif.vocabulary module<a class="headerlink" href="#mmif-vocabulary-module" title="Link to this heading"></a></h1>
 <p>Module contains Enum-like classes for CLAMS vocabulary.</p>
 <dl class="py attribute">
 <dt class="sig sig-object py" id="mmif.vocabulary.ThingTypesBase">
-<span class="sig-prename descclassname"><span class="pre">mmif.vocabulary.</span></span><span class="sig-name descname"><span class="pre">ThingTypesBase</span></span><a class="reference external" href="https://github.com/clamsproject/mmif-python/tree/1.0.19/mmif/vocabulary.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mmif.vocabulary.ThingTypesBase" title="Permalink to this definition"></a></dt>
+<span class="sig-prename descclassname"><span class="pre">mmif.vocabulary.</span></span><span class="sig-name descname"><span class="pre">ThingTypesBase</span></span><a class="reference external" href="https://github.com/clamsproject/mmif-python/tree/1.0.19/mmif/vocabulary.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mmif.vocabulary.ThingTypesBase" title="Link to this definition"></a></dt>
 <dd><p>alias of <code class="xref py py-class docutils literal notranslate"><span class="pre">TypesBase</span></code></p>
 </dd></dl>
 
 <dl class="py class">
 <dt class="sig sig-object py" id="mmif.vocabulary.ThingType">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">mmif.vocabulary.</span></span><span class="sig-name descname"><span class="pre">ThingType</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">type_uri</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/clamsproject/mmif-python/tree/1.0.19/mmif/vocabulary.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mmif.vocabulary.ThingType" title="Permalink to this definition"></a></dt>
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">mmif.vocabulary.</span></span><span class="sig-name descname"><span class="pre">ThingType</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">type_uri</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/clamsproject/mmif-python/tree/1.0.19/mmif/vocabulary.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mmif.vocabulary.ThingType" title="Link to this definition"></a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">TypesBase</span></code></p>
 <p>This class contains the topmost CLAMS thing type 
-defined in the spec version 1.0.5 as a class variable.</p>
+defined in the spec version 1.1.0 as a class variable.</p>
 <dl class="py attribute">
 <dt class="sig sig-object py" id="mmif.vocabulary.ThingType.Thing">
-<span class="sig-name descname"><span class="pre">Thing</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">http://mmif.clams.ai/vocabulary/Thing/v1</span></em><a class="reference external" href="https://github.com/clamsproject/mmif-python/tree/1.0.19/mmif/vocabulary.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mmif.vocabulary.ThingType.Thing" title="Permalink to this definition"></a></dt>
-<dd></dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="mmif.vocabulary.ThingType.base_uri">
-<span class="sig-name descname"><span class="pre">base_uri</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></em><a class="reference external" href="https://github.com/clamsproject/mmif-python/tree/1.0.19/mmif/vocabulary.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mmif.vocabulary.ThingType.base_uri" title="Permalink to this definition"></a></dt>
-<dd></dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="mmif.vocabulary.ThingType.fuzzy_eq">
-<span class="sig-name descname"><span class="pre">fuzzy_eq</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">bool</span></em><a class="reference external" href="https://github.com/clamsproject/mmif-python/tree/1.0.19/mmif/vocabulary.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mmif.vocabulary.ThingType.fuzzy_eq" title="Permalink to this definition"></a></dt>
-<dd></dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="mmif.vocabulary.ThingType.shortname">
-<span class="sig-name descname"><span class="pre">shortname</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></em><a class="reference external" href="https://github.com/clamsproject/mmif-python/tree/1.0.19/mmif/vocabulary.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mmif.vocabulary.ThingType.shortname" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">Thing</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">http://mmif.clams.ai/vocabulary/Thing/v1</span></em><a class="reference external" href="https://github.com/clamsproject/mmif-python/tree/1.0.19/mmif/vocabulary.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mmif.vocabulary.ThingType.Thing" title="Link to this definition"></a></dt>
 <dd></dd></dl>
 
 </dd></dl>
 
 <dl class="py class">
 <dt class="sig sig-object py" id="mmif.vocabulary.ClamsTypesBase">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">mmif.vocabulary.</span></span><span class="sig-name descname"><span class="pre">ClamsTypesBase</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">type_uri</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fuzzymode</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/clamsproject/mmif-python/tree/1.0.19/mmif/vocabulary.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mmif.vocabulary.ClamsTypesBase" title="Permalink to this definition"></a></dt>
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">mmif.vocabulary.</span></span><span class="sig-name descname"><span class="pre">ClamsTypesBase</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">type_uri</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fuzzymode</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/clamsproject/mmif-python/tree/1.0.19/mmif/vocabulary.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mmif.vocabulary.ClamsTypesBase" title="Link to this definition"></a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">TypesBase</span></code></p>
 <p>Base class for CLAMS vocabulary types. Main 
 This class adds handling of MMIF specification versions 
@@ -174,7 +155,7 @@ in initializer and comparators.</p>
 
 <dl class="py class">
 <dt class="sig sig-object py" id="mmif.vocabulary.AnnotationTypesBase">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">mmif.vocabulary.</span></span><span class="sig-name descname"><span class="pre">AnnotationTypesBase</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">type_uri</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fuzzymode</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/clamsproject/mmif-python/tree/1.0.19/mmif/vocabulary.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mmif.vocabulary.AnnotationTypesBase" title="Permalink to this definition"></a></dt>
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">mmif.vocabulary.</span></span><span class="sig-name descname"><span class="pre">AnnotationTypesBase</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">type_uri</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fuzzymode</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/clamsproject/mmif-python/tree/1.0.19/mmif/vocabulary.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mmif.vocabulary.AnnotationTypesBase" title="Link to this definition"></a></dt>
 <dd><p>Bases: <a class="reference internal" href="#mmif.vocabulary.ClamsTypesBase" title="mmif.vocabulary.base_types.ClamsTypesBase"><code class="xref py py-class docutils literal notranslate"><span class="pre">ClamsTypesBase</span></code></a></p>
 <p>Inherit from this class to build your own custom annotation
 vocabularies.</p>
@@ -182,7 +163,7 @@ vocabularies.</p>
 
 <dl class="py class">
 <dt class="sig sig-object py" id="mmif.vocabulary.DocumentTypesBase">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">mmif.vocabulary.</span></span><span class="sig-name descname"><span class="pre">DocumentTypesBase</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">type_uri</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fuzzymode</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/clamsproject/mmif-python/tree/1.0.19/mmif/vocabulary.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mmif.vocabulary.DocumentTypesBase" title="Permalink to this definition"></a></dt>
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">mmif.vocabulary.</span></span><span class="sig-name descname"><span class="pre">DocumentTypesBase</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">type_uri</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fuzzymode</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/clamsproject/mmif-python/tree/1.0.19/mmif/vocabulary.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mmif.vocabulary.DocumentTypesBase" title="Link to this definition"></a></dt>
 <dd><p>Bases: <a class="reference internal" href="#mmif.vocabulary.ClamsTypesBase" title="mmif.vocabulary.base_types.ClamsTypesBase"><code class="xref py py-class docutils literal notranslate"><span class="pre">ClamsTypesBase</span></code></a></p>
 <p>Inherit from this class to build your own custom document
 vocabularies.</p>
@@ -190,111 +171,131 @@ vocabularies.</p>
 
 <dl class="py class">
 <dt class="sig sig-object py" id="mmif.vocabulary.AnnotationTypes">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">mmif.vocabulary.</span></span><span class="sig-name descname"><span class="pre">AnnotationTypes</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">type_uri</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fuzzymode</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/clamsproject/mmif-python/tree/1.0.19/mmif/vocabulary.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mmif.vocabulary.AnnotationTypes" title="Permalink to this definition"></a></dt>
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">mmif.vocabulary.</span></span><span class="sig-name descname"><span class="pre">AnnotationTypes</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">type_uri</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fuzzymode</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/clamsproject/mmif-python/tree/1.0.19/mmif/vocabulary.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mmif.vocabulary.AnnotationTypes" title="Link to this definition"></a></dt>
 <dd><p>Bases: <a class="reference internal" href="#mmif.vocabulary.AnnotationTypesBase" title="mmif.vocabulary.base_types.AnnotationTypesBase"><code class="xref py py-class docutils literal notranslate"><span class="pre">AnnotationTypesBase</span></code></a></p>
 <p>This class contains the CLAMS annotation types 
-defined in the spec version 1.0.5 as class variables.</p>
+defined in the spec version 1.1.0 as class variables.</p>
 <dl class="py attribute">
 <dt class="sig sig-object py" id="mmif.vocabulary.AnnotationTypes.Alignment">
-<span class="sig-name descname"><span class="pre">Alignment</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">http://mmif.clams.ai/vocabulary/Alignment/v1</span></em><a class="reference external" href="https://github.com/clamsproject/mmif-python/tree/1.0.19/mmif/vocabulary.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mmif.vocabulary.AnnotationTypes.Alignment" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">Alignment</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">http://mmif.clams.ai/vocabulary/Alignment/v1</span></em><a class="reference external" href="https://github.com/clamsproject/mmif-python/tree/1.0.19/mmif/vocabulary.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mmif.vocabulary.AnnotationTypes.Alignment" title="Link to this definition"></a></dt>
 <dd></dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="mmif.vocabulary.AnnotationTypes.Annotation">
-<span class="sig-name descname"><span class="pre">Annotation</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">http://mmif.clams.ai/vocabulary/Annotation/v5</span></em><a class="reference external" href="https://github.com/clamsproject/mmif-python/tree/1.0.19/mmif/vocabulary.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mmif.vocabulary.AnnotationTypes.Annotation" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">Annotation</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">http://mmif.clams.ai/vocabulary/Annotation/v6</span></em><a class="reference external" href="https://github.com/clamsproject/mmif-python/tree/1.0.19/mmif/vocabulary.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mmif.vocabulary.AnnotationTypes.Annotation" title="Link to this definition"></a></dt>
 <dd></dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="mmif.vocabulary.AnnotationTypes.BoundingBox">
-<span class="sig-name descname"><span class="pre">BoundingBox</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">http://mmif.clams.ai/vocabulary/BoundingBox/v4</span></em><a class="reference external" href="https://github.com/clamsproject/mmif-python/tree/1.0.19/mmif/vocabulary.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mmif.vocabulary.AnnotationTypes.BoundingBox" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">BoundingBox</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">http://mmif.clams.ai/vocabulary/BoundingBox/v5</span></em><a class="reference external" href="https://github.com/clamsproject/mmif-python/tree/1.0.19/mmif/vocabulary.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mmif.vocabulary.AnnotationTypes.BoundingBox" title="Link to this definition"></a></dt>
 <dd></dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="mmif.vocabulary.AnnotationTypes.Chapter">
-<span class="sig-name descname"><span class="pre">Chapter</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">http://mmif.clams.ai/vocabulary/Chapter/v5</span></em><a class="reference external" href="https://github.com/clamsproject/mmif-python/tree/1.0.19/mmif/vocabulary.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mmif.vocabulary.AnnotationTypes.Chapter" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">Chapter</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">http://mmif.clams.ai/vocabulary/Chapter/v6</span></em><a class="reference external" href="https://github.com/clamsproject/mmif-python/tree/1.0.19/mmif/vocabulary.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mmif.vocabulary.AnnotationTypes.Chapter" title="Link to this definition"></a></dt>
 <dd></dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="mmif.vocabulary.AnnotationTypes.Interval">
-<span class="sig-name descname"><span class="pre">Interval</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">http://mmif.clams.ai/vocabulary/Interval/v4</span></em><a class="reference external" href="https://github.com/clamsproject/mmif-python/tree/1.0.19/mmif/vocabulary.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mmif.vocabulary.AnnotationTypes.Interval" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">Interval</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">http://mmif.clams.ai/vocabulary/Interval/v5</span></em><a class="reference external" href="https://github.com/clamsproject/mmif-python/tree/1.0.19/mmif/vocabulary.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mmif.vocabulary.AnnotationTypes.Interval" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="mmif.vocabulary.AnnotationTypes.NamedEntity">
+<span class="sig-name descname"><span class="pre">NamedEntity</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">http://mmif.clams.ai/vocabulary/NamedEntity/v1</span></em><a class="reference external" href="https://github.com/clamsproject/mmif-python/tree/1.0.19/mmif/vocabulary.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mmif.vocabulary.AnnotationTypes.NamedEntity" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="mmif.vocabulary.AnnotationTypes.NounChunk">
+<span class="sig-name descname"><span class="pre">NounChunk</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">http://mmif.clams.ai/vocabulary/NounChunk/v1</span></em><a class="reference external" href="https://github.com/clamsproject/mmif-python/tree/1.0.19/mmif/vocabulary.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mmif.vocabulary.AnnotationTypes.NounChunk" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="mmif.vocabulary.AnnotationTypes.Paragraph">
+<span class="sig-name descname"><span class="pre">Paragraph</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">http://mmif.clams.ai/vocabulary/Paragraph/v1</span></em><a class="reference external" href="https://github.com/clamsproject/mmif-python/tree/1.0.19/mmif/vocabulary.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mmif.vocabulary.AnnotationTypes.Paragraph" title="Link to this definition"></a></dt>
 <dd></dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="mmif.vocabulary.AnnotationTypes.Polygon">
-<span class="sig-name descname"><span class="pre">Polygon</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">http://mmif.clams.ai/vocabulary/Polygon/v4</span></em><a class="reference external" href="https://github.com/clamsproject/mmif-python/tree/1.0.19/mmif/vocabulary.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mmif.vocabulary.AnnotationTypes.Polygon" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">Polygon</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">http://mmif.clams.ai/vocabulary/Polygon/v5</span></em><a class="reference external" href="https://github.com/clamsproject/mmif-python/tree/1.0.19/mmif/vocabulary.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mmif.vocabulary.AnnotationTypes.Polygon" title="Link to this definition"></a></dt>
 <dd></dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="mmif.vocabulary.AnnotationTypes.Region">
-<span class="sig-name descname"><span class="pre">Region</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">http://mmif.clams.ai/vocabulary/Region/v4</span></em><a class="reference external" href="https://github.com/clamsproject/mmif-python/tree/1.0.19/mmif/vocabulary.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mmif.vocabulary.AnnotationTypes.Region" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">Region</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">http://mmif.clams.ai/vocabulary/Region/v5</span></em><a class="reference external" href="https://github.com/clamsproject/mmif-python/tree/1.0.19/mmif/vocabulary.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mmif.vocabulary.AnnotationTypes.Region" title="Link to this definition"></a></dt>
 <dd></dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="mmif.vocabulary.AnnotationTypes.Relation">
-<span class="sig-name descname"><span class="pre">Relation</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">http://mmif.clams.ai/vocabulary/Relation/v4</span></em><a class="reference external" href="https://github.com/clamsproject/mmif-python/tree/1.0.19/mmif/vocabulary.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mmif.vocabulary.AnnotationTypes.Relation" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">Relation</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">http://mmif.clams.ai/vocabulary/Relation/v5</span></em><a class="reference external" href="https://github.com/clamsproject/mmif-python/tree/1.0.19/mmif/vocabulary.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mmif.vocabulary.AnnotationTypes.Relation" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="mmif.vocabulary.AnnotationTypes.Sentence">
+<span class="sig-name descname"><span class="pre">Sentence</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">http://mmif.clams.ai/vocabulary/Sentence/v1</span></em><a class="reference external" href="https://github.com/clamsproject/mmif-python/tree/1.0.19/mmif/vocabulary.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mmif.vocabulary.AnnotationTypes.Sentence" title="Link to this definition"></a></dt>
 <dd></dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="mmif.vocabulary.AnnotationTypes.Span">
-<span class="sig-name descname"><span class="pre">Span</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">http://mmif.clams.ai/vocabulary/Span/v4</span></em><a class="reference external" href="https://github.com/clamsproject/mmif-python/tree/1.0.19/mmif/vocabulary.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mmif.vocabulary.AnnotationTypes.Span" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">Span</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">http://mmif.clams.ai/vocabulary/Span/v5</span></em><a class="reference external" href="https://github.com/clamsproject/mmif-python/tree/1.0.19/mmif/vocabulary.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mmif.vocabulary.AnnotationTypes.Span" title="Link to this definition"></a></dt>
 <dd></dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="mmif.vocabulary.AnnotationTypes.TimeFrame">
-<span class="sig-name descname"><span class="pre">TimeFrame</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">http://mmif.clams.ai/vocabulary/TimeFrame/v5</span></em><a class="reference external" href="https://github.com/clamsproject/mmif-python/tree/1.0.19/mmif/vocabulary.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mmif.vocabulary.AnnotationTypes.TimeFrame" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">TimeFrame</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">http://mmif.clams.ai/vocabulary/TimeFrame/v6</span></em><a class="reference external" href="https://github.com/clamsproject/mmif-python/tree/1.0.19/mmif/vocabulary.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mmif.vocabulary.AnnotationTypes.TimeFrame" title="Link to this definition"></a></dt>
 <dd></dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="mmif.vocabulary.AnnotationTypes.TimePoint">
-<span class="sig-name descname"><span class="pre">TimePoint</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">http://mmif.clams.ai/vocabulary/TimePoint/v4</span></em><a class="reference external" href="https://github.com/clamsproject/mmif-python/tree/1.0.19/mmif/vocabulary.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mmif.vocabulary.AnnotationTypes.TimePoint" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">TimePoint</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">http://mmif.clams.ai/vocabulary/TimePoint/v5</span></em><a class="reference external" href="https://github.com/clamsproject/mmif-python/tree/1.0.19/mmif/vocabulary.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mmif.vocabulary.AnnotationTypes.TimePoint" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="mmif.vocabulary.AnnotationTypes.Token">
+<span class="sig-name descname"><span class="pre">Token</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">http://mmif.clams.ai/vocabulary/Token/v1</span></em><a class="reference external" href="https://github.com/clamsproject/mmif-python/tree/1.0.19/mmif/vocabulary.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mmif.vocabulary.AnnotationTypes.Token" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="mmif.vocabulary.AnnotationTypes.VerbChunk">
+<span class="sig-name descname"><span class="pre">VerbChunk</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">http://mmif.clams.ai/vocabulary/VerbChunk/v1</span></em><a class="reference external" href="https://github.com/clamsproject/mmif-python/tree/1.0.19/mmif/vocabulary.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mmif.vocabulary.AnnotationTypes.VerbChunk" title="Link to this definition"></a></dt>
 <dd></dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="mmif.vocabulary.AnnotationTypes.VideoObject">
-<span class="sig-name descname"><span class="pre">VideoObject</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">http://mmif.clams.ai/vocabulary/VideoObject/v4</span></em><a class="reference external" href="https://github.com/clamsproject/mmif-python/tree/1.0.19/mmif/vocabulary.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mmif.vocabulary.AnnotationTypes.VideoObject" title="Permalink to this definition"></a></dt>
-<dd></dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="mmif.vocabulary.AnnotationTypes.version">
-<span class="sig-name descname"><span class="pre">version</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></em><a class="reference external" href="https://github.com/clamsproject/mmif-python/tree/1.0.19/mmif/vocabulary.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mmif.vocabulary.AnnotationTypes.version" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">VideoObject</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">http://mmif.clams.ai/vocabulary/VideoObject/v5</span></em><a class="reference external" href="https://github.com/clamsproject/mmif-python/tree/1.0.19/mmif/vocabulary.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mmif.vocabulary.AnnotationTypes.VideoObject" title="Link to this definition"></a></dt>
 <dd></dd></dl>
 
 </dd></dl>
 
 <dl class="py class">
 <dt class="sig sig-object py" id="mmif.vocabulary.DocumentTypes">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">mmif.vocabulary.</span></span><span class="sig-name descname"><span class="pre">DocumentTypes</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">type_uri</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fuzzymode</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/clamsproject/mmif-python/tree/1.0.19/mmif/vocabulary.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mmif.vocabulary.DocumentTypes" title="Permalink to this definition"></a></dt>
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">mmif.vocabulary.</span></span><span class="sig-name descname"><span class="pre">DocumentTypes</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">type_uri</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fuzzymode</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/clamsproject/mmif-python/tree/1.0.19/mmif/vocabulary.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mmif.vocabulary.DocumentTypes" title="Link to this definition"></a></dt>
 <dd><p>Bases: <a class="reference internal" href="#mmif.vocabulary.DocumentTypesBase" title="mmif.vocabulary.base_types.DocumentTypesBase"><code class="xref py py-class docutils literal notranslate"><span class="pre">DocumentTypesBase</span></code></a></p>
 <p>This class contains the CLAMS document types 
-defined in the spec version 1.0.5 as class variables.</p>
+defined in the spec version 1.1.0 as class variables.</p>
 <dl class="py attribute">
 <dt class="sig sig-object py" id="mmif.vocabulary.DocumentTypes.AudioDocument">
-<span class="sig-name descname"><span class="pre">AudioDocument</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">http://mmif.clams.ai/vocabulary/AudioDocument/v1</span></em><a class="reference external" href="https://github.com/clamsproject/mmif-python/tree/1.0.19/mmif/vocabulary.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mmif.vocabulary.DocumentTypes.AudioDocument" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">AudioDocument</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">http://mmif.clams.ai/vocabulary/AudioDocument/v1</span></em><a class="reference external" href="https://github.com/clamsproject/mmif-python/tree/1.0.19/mmif/vocabulary.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mmif.vocabulary.DocumentTypes.AudioDocument" title="Link to this definition"></a></dt>
 <dd></dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="mmif.vocabulary.DocumentTypes.Document">
-<span class="sig-name descname"><span class="pre">Document</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">http://mmif.clams.ai/vocabulary/Document/v1</span></em><a class="reference external" href="https://github.com/clamsproject/mmif-python/tree/1.0.19/mmif/vocabulary.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mmif.vocabulary.DocumentTypes.Document" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">Document</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">http://mmif.clams.ai/vocabulary/Document/v1</span></em><a class="reference external" href="https://github.com/clamsproject/mmif-python/tree/1.0.19/mmif/vocabulary.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mmif.vocabulary.DocumentTypes.Document" title="Link to this definition"></a></dt>
 <dd></dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="mmif.vocabulary.DocumentTypes.ImageDocument">
-<span class="sig-name descname"><span class="pre">ImageDocument</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">http://mmif.clams.ai/vocabulary/ImageDocument/v1</span></em><a class="reference external" href="https://github.com/clamsproject/mmif-python/tree/1.0.19/mmif/vocabulary.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mmif.vocabulary.DocumentTypes.ImageDocument" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">ImageDocument</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">http://mmif.clams.ai/vocabulary/ImageDocument/v1</span></em><a class="reference external" href="https://github.com/clamsproject/mmif-python/tree/1.0.19/mmif/vocabulary.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mmif.vocabulary.DocumentTypes.ImageDocument" title="Link to this definition"></a></dt>
 <dd></dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="mmif.vocabulary.DocumentTypes.TextDocument">
-<span class="sig-name descname"><span class="pre">TextDocument</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">http://mmif.clams.ai/vocabulary/TextDocument/v1</span></em><a class="reference external" href="https://github.com/clamsproject/mmif-python/tree/1.0.19/mmif/vocabulary.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mmif.vocabulary.DocumentTypes.TextDocument" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">TextDocument</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">http://mmif.clams.ai/vocabulary/TextDocument/v1</span></em><a class="reference external" href="https://github.com/clamsproject/mmif-python/tree/1.0.19/mmif/vocabulary.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mmif.vocabulary.DocumentTypes.TextDocument" title="Link to this definition"></a></dt>
 <dd></dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="mmif.vocabulary.DocumentTypes.VideoDocument">
-<span class="sig-name descname"><span class="pre">VideoDocument</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">http://mmif.clams.ai/vocabulary/VideoDocument/v1</span></em><a class="reference external" href="https://github.com/clamsproject/mmif-python/tree/1.0.19/mmif/vocabulary.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mmif.vocabulary.DocumentTypes.VideoDocument" title="Permalink to this definition"></a></dt>
-<dd></dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="mmif.vocabulary.DocumentTypes.version">
-<span class="sig-name descname"><span class="pre">version</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></em><a class="reference external" href="https://github.com/clamsproject/mmif-python/tree/1.0.19/mmif/vocabulary.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mmif.vocabulary.DocumentTypes.version" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">VideoDocument</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">http://mmif.clams.ai/vocabulary/VideoDocument/v1</span></em><a class="reference external" href="https://github.com/clamsproject/mmif-python/tree/1.0.19/mmif/vocabulary.py"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#mmif.vocabulary.DocumentTypes.VideoDocument" title="Link to this definition"></a></dt>
 <dd></dd></dl>
 
 </dd></dl>
@@ -312,7 +313,7 @@ defined in the spec version 1.0.5 as class variables.</p>
   <hr/>
 
   <div role="contentinfo">
-    <p>&#169; Copyright 2024, Brandeis LLC.</p>
+    <p>&#169; Copyright 2025, Brandeis LLC.</p>
   </div>
 
   Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
@@ -373,6 +374,7 @@ defined in the spec version 1.0.5 as class variables.</p>
       <dd><a href="../../1.0.7/autodoc/mmif.vocabulary.html">1.0.7</a></dd>
       <dd><a href="../../1.0.8/autodoc/mmif.vocabulary.html">1.0.8</a></dd>
       <dd><a href="../../1.0.9/autodoc/mmif.vocabulary.html">1.0.9</a></dd>
+      <dd><a href="../../1.1.0/autodoc/mmif.vocabulary.html">1.1.0</a></dd>
     </dl>
   </div>
 </div><script>

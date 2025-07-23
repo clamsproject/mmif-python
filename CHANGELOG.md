@@ -1,4 +1,20 @@
 
+## releasing 1.1.0  (2025-07-23)
+### Overview
+This is a minor version release, but it includes several significant changes and improvements across the codebase. 
+
+### Additions
+* Added support for synonyms and property aliases from LAPPS type migration in MMIF spec 1.1.0 (#321).
+* Migrated CLI modules from `clams-python` to `mmif` (#317).
+
+### Changes
+* Updated minimum Python version to 3.10 (#310).  
+* Transitioned `Annotation.id` to a "long" form for better disambiguation as now explicitly specified in MMIF 1.1.0 (#318).
+* Fixed missing ISO format conversion in timeunit helper (#315).
+* Fixed issues with videodocument helper's `extract_frames_as_images` destroying input frame lists (#303). 
+* Miscellaneous cleanup and improvements on documentation and unused code. 
+
+
 ## releasing 1.0.19 (2024-07-29)
 ### Overview
 Patch to fix a critical bug. 
