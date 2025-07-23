@@ -147,7 +147,7 @@ class Mmif(MmifObject):
         self.metadata: MmifMetadata = MmifMetadata()
         self.documents: DocumentsList = DocumentsList()
         self.views: ViewsList = ViewsList()
-        if validate:
+        if validate and mmif_obj is not None:
             self.validate(mmif_obj)
         self.disallow_additional_properties()
         self._attribute_classes = {
@@ -704,7 +704,7 @@ class Mmif(MmifObject):
         from mmif.utils.timeunit_helper import convert
 
         time_anchors_in_range = []
-        at_types = set(at_types)
+        uniq_types = set(ThingTypesBase.from_str(t) if isinstance(t, str) else t for t in at_types)
 
         for view in self.get_all_views_contain(AnnotationTypes.TimeFrame) + self.get_all_views_contain(AnnotationTypes.TimePoint):
             time_unit_in_view = view.metadata.contains.get(AnnotationTypes.TimeFrame)["timeUnit"]
@@ -716,10 +716,10 @@ class Mmif(MmifObject):
                     time_anchors_in_range.append(ann)
         time_anchors_in_range.sort(key=lambda x: self.get_start(x))
         for time_anchor in time_anchors_in_range:
-            if not at_types or time_anchor.at_type in at_types:
+            if not uniq_types or time_anchor.at_type in uniq_types:
                 yield time_anchor
             for aligned in time_anchor.get_all_aligned():
-                if not at_types or aligned.at_type in at_types:
+                if not uniq_types or aligned.at_type in uniq_types:
                     yield aligned
 
     def _get_linear_anchor_point(self, ann: Annotation, targets_sorted=False, start: bool = True) -> Union[int, float]:

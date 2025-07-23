@@ -13,6 +13,8 @@ class TypesBase(object):
     base_uri: str
     shortname: str
     fuzzy_eq: bool
+    # these names are migrated from the old LAPPSgrid vocab 
+    old_lapps_type_shortnames = {'Token', 'Sentence', 'Paragraph', 'Markable', 'NamedEntity', 'NounChunk', 'VerbChunk'}
 
     def __init__(self, type_uri: str):
         self.fuzzy_eq = False
@@ -71,6 +73,12 @@ class TypesBase(object):
                 return DocumentTypesBase(string)
             else:
                 return AnnotationTypesBase(string)
+        # quirks for legacy LAPPSgrid types
+        elif 'vocab.lappsgrid.org' in string and string.split('/')[-1] in cls.old_lapps_type_shortnames:
+            # legacy LAPPSgrid types
+            shortname = string.split('/')[-1]
+            # when migrated, their version was set to 'v1'
+            return AnnotationTypesBase(f'http://mmif.clams.ai/vocabulary/{shortname}/v1')
         else:
             return cls(string)
     
@@ -163,6 +171,9 @@ class ClamsTypesBase(TypesBase):
                     and self.shortname == other.shortname \
                     and self.version == other.version
         else:
+            # quirks for legacy LAPPSgrid types
+            if self.shortname in self.old_lapps_type_shortnames and str(other) == f'http://vocab.lappsgrid.org/{self.shortname}':
+                return True
             return False
     
     def __eq__(self, other):

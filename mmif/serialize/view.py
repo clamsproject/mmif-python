@@ -13,6 +13,7 @@ from typing import Dict, Union, Optional, Generator, List, cast
 from mmif import DocumentTypes, AnnotationTypes, ThingTypesBase, ClamsTypesBase
 from mmif.serialize.annotation import Annotation, Document
 from mmif.serialize.model import PRMTV_TYPES, MmifObject, DataList, DataDict
+from mmif.vocabulary.base_types import AnnotationTypesBase
 
 __all__ = ['View', 'ViewMetadata', 'Contain']
 
@@ -530,8 +531,19 @@ class ContainsDict(DataDict[ThingTypesBase, Contain]):
     
     def __contains__(self, item: Union[str, ThingTypesBase]):
         if isinstance(item, str):
-            string_keys = [str(k) for k in self._items.keys()]
-            return item in string_keys
+            # in general, when querying with a string, do not use fuzzy equality
+            if 'vocab.lappsgrid.org' in item and item.split('/')[-1] in ThingTypesBase.old_lapps_type_shortnames:
+                # first, some quirks for legacy LAPPSgrid types
+                shortname = item.split('/')[-1]
+                item = AnnotationTypesBase(f'http://mmif.clams.ai/vocabulary/{shortname}/v1')
+                for key in self._items.keys():
+                    if item._eq_internal(key, fuzzy=False):
+                        return True
+                return False
+            else:
+                # otherwise just string match 
+                string_keys = [str(k) for k in self._items.keys()]
+                return item in string_keys
         else:
             return item in self._items
 

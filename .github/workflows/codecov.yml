@@ -43,7 +43,7 @@ jobs:
     - name: "📦 Upload coverage artifact"
       uses: actions/upload-artifact@v4
       with:
-        name: coverage-report
+        name: coverage-report-${{ matrix.python-version }}
         path: ./coverage.xml
 
   upload:
@@ -58,7 +58,7 @@ jobs:
     - name: "📥 Download coverage artifact"
       uses: actions/download-artifact@v4
       with:
-        name: coverage-report
+        name: coverage-report-3.10
     - name: "☁️ Upload coverage to Codecov"
       uses: codecov/codecov-action@v3
       with:
