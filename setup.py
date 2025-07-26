@@ -11,7 +11,8 @@ from typing import Union
 from urllib import request
 
 import setuptools.command.build_py
-import setuptools.command.develop
+from setuptools.command.sdist import sdist
+from setuptools.command.develop import develop
 
 name = "mmif-python"
 version_fname = "VERSION"
@@ -254,15 +255,18 @@ def prep_ext_files(setuptools_cmd):
     return setuptools_cmd
 
 
+# Modernize cmdclass to ensure compatibility with setuptools >=80
 @prep_ext_files
-class SdistCommand(setuptools.command.sdist.sdist):
-    pass
-
+class SdistCommand(sdist):
+    def initialize_options(self):
+        super().initialize_options()
+        # Add any additional initialization logic here if needed
 
 @prep_ext_files
-class DevelopCommand(setuptools.command.develop.develop):
-    pass
-
+class DevelopCommand(develop):
+    def initialize_options(self):
+        super().initialize_options()
+        # Add any additional initialization logic here if needed
 
 cmdclass['sdist'] = SdistCommand
 cmdclass['develop'] = DevelopCommand
@@ -278,6 +282,17 @@ with open('requirements.cv') as requirements:
 
 with open('requirements.seq') as requirements:
     seq_requires = requirements.readlines()
+
+extras_require = {
+    'seq': seq_requires,
+    'cv': cv_requires,
+    'dev': [
+        'pytest',
+        'pytest-pep8',
+        'pytest-cov',
+        'pytype',
+    ]
+}
 
 setuptools.setup(
     name=name,
@@ -301,21 +316,12 @@ setuptools.setup(
         'mmif': [f'{mmif_res_pkg}/*', f'{mmif_ver_pkg}/*', f'{mmif_vocabulary_pkg}/*'],
     },
     install_requires=requires,
-    extras_require={
-        'seq': seq_requires,
-        'cv': cv_requires,
-        'dev': [
-            'pytest',
-            'pytest-pep8',
-            'pytest-cov',
-            'pytype',
-        ]
-    },
+    extras_require=extras_require,
     python_requires='>=3.10',
     classifiers=[
-        'Development Status :: 2 - Pre-Alpha',
-        'Intended Audience :: Developers ',
-        'License :: OSI Approved :: Apache Software License',
+        'Development Status :: 5 - Production/Stable',
+        'Intended Audience :: Developers',
+        'License :: Apache-2.0',
         'Programming Language :: Python :: 3 :: Only',
     ]
 )

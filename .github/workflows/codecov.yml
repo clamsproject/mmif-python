@@ -22,7 +22,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ["3.11", "3.10"]
+        python-version: ["3.12", "3.11", "3.10"]
     env:
       OS: linux
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -38,7 +38,7 @@ jobs:
     - name: "🧪 Run test and generate coverage report"
       working-directory: .
       run: |
-        echo "codecov.dev" > VERSION
+        echo "0.0.0+codecov.dev" > VERSION
         make test
     - name: "📦 Upload coverage artifact"
       uses: actions/upload-artifact@v4
