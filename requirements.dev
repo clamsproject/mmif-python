@@ -13,3 +13,4 @@ sphinx-autobuild
 git+https://github.com/clamsproject/sphinx-multiversion.git@master
 twine
 m2r2
+setuptools>=70  # arbitrarily recent version
