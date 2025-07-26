@@ -6,8 +6,50 @@ on:
       - '[0-9]+.[0-9]+.[0-9]+'
 
 jobs:
-  packge-and-upload:
-    name: "🤙 Call SDK publish workflow"
-    uses: clamsproject/.github/.github/workflows/sdk-publish.yml@main
-    secrets: inherit
-
+  build-and-upload:
+    name: "📦 Upload documentation, PyPI distribution"
+    runs-on: ubuntu-latest
+    env:
+      OS: linux
+      PYTHON: '3.10'
+    steps:
+    - name: "🏷 Prepare package metadata"
+      run: |
+        echo "VERSION=$(echo "${{ github.ref }}" | cut -d/ -f3)" >> $GITHUB_ENV
+        echo "PACKAGE=$(echo "${{ github.repository }}" | cut -d/ -f2 | tr '-' '_')" >> $GITHUB_ENV 
+    - name: "🛍 Checkout repository"
+      uses: actions/checkout@v4
+      with:
+        ref: ${{ env.VERSION }}
+        fetch-depth: 0
+        token: ${{ secrets.GITHUB_TOKEN }}
+    - name: "🐍 Setup Python"
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+    - name: "🏗 Build sdist"
+      run: |
+        echo ${{ env.VERSION }} > VERSION
+        python3 -c "import setuptools; print(setuptools.__version__)"
+        python3 -m pip install setuptools~=69.3  # this version fully conforms PEP-625 and applies wheel name convention to sdist as well
+        make package
+        make test
+    - name: "🗞️ Build HTML documentation"
+      run: |
+        make docs
+    - name: "📓 Generate changelog"
+      run: |
+        for pr in $(gh pr list -L 1000 -s merged | grep -E "^[0-9]+\s+releas" | cut -f 1 ); do gh pr view $pr --json title,body,mergedAt --template '{{printf "\n"}}## {{.title}} ({{timefmt "2006-01-02" .mergedAt}}){{printf "\n"}}{{.body}}{{printf "\n"}}'; done > CHANGELOG.md
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    - name: "🫙 Commit and push documentation files"
+      run: |
+        git config --local user.email "admin@clams.ai"
+        git config --local user.name "clams-bot"
+        for f in docs documentation CHANGELOG.md; do if [ -e $f ]; then git add $f; fi; done
+        git add -u docs
+        git commit -m 'adding HTML documentation for publication'
+        git push origin HEAD:main
+    - name: "☁️ Upload to PyPI"
+      run: |
+        if [ -d dist ]; then twine upload -u __token__ -p ${{ secrets.PYPITOKEN }} dist/${{ env.PACKAGE }}-${{ env.VERSION }}.tar.gz ; fi
