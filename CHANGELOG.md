@@ -1,4 +1,12 @@
 
+## releasing 1.1.1 (2025-07-26)
+### Overview
+Patch release to support installation on python 3.12 and newer (fixes https://github.com/clamsproject/mmif-python/issues/314). 
+
+### Additions
+- `setup.py` is now compatible with the latest setuptools (80) .
+- [Since python 3.12 no longer ship `setuptools` as a part of standard installation](https://docs.python.org/3/whatsnew/3.12.html#ensurepip), added setuptools as a `dev` dependency.
+
 ## releasing 1.1.0  (2025-07-23)
 ### Overview
 This is a minor version release, but it includes several significant changes and improvements across the codebase. 
