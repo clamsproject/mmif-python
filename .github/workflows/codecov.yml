@@ -17,55 +17,8 @@ on:
         default: "develop"
 
 jobs:
-  test:
-    name: "🧪 Test with coverage"
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        python-version: ["3.12", "3.11", "3.10"]
-    env:
-      OS: linux
-      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-    steps:
-    - name: "🛍️ Checkout repository"
-      uses: actions/checkout@v4
-      with:
-        ref: ${{ github.event.inputs.branch || github.ref }}
-    - name: "🐍 Setup Python"
-      uses: actions/setup-python@v4
-      with:
-        python-version: ${{ matrix.python-version }}
-    - name: "🧪 Run test and generate coverage report"
-      working-directory: .
-      run: |
-        echo "0.0.0+codecov.dev" > VERSION
-        make test
-    - name: "📦 Upload coverage artifact"
-      uses: actions/upload-artifact@v4
-      with:
-        name: coverage-report-${{ matrix.python-version }}
-        path: ./coverage.xml
-
-  upload:
-    name: "☁️ Upload coverage to Codecov"
-    runs-on: ubuntu-latest
-    needs: test
-    steps:
-    - name: "🛍️ Checkout repository"
-      uses: actions/checkout@v4
-      with:
-        ref: ${{ github.event.inputs.branch || github.ref }}
-    - name: "📥 Download coverage artifact"
-      uses: actions/download-artifact@v4
-      with:
-        name: coverage-report-3.10
-    - name: "☁️ Upload coverage to Codecov"
-      uses: codecov/codecov-action@v3
-      with:
-        token: ${{ secrets.CODECOV_UPLOAD_TOKEN_MMIF_PYTHON }}
-        files: ./coverage.xml
-        flags: unittests
-        env_vars: OS,PYTHON
-        name: coverage
-        fail_ci_if_error: true
-
+  test-and-codecov:
+    name: "🤙 Call SDK test workflow"
+    uses: clamsproject/.github/.github/workflows/sdk-codecov.yml@main
+    secrets:
+      CC_REPO_UPLOAD_TOKEN: ${{ secrets.CODECOV_UPLOAD_TOKEN_MMIF_PYTHON }}
