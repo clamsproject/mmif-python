@@ -318,10 +318,10 @@ setuptools.setup(
     install_requires=requires,
     extras_require=extras_require,
     python_requires='>=3.10',
+    licenses='Apache-2.0',
     classifiers=[
         'Development Status :: 5 - Production/Stable',
         'Intended Audience :: Developers',
-        'License :: Apache-2.0',
         'Programming Language :: Python :: 3 :: Only',
     ]
 )
