@@ -15,6 +15,7 @@ everything_file_url = f"https://raw.githubusercontent.com/clamsproject/mmif/{__s
 old_mmif_w_short_id = f"https://raw.githubusercontent.com/clamsproject/mmif/1.0.5/specifications/samples/everything/raw.json"
 EVERYTHING_JSON = request.urlopen(everything_file_url).read().decode('utf-8')
 OLD_SHORTID_JSON = request.urlopen(old_mmif_w_short_id).read().decode('utf-8')
+SWT_1_0_JSON = open('tests/samples/1.0/swt.mmif').read()
 
 # for keys and values in chain all typevers in mmif.vocabulary.*_types modules
 # merge into a single dict 
@@ -24,7 +25,8 @@ attypevers['VERSION'] = __specver__
 
 MMIF_EXAMPLES = {
     'everything': Template(EVERYTHING_JSON),
-    'old_shortid': Template(OLD_SHORTID_JSON),
+    'mmif_old_shortid': Template(OLD_SHORTID_JSON),
+    'mmif_swt_1_0': Template(SWT_1_0_JSON),
 }
 FRACTIONAL_EXAMPLES = {
     'doc_only': Template("""{

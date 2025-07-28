@@ -83,13 +83,13 @@ class View(MmifObject):
                         propv = self.metadata.contains[annotation.at_type][propk]
                         if isinstance(propv, list):
                             for i, item in enumerate(propv):
-                                if propv not in mmif_docs and self.id_delimiter not in item:
+                                if item not in mmif_docs and self.id_delimiter not in item:
                                     propv[i] = f"{self.id}{self.id_delimiter}{item}"
                     if propk in annotation.properties:
                         propv = annotation.properties[propk]
                         if isinstance(propv, list):
                             for i, item in enumerate(propv):
-                                if propv not in mmif_docs and self.id_delimiter not in item:
+                                if item not in mmif_docs and self.id_delimiter not in item:
                                     propv[i] = f"{self.id}{self.id_delimiter}{item}"
                 self.annotations.append(annotation)
 
