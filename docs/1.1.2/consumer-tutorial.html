@@ -1,0 +1,174 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="./">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MMIF consumer &mdash; mmif-python  documentation</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=e59714d7" />
+
+  
+      <script src="_static/jquery.js?v=5d32c60e"></script>
+      <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="_static/documentation_options.js?v=5929fcd5"></script>
+      <script src="_static/doctools.js?v=9bcbadda"></script>
+      <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="index.html" class="icon icon-home">
+            mmif-python
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="introduction.html">Getting Started</a></li>
+<li class="toctree-l1"><a class="reference internal" href="plugins.html">Developing plugins for MMIF Python SDK</a></li>
+<li class="toctree-l1"><a class="reference internal" href="target-versions.html">Target MMIF Versions</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">API documentation:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="modules.html">mmif package</a></li>
+<li class="toctree-l1"><a class="reference internal" href="modules.html#mmif-docloc-http-package">mmif_docloc_http package</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">mmif-python</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">MMIF consumer</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="mmif-consumer">
+<span id="consumer-tutorial"></span><h1>MMIF consumer<a class="headerlink" href="#mmif-consumer" title="Link to this heading"></a></h1>
+<p>A MMIF consumer discuss in this document is a web application that is designed for CLAMS appliance integration. The CLAMS appliance provides a turn-key installation of CLAMS-Galaxy instance. Please refer to the <a class="reference external" href="https://appliance.clams.ai/">appliance documentation</a> to learn more about the appliance.</p>
+<p>MMIF consumer can be implemented with any language. However a MMIF consumer must meet these requirements to be compatible with the CLAMS appliance.</p>
+<ol class="arabic simple">
+<li><p>The code must be hosted on a public git repository (e.g. Github, Gitlab, …)</p></li>
+<li><p>Must listen to <code class="docutils literal notranslate"><span class="pre">5000</span></code> port.</p></li>
+<li><p>Must expose <code class="docutils literal notranslate"><span class="pre">/display</span></code> route .</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">/display</span></code> router should response to <code class="docutils literal notranslate"><span class="pre">GET</span></code> requests.</p></li>
+<li><p>In the <code class="docutils literal notranslate"><span class="pre">GET</span></code> request, a public URL of the input MMIF file is passed via <code class="docutils literal notranslate"><span class="pre">file</span></code> URL parameter.</p></li>
+<li><p>On the codebase root, there must be a <code class="docutils literal notranslate"><span class="pre">Dockerfile</span></code> that can build a <a class="reference external" href="https://www.docker.com/">docker</a> image that runs the web app.</p></li>
+</ol>
+<p>We provide an example consumer at <a class="reference external" href="https://github.com/clamsproject/mmif-visualizer">https://github.com/clamsproject/mmif-visualizer</a>.</p>
+</section>
+
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2025, Brandeis LLC.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  
+<div class="rst-versions" data-toggle="rst-versions" role="note" aria-label="versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    <span class="fa fa-book"> Other Versions</span>
+    v: 1.1.2
+    <span class="fa fa-caret-down"></span>
+  </span>
+  <div class="rst-other-versions">
+    <dl>
+      <!-- <dt>Tags</dt> -->
+      <dd><a href="../0.3.0/consumer-tutorial.html">0.3.0</a></dd>
+      <dd><a href="../0.3.1/consumer-tutorial.html">0.3.1</a></dd>
+      <dd><a href="../0.3.2/consumer-tutorial.html">0.3.2</a></dd>
+      <dd><a href="../0.3.3/consumer-tutorial.html">0.3.3</a></dd>
+      <dd><a href="../0.3.4/consumer-tutorial.html">0.3.4</a></dd>
+      <dd><a href="../0.3.5/consumer-tutorial.html">0.3.5</a></dd>
+      <dd><a href="../0.4.0/consumer-tutorial.html">0.4.0</a></dd>
+      <dd><a href="../0.4.1/consumer-tutorial.html">0.4.1</a></dd>
+      <dd><a href="../0.4.2/consumer-tutorial.html">0.4.2</a></dd>
+      <dd><a href="../0.4.3/consumer-tutorial.html">0.4.3</a></dd>
+      <dd><a href="../0.4.4/consumer-tutorial.html">0.4.4</a></dd>
+      <dd><a href="../0.4.5/consumer-tutorial.html">0.4.5</a></dd>
+      <dd><a href="../0.4.6/consumer-tutorial.html">0.4.6</a></dd>
+      <dd><a href="../0.4.7/consumer-tutorial.html">0.4.7</a></dd>
+      <dd><a href="../0.4.8/consumer-tutorial.html">0.4.8</a></dd>
+      <dd><a href="../0.5.0/consumer-tutorial.html">0.5.0</a></dd>
+      <dd><a href="../0.5.1/consumer-tutorial.html">0.5.1</a></dd>
+      <dd><a href="../0.5.2/consumer-tutorial.html">0.5.2</a></dd>
+      <dd><a href="../1.0.0/consumer-tutorial.html">1.0.0</a></dd>
+      <dd><a href="../1.0.1/consumer-tutorial.html">1.0.1</a></dd>
+      <dd><a href="../1.0.10/consumer-tutorial.html">1.0.10</a></dd>
+      <dd><a href="../1.0.11/consumer-tutorial.html">1.0.11</a></dd>
+      <dd><a href="../1.0.12/consumer-tutorial.html">1.0.12</a></dd>
+      <dd><a href="../1.0.13/consumer-tutorial.html">1.0.13</a></dd>
+      <dd><a href="../1.0.14/consumer-tutorial.html">1.0.14</a></dd>
+      <dd><a href="../1.0.15/consumer-tutorial.html">1.0.15</a></dd>
+      <dd><a href="../1.0.16/consumer-tutorial.html">1.0.16</a></dd>
+      <dd><a href="../1.0.17/consumer-tutorial.html">1.0.17</a></dd>
+      <dd><a href="../1.0.18/consumer-tutorial.html">1.0.18</a></dd>
+      <dd><a href="../1.0.19/consumer-tutorial.html">1.0.19</a></dd>
+      <dd><a href="../1.0.2/consumer-tutorial.html">1.0.2</a></dd>
+      <dd><a href="../1.0.3/consumer-tutorial.html">1.0.3</a></dd>
+      <dd><a href="../1.0.4/consumer-tutorial.html">1.0.4</a></dd>
+      <dd><a href="../1.0.5/consumer-tutorial.html">1.0.5</a></dd>
+      <dd><a href="../1.0.6/consumer-tutorial.html">1.0.6</a></dd>
+      <dd><a href="../1.0.7/consumer-tutorial.html">1.0.7</a></dd>
+      <dd><a href="../1.0.8/consumer-tutorial.html">1.0.8</a></dd>
+      <dd><a href="../1.0.9/consumer-tutorial.html">1.0.9</a></dd>
+      <dd><a href="../1.1.0/consumer-tutorial.html">1.1.0</a></dd>
+      <dd><a href="../1.1.1/consumer-tutorial.html">1.1.1</a></dd>
+      <dd><a href="consumer-tutorial.html">1.1.2</a></dd>
+    </dl>
+  </div>
+</div><script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

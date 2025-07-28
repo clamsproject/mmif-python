@@ -1,4 +1,11 @@
 
+## releasing 1.1.2 (2025-07-28)
+### Overview
+Patch release with a hotfix of a bug. 
+
+### Changes
+* Fixed bug with handling "list of ID" props in 1.0.x MMIF. 
+
 ## releasing 1.1.1 (2025-07-26)
 ### Overview
 Patch release to support installation on python 3.12 and newer (fixes https://github.com/clamsproject/mmif-python/issues/314). 
