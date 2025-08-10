@@ -794,22 +794,3 @@ class Mmif(MmifObject):
                     return self.views.__getitem__(item)
                 except KeyError:
                     raise KeyError(f"Object with ID {item} not found in the MMIF object. ")
-    
-    def get(self, obj_id, default=None):
-        """
-        High-level getter for Mmif. This will try to find any object, given 
-        an identifier or an immediate attribute name. When nothing is found, 
-        this will return a default value instead of raising an error.
-
-        :param obj_id: an immediate attribute name or an object identifier 
-                     (a document ID, a view ID, or an annotation ID). When 
-                     annotation ID is given as a "short" ID (without view 
-                     ID prefix), the method will try to find a match from 
-                     the first view, and return immediately if found.
-        :param default: the default value to return if none is found
-        :return: the object searched for or the default value
-        """
-        try:
-            return self.__getitem__(obj_id)
-        except KeyError:
-            return default
