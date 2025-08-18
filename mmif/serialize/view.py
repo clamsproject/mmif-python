@@ -287,7 +287,7 @@ class View(MmifObject):
             "View.get_document_by_id() is deprecated, use view[doc_id] instead.",
             DeprecationWarning
         )
-        doc_found = self.annotations[doc_id]
+        doc_found = self.annotations.get_by_key(doc_id)
         if not isinstance(doc_found, Document):
             raise KeyError(f"Document \"{doc_id}\" not found in view {self.id}.")
         return cast(Document, doc_found)
@@ -302,7 +302,7 @@ class View(MmifObject):
         """
         if key in self._named_attributes():
             return self.__dict__[key]
-        anno_result = self.annotations.get(key)
+        anno_result = self.annotations.get_by_key(key)
         if not anno_result:
             raise KeyError("Annotation ID not found: %s" % key)
         return anno_result

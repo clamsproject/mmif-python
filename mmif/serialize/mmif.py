@@ -266,8 +266,8 @@ class Mmif(MmifObject):
         ## caching alignments
         if all(map(lambda x: x in alignment_ann.properties, ('source', 'target'))):
             try:
-                source_ann = self[alignment_ann.get('source')]
-                target_ann = self[alignment_ann.get('target')]
+                source_ann = self.__getitem__(alignment_ann.get('source'))
+                target_ann = self.__getitem__(alignment_ann.get('target'))
                 if isinstance(source_ann, Annotation) and isinstance(target_ann, Annotation):
                     source_ann._cache_alignment(alignment_ann, target_ann)
                     target_ann._cache_alignment(alignment_ann, source_ann)
@@ -586,7 +586,7 @@ class Mmif(MmifObject):
                     aligned_types = set()
                     for ann_id in [alignment['target'], alignment['source']]:
                         ann_id = cast(str, ann_id)
-                        aligned_type = cast(Annotation, self[ann_id]).at_type
+                        aligned_type = cast(Annotation, self.__getitem__(ann_id)).at_type
                         aligned_types.add(aligned_type)
                     aligned_types = list(aligned_types)  # because membership check for sets also checks hash() values
                     if len(aligned_types) == 2 and at_type1 in aligned_types and at_type2 in aligned_types:
@@ -745,10 +745,10 @@ class Mmif(MmifObject):
                 point = math.inf if start else -1
                 comp = min if start else max
                 for target_id in ann.get_property('targets'):
-                    point = comp(point, self._get_linear_anchor_point(self[target_id], start=start))
+                    point = comp(point, self._get_linear_anchor_point(self.__getitem__(target_id), start=start))
                 return point
             target_id = ann.get_property('targets')[0 if start else -1]
-            return self._get_linear_anchor_point(self[target_id], start=start)
+            return self._get_linear_anchor_point(self.__getitem__(target_id), start=start)
         elif (start and 'start' in props) or (not start and 'end' in props):
             return ann.get_property('start' if start else 'end')
         else:
@@ -766,8 +766,7 @@ class Mmif(MmifObject):
         """
         return self._get_linear_anchor_point(annotation, start=False)
 
-    def __getitem__(self, item: str) \
-            -> Union[Document, View, Annotation, MmifMetadata, DocumentsList, ViewsList]:
+    def __getitem__(self, item: str) -> Union[Document, View, Annotation, MmifMetadata]:
         """
         index ([]) implementation for Mmif. This will try to find any object, given an identifier or an immediate 
         attribute name. When nothing is found, this will raise an error rather than returning a None 
@@ -780,17 +779,25 @@ class Mmif(MmifObject):
         :raise KeyError: if the item is not found or multiple objects are found with the same ID
         """
         if item in self._named_attributes():
-            return self.__dict__[item]
+            return self.__dict__.__getitem__(item)
         if self.id_delimiter in item:
             vid, _ = item.split(self.id_delimiter, 1)
-            return self.views[vid].annotations[item]
+            view = self.views.get_by_key(vid)
+            if view is None:
+                raise KeyError(f"View with ID {vid} not found in the MMIF object.")
+            ann = view.annotations.get_by_key(item)
+            if ann is None:
+                raise KeyError(f"Annotation with ID {item} not found in the MMIF object.")
+            return ann
         else:
             # search for document first, then views
             # raise KeyError if nothing is found
-            try:
-                return self.documents.__getitem__(item)
-            except KeyError:
-                try:
-                    return self.views.__getitem__(item)
-                except KeyError:
+            ret = self.documents.get_by_key(item)
+            if ret is None:
+                ret = self.views.get_by_key(item)
+                if ret is None:
                     raise KeyError(f"Object with ID {item} not found in the MMIF object. ")
+                else:
+                    return ret
+            else:
+                return ret

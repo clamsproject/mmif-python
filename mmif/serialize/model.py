@@ -13,8 +13,9 @@ for the different components of MMIF is added in the subclasses.
 """
 
 import json
+import warnings
 from datetime import datetime
-from typing import Union, Any, Dict, Optional, TypeVar, Generic, Generator, Iterator, Type, Set, ClassVar
+from typing import Union, Any, Dict, Optional, TypeVar, Generic, Generator, Iterator, Type, Set, ClassVar, List
 
 from deepdiff import DeepDiff
 
@@ -302,7 +303,7 @@ class MmifObject(object):
         except (TypeError, AttributeError, KeyError):
             return False
 
-    def __getitem__(self, key) -> Union['MmifObject', str, datetime]:
+    def __getitem__(self, key) -> Any:
         if key in self._named_attributes():
             value = self.__dict__[key]
         elif self._unnamed_attributes is None:
@@ -394,6 +395,11 @@ class DataList(MmifObject, Generic[T]):
 
     def get(self, key: str, default=None) -> Optional[T]:
         """
+        .. deprecated:: 1.1.3
+           Will be removed in 2.0.0. 
+           Use `__getitem__` for integer access or `get_by_key` for string-based 
+           ID or attribute access.
+
         Standard dictionary-style get() method, albeit with no ``default``
         parameter. Relies on the implementation of __getitem__.
 
@@ -403,10 +409,17 @@ class DataList(MmifObject, Generic[T]):
         :param default: the default value to return if the key is not found
         :return: the value matching that key
         """
-        try:
-            return self[key]
-        except KeyError:
-            return default
+        warnings.warn(
+            "The 'get' method is deprecated and will be removed in a future version. "
+            "Use `__getitem__` for integer access or `get_by_key` for string-based " \
+            "ID or attribute access.",
+            DeprecationWarning,
+            stacklevel=2
+        )
+        return self.get_by_key(key, default)
+        
+    def get_by_key(self, key: str, default=None) -> Optional[T]:
+        return self._items.get(key, default)
 
     def _append_with_key(self, key: str, value: T, overwrite=False) -> None:
         """
@@ -431,11 +444,13 @@ class DataList(MmifObject, Generic[T]):
     def append(self, value, overwrite):
         raise NotImplementedError()
 
-    def __getitem__(self, key: str) -> T:
-        if key not in self.reserved_names:
-            return self._items.__getitem__(key)
+    def __getitem__(self, key: Union[int, slice]) -> Union[T, List[T]]:
+        if isinstance(key, (int, slice)):
+            # Python's dicts preserve insertion order since 3.7.
+            # We can convert values to a list and index it.
+            return list(self._items.values())[key]
         else:
-            raise KeyError("Don't use __getitem__ to access a reserved name")
+            raise TypeError(f"list indices must be integers or slices, not {type(key).__name__}")
 
     def __setitem__(self, key: str, value: T):
         if key not in self.reserved_names:
