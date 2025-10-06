@@ -28,6 +28,37 @@ not_existing_attype = 'http://not.existing/type'
 tester_appname = 'http://not.existing/app'
 
 
+class TestMmifObject(unittest.TestCase):
+    
+    def test_setattr_additional_properties_disallowed(self):
+        """Test that setting additional properties raises AttributeError when disallowed"""
+        # Create an object that disallows additional properties
+        obj = MmifObject()
+        obj._unnamed_attributes = None  # Disallow additional properties
+        
+        with self.assertRaises(AttributeError) as cm:
+            obj.test_prop = "value"
+        self.assertIn("Additional properties are disallowed", str(cm.exception))
+    
+    def test_setattr_additional_properties_allowed(self):
+        """Test that setting additional properties works when allowed"""
+        obj = MmifObject()
+        obj._unnamed_attributes = {}  # Allow additional properties
+        
+        obj.test_prop = "value" 
+        self.assertEqual(obj.test_prop, "value")
+        self.assertEqual(obj._unnamed_attributes["test_prop"], "value")
+
+    def test_serialize_unnamed_attributes_none(self):
+        """Test serialization when _unnamed_attributes is None"""
+        obj = MmifObject()
+        obj._unnamed_attributes = None
+        
+        # This should not raise an error, but handle AttributeError gracefully
+        serialized = obj.serialize()
+        self.assertIsInstance(serialized, str)
+
+
 class TestMmif(unittest.TestCase):
 
     def setUp(self) -> None:
@@ -477,6 +508,60 @@ class TestMmif(unittest.TestCase):
         mmif4.add_view(view1)
         mmif4.add_view(view2)
         self.assertTrue(mmif3 == mmif4)
+
+    def test_eq_basic(self):
+        """Test basic equality comparison (issue #311)"""
+        minimal_mmif = '''
+        {
+          "metadata": {
+            "mmif": "http://mmif.clams.ai/1.0.0"
+          },
+          "documents": [
+            {
+              "@type": "http://mmif.clams.ai/vocabulary/VideoDocument/v1",
+              "properties": {
+                "mime": "video",
+                "id": "d1",
+                "location": "file:///test.mp4"
+              }
+            }
+          ],
+          "views": []
+        }'''
+        m1 = Mmif(minimal_mmif)
+        m2 = Mmif(minimal_mmif)
+        self.assertTrue(m1 == m2)
+
+    def test_eq_with_different_documents(self):
+        """Test inequality when documents differ (issue #311)"""
+        mmif1_str = '''
+        {
+          "metadata": {"mmif": "http://mmif.clams.ai/1.0.0"},
+          "documents": [{"@type": "http://mmif.clams.ai/vocabulary/VideoDocument/v1",
+                         "properties": {"mime": "video", "id": "d1", "location": "file:///test1.mp4"}}],
+          "views": []
+        }'''
+        mmif2_str = mmif1_str.replace("d1", "d2")
+        m1 = Mmif(mmif1_str)
+        m2 = Mmif(mmif2_str)
+        self.assertFalse(m1 == m2)
+
+    def test_eq_ignores_contextual_attributes(self):
+        """Test that contextual attributes (timestamps) are ignored in equality comparison (issue #311)"""
+        from datetime import datetime, timedelta
+        mmif_str = '''
+        {
+          "metadata": {"mmif": "http://mmif.clams.ai/1.0.0"},
+          "documents": [{"@type": "http://mmif.clams.ai/vocabulary/VideoDocument/v1",
+                         "properties": {"mime": "video", "id": "d1", "location": "file:///test.mp4"}}],
+          "views": [{"id": "v1", "metadata": {"app": "http://mmif.clams.ai/apps/test/1.0", "contains": {}}, "annotations": []}]
+        }'''
+        m1 = Mmif(mmif_str)
+        m2 = Mmif(mmif_str)
+        # Set different timestamps
+        m1.views.get('v1').metadata.timestamp = datetime.now()
+        m2.views.get('v1').metadata.timestamp = datetime.now() + timedelta(seconds=10)
+        self.assertEqual(m1, m2)
 
     def test___getitem__(self):
         mmif_obj = Mmif(MMIF_EXAMPLES['everything'])
