@@ -27,6 +27,32 @@ Package ``mmif-python`` is distributed via the official PyPI. Users are supposed
 
 This will install a package `mmif` to local python.
 
+
+Installing from source tree for development
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. note::
+  This is not necessary for most users who just want to use the ``mmif-python`` package. This is only for developers who want to modify the source code.
+
+Following these instructions will install the ``mmif-python`` package in `"editable" mode <https://pip.pypa.io/en/stable/cli/pip_install/#editable-installs>`_. This means that any changes you make to the source code will be immediately available to the installed package.
+
+1. First, you need a general developer toolchain that includes the ``make`` command.
+2. Then, run the following command in the root of the source tree:
+
+   .. code-block:: bash
+
+     make develop
+
+   This will install all dependencies, run all the tests, and then install the package in editable mode.
+
+3. If you want to skip the testing, you can run `make package` first, and then manually install the package in editable mode:
+
+   .. code-block:: bash
+
+     make package
+     python3 -m pip install -e .
+
+
 The MMIF format and specification is evolving over time, and ``mmif-python`` package will be updated along with the changes in MMIF format. 
 
 .. note:: MMIF format is not always backward-compatible. To find out more about relations between MMIF specification versions and ``mmif-python`` versions, please take time to read our decision on the subject `here <https://mmif.clams.ai/versioning/>`_. If you need to know which python SDK supports which specification version, see :ref:`target-versions` page. 

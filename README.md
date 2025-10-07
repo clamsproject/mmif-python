@@ -15,4 +15,5 @@ including ;
 ## For more ...
 * [Version history and patch notes](https://github.com/clamsproject/mmif-python/blob/main/CHANGELOG.md)
 * [MMIF Python API documentation](https://clamsproject.github.io/mmif-python)
+    * [Getting started ...](https://clams.ai/mmif-python/latest/introduction.html) (includes installation instruction)
 * [MMIF JSON specification and schema](https://clamsproject.github.io/mmif)

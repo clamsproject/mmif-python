@@ -25,8 +25,8 @@ testcaches = .hypothesis .pytest_cache .pytype coverage.xml htmlcov .coverage
 all: version test build
 
 develop: devversion package test
-	python3 setup.py develop --uninstall
-	python3 setup.py develop
+	python3 -m pip uninstall mmif-python -y
+	python3 -m pip install -e .
 
 publish: distclean version package test 
 	test `git branch --show-current` = "master"
