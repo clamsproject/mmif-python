@@ -705,10 +705,16 @@ class Mmif(MmifObject):
 
         time_anchors_in_range = []
         uniq_types = set(ThingTypesBase.from_str(t) if isinstance(t, str) else t for t in at_types)
-
-        for view in self.get_all_views_contain(AnnotationTypes.TimeFrame) + self.get_all_views_contain(AnnotationTypes.TimePoint):
+        # Getting the views this way to prevent some views from being counted twice,
+        # which happens with views that contain both TimePoints and TimeFrames.
+        # TODO (mv @ 10/20/25): there must be a nicer way with sets, but it may be
+        # important to keep the order
+        views = self.get_all_views_contain(AnnotationTypes.TimeFrame)
+        view_ids = [v.id for v in views]
+        views.extend([v for v in self.get_all_views_contain(AnnotationTypes.TimePoint)
+                      if not v.id in view_ids])
+        for view in views:
             time_unit_in_view = view.metadata.contains.get(AnnotationTypes.TimeFrame)["timeUnit"]
-            
             start_time = convert(start, time_unit, time_unit_in_view, 1)
             end_time = convert(end, time_unit, time_unit_in_view, 1)
             for ann in view.get_annotations():
@@ -740,7 +746,6 @@ class Mmif(MmifObject):
             if 'start' in props or 'end' in props:
                 raise ValueError(f"Annotation {ann.id} has `targets` and `start`/`end` "
                                  f"properties at the same time. Annotation anchors are ambiguous.")
-
             if not targets_sorted:
                 point = math.inf if start else -1
                 comp = min if start else max
