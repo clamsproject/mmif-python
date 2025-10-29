@@ -346,6 +346,7 @@ class ViewMetadata(MmifObject):
         self.error: Union[dict, ErrorDict] = {}
         self.warnings: List[str] = []
         self._required_attributes = ["app"]
+        self._contextual_attributes = {"timestamp"}
         self._attribute_classes = {
             'error': ErrorDict,
             'contains': ContainsDict
@@ -357,8 +358,8 @@ class ViewMetadata(MmifObject):
         # also see this class' `_serialize()` override implementation
         super().__init__(viewmetadata_obj)
 
-    def _serialize(self, alt_container: Optional[Dict] = None) -> dict:
-        serialized = super()._serialize()
+    def _serialize(self, *args, **kwargs) -> dict:
+        serialized = super()._serialize(**kwargs)
         # `_serialize()` eliminates any *empty* attributes, so 
         # when no "contains", "errors", nor "warnings", at least add an empty contains back
         if not (self.contains.items() or self.error or self.warnings):
@@ -459,6 +460,7 @@ class ErrorDict(MmifObject):
     def __init__(self, error_obj: Optional[Union[bytes, str, dict]] = None, *_) -> None:
         self.message: str = ''
         self.stackTrace: str = ''
+        self._contextual_attributes = {"stackTrace"}
         super().__init__(error_obj)
     
     def __str__(self):
