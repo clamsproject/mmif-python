@@ -76,11 +76,12 @@ def get_framerate(video_document: Document) -> float:
 def extract_frames_as_images(video_document: Document, framenums: Iterable[int], as_PIL: bool = False, record_ffmpeg_errors: bool = False):
     """
     Extracts frames from a video document as a list of :py:class:`numpy.ndarray`.
-    Use with :py:func:`sample_frames` function to get the list of frame numbers first. 
-    
+    Use with :py:func:`sample_frames` function to get the list of frame numbers first.
+
     :param video_document: :py:class:`~mmif.serialize.annotation.Document` instance that holds a video document (``"@type": ".../VideoDocument/..."``)
     :param framenums: iterable integers representing the frame numbers to extract
     :param as_PIL: return :py:class:`PIL.Image.Image` instead of :py:class:`~numpy.ndarray`
+    :param record_ffmpeg_errors: if True, records and warns about FFmpeg stderr output during extraction
     :return: frames as a list of :py:class:`~numpy.ndarray` or :py:class:`~PIL.Image.Image`
     """
     import cv2
@@ -212,11 +213,11 @@ def sample_frames(start_frame: int, end_frame: int, sample_rate: float = 1) -> L
     """
     Helper function to sample frames from a time interval.
     Can also be used as a "cutoff" function when used with ``start_frame==0`` and ``sample_rate==1``.
-    
+
     :param start_frame: start frame of the interval
     :param end_frame: end frame of the interval
     :param sample_rate: sampling rate (or step) to configure how often to take a frame, default is 1, meaning all consecutive frames are sampled
-
+    :return: list of frame numbers to extract
     """
     if sample_rate < 1:
         raise ValueError(f"Sample rate must be greater than 1, but got {sample_rate}")
@@ -235,9 +236,13 @@ def get_annotation_property(mmif, annotation, prop_name):
     .. deprecated:: 1.0.8
        Will be removed in 2.0.0.
        Use :py:meth:`mmif.serialize.annotation.Annotation.get_property` method instead.
-    
+
     Get a property value from an annotation. If the property is not found in the annotation, it will look up the metadata of the annotation's parent view and return the value from there.
-    xisting
+
+    :param mmif: MMIF object containing the annotation
+    :param annotation: Annotation object to get property from
+    :param prop_name: name of the property to retrieve
+    :return: the property value
     """
     warnings.warn(f'{__name__}() is deprecated. '
                   f'Directly ask the annotation for a property by calling annotation.get_property() instead.',
