@@ -16,8 +16,6 @@ import json
 from datetime import datetime
 from typing import Union, Any, Dict, Optional, TypeVar, Generic, Generator, Iterator, Type, Set, ClassVar
 
-from deepdiff import DeepDiff
-
 T = TypeVar('T')
 S = TypeVar('S')
 PRMTV_TYPES: Type = Union[str, int, float, bool, None]
@@ -93,10 +91,12 @@ class MmifObject(object):
         '_unnamed_attributes',
         '_attribute_classes',
         '_required_attributes',
-        '_exclude_from_diff'
+        '_exclude_from_diff',
+        '_contextual_attributes'
     }
     _unnamed_attributes: Optional[dict]
     _exclude_from_diff: Set[str]
+    _contextual_attributes: Set[str]
     _attribute_classes: Dict[str, Type] = {}  # Mapping: str -> Type
 
     def __init__(self, mmif_obj: Optional[Union[bytes, str, dict]] = None, *_) -> None:
@@ -106,6 +106,8 @@ class MmifObject(object):
             self._required_attributes = []
         if not hasattr(self, '_exclude_from_diff'):
             self._exclude_from_diff = set()
+        if not hasattr(self, '_contextual_attributes'):
+            self._contextual_attributes = set()
         if not hasattr(self, '_unnamed_attributes'):
             self._unnamed_attributes = {}
         if mmif_obj is not None:
@@ -139,16 +141,21 @@ class MmifObject(object):
         """
         return (n for n in self.__dict__.keys() if n not in self.reserved_names)
 
-    def serialize(self, pretty: bool = False) -> str:
+    def serialize(self, pretty: bool = False, include_context: bool = True) -> str:
         """
         Generates JSON representation of an object.
 
         :param pretty: If True, returns string representation with indentation.
+        :param include_context: If ``False``, excludes contextual attributes from
+                                serialization. Contextual attributes hold information
+                                that varies at runtime (e.g., timestamps) and do not
+                                constitute the core information of the MMIF object.
+                                This is useful for comparing two MMIF objects for equality.
         :return: JSON string of the object.
         """
-        return json.dumps(self._serialize(), indent=2 if pretty else None, cls=MmifObjectEncoder)
+        return json.dumps(self._serialize(include_context=include_context), indent=2 if pretty else None, cls=MmifObjectEncoder)
 
-    def _serialize(self, alt_container: Optional[Dict] = None) -> dict:
+    def _serialize(self, alt_container: Optional[Dict] = None, include_context: bool = True) -> dict:
         """
         Maps a MMIF object to a plain python dict object,
         rewriting internal keys that start with '_' to
@@ -158,6 +165,7 @@ class MmifObject(object):
         override this method.
 
         :param alt_container: optional alternative container dict to serialize instead of _unnamed_attributes
+        :param include_context: See :meth:`serialize` for details.
         :return: the prepared dictionary
         """
         container = alt_container if alt_container is not None else self._unnamed_attributes
@@ -167,20 +175,32 @@ class MmifObject(object):
                 if v is None:
                     continue
                 k = str(k)
+                if not include_context and k in self._contextual_attributes:
+                    continue
                 if k.startswith('_'):   # _ as a placeholder ``@`` in json-ld
                     k = f'@{k[1:]}'
-                serializing_obj[k] = v
+                # Recursively serialize nested MmifObjects with the same include_context parameter
+                if isinstance(v, MmifObject):
+                    serializing_obj[k] = v._serialize(include_context=include_context)
+                else:
+                    serializing_obj[k] = v
         except AttributeError as e:
             # means _unnamed_attributes is None, so nothing unnamed would be serialized
             pass
         for k, v in self.__dict__.items():
             if k in self.reserved_names:
                 continue
+            if not include_context and k in self._contextual_attributes:
+                continue
             if k not in self._required_attributes and self.is_empty(v):
                 continue
             if k.startswith('_'):       # _ as a placeholder ``@`` in json-ld
                 k = f'@{k[1:]}'
-            serializing_obj[k] = v
+            # Recursively serialize nested MmifObjects with the same include_context parameter
+            if isinstance(v, MmifObject):
+                serializing_obj[k] = v._serialize(include_context=include_context)
+            else:
+                serializing_obj[k] = v
         return serializing_obj
 
     @staticmethod
@@ -264,14 +284,21 @@ class MmifObject(object):
                 self[k] = v
 
     def __str__(self) -> str:
-        return self.serialize(False)
+        return self.serialize()
 
     def __eq__(self, other) -> bool:
+        """
+        Compares two MmifObject instances for equality by comparing their serialized
+        representations with contextual attributes excluded.
+
+        This avoids issues with DeepDiff accessing properties that may raise exceptions,
+        and properly handles comparison by ignoring contextual attributes like timestamps
+        and stack traces that vary based on runtime environment.
+
+        See https://github.com/clamsproject/mmif-python/issues/311 for details.
+        """
         return isinstance(other, type(self)) and \
-               len(DeepDiff(self, other, report_repetition=True, exclude_types=[datetime],
-                            # https://github.com/clamsproject/mmif-python/issues/214
-                            exclude_paths=self._exclude_from_diff)
-                   ) == 0
+               self.serialize(include_context=False) == other.serialize(include_context=False)
 
     def __len__(self) -> int:
         """
@@ -357,7 +384,7 @@ class DataList(MmifObject, Generic[T]):
 
         :return: list of the values of the internal dictionary.
         """
-        return list(super()._serialize(self._items).values())
+        return list(super()._serialize(self._items, **kwargs).values())
 
     def deserialize(self, mmif_json: Union[str, list]) -> None:  # pytype: disable=signature-mismatch
         """
@@ -450,7 +477,7 @@ class DataDict(MmifObject, Generic[T, S]):
         super().__init__(mmif_obj)
 
     def _serialize(self, *args, **kwargs) -> dict:
-        return super()._serialize(self._items)
+        return super()._serialize(self._items, **kwargs)
 
     def get(self, key: T, default=None) -> Optional[S]:
         return self._items.get(key, default)

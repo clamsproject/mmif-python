@@ -562,8 +562,8 @@ class DocumentProperties(AnnotationProperties):
             self.location = input_dict.pop("location")
         super()._deserialize(input_dict)
 
-    def _serialize(self, alt_container: Optional[Dict] = None) -> dict:
-        serialized = super()._serialize()
+    def _serialize(self, *args, **kwargs) -> dict:
+        serialized = super()._serialize(**kwargs)
         if "location_" in serialized:
             serialized["location"] = serialized.pop("location_")
         return serialized

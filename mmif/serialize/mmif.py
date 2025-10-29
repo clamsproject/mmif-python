@@ -179,17 +179,18 @@ class Mmif(MmifObject):
             json_str = json.loads(json_str)
         jsonschema.validators.validate(json_str, schema)
 
-    def serialize(self, pretty: bool = False, sanitize: bool = False, autogenerate_capital_annotations=True) -> str:
+    def serialize(self, sanitize: bool = False, autogenerate_capital_annotations: bool = True, **kwargs) -> str:
         """
         Serializes the MMIF object to a JSON string.
 
-        :param pretty: If True, returns string representation with indentation.
         :param sanitize: If True, performs some sanitization of before returning
             the JSON string. See :meth:`sanitize` for details.
         :param autogenerate_capital_annotations: If True, automatically convert
             any "pending" temporary properties from `Document` objects to
             `Annotation` objects. See :meth:`generate_capital_annotations` for
             details.
+        :param kwargs: Keyword arguments to pass to the parent's ``serialize``
+                       method (e.g., ``pretty=True``, ``include_context=False``).
         :return: JSON string of the MMIF object.
         """
         if autogenerate_capital_annotations:
@@ -197,7 +198,7 @@ class Mmif(MmifObject):
         # sanitization should be done after `Annotation` annotations are generated
         if sanitize:
             self.sanitize()
-        return super().serialize(pretty)
+        return super().serialize(**kwargs)
 
     def _deserialize(self, input_dict: dict) -> None:
         """
