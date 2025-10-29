@@ -1,3 +1,24 @@
+################################################################################
+# COMPLETELY DEPRECATED - LEFT FOR HISTORICAL REFERENCE ONLY
+#
+# This Makefile is no longer needed and will be removed in a future release.
+# Use Python scripts and modern build tools instead:
+#
+#   python scripts/manage_version.py    # Instead of: make version/devversion
+#   python -m build                     # Instead of: make package
+#   pip install -e .                    # Instead of: make develop
+#   pytest                              # Instead of: make test
+#   python scripts/build_docs.py        # Instead of: make docs/doc
+#   python scripts/clean.py             # Instead of: make clean/distclean
+#
+# This file is kept temporarily for:
+# 1. Legacy CI/CD pipelines that haven't been updated yet
+# 2. Historical reference during migration period
+# 3. Will be removed once all workflows are migrated (target: 3-6 months)
+#
+# See README.md "Development" section for modern workflow instructions.
+################################################################################
+
 # check for dependencies
 SHELL := /bin/bash
 deps = curl jq git python3 

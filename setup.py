@@ -1,4 +1,25 @@
 #! /usr/bin/env python3
+"""
+COMPLETELY DEPRECATED - LEFT FOR HISTORICAL REFERENCE ONLY
+
+This file is no longer needed and will be removed in a future release.
+Build-time code generation now uses setuptools entry points defined in pyproject.toml.
+
+
+DO NOT USE THIS FILE. Use modern build tools instead (see more build commands in `Makefile` (top comment) which is also targeted for removal):
+    pip install .        # Standard installation
+    pip install -e .     # Development installation
+    python -m build      # Build distribution packages
+
+All package metadata and build configuration is in pyproject.toml.
+Build hooks are integrated via setuptools entry points (see pyproject.toml line 68).
+
+This file is kept temporarily for:
+1. Legacy CI/CD pipelines that haven't been updated yet
+2. Historical reference during migration period
+3. Will be removed once all workflows are migrated (target: 3-6 months)
+"""
+
 import io
 import json
 import os
