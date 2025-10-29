@@ -17,6 +17,11 @@ class TypesBase(object):
     old_lapps_type_shortnames = {'Token', 'Sentence', 'Paragraph', 'Markable', 'NamedEntity', 'NounChunk', 'VerbChunk'}
 
     def __init__(self, type_uri: str):
+        """
+        Initialize a vocabulary type.
+
+        :param type_uri: full URI or short name of the vocabulary type
+        """
         self.fuzzy_eq = False
         self.parse_names(type_uri)
         if self.__repr__() not in self.__class__._prefixes:
@@ -122,6 +127,12 @@ class ClamsTypesBase(TypesBase):
     dev_version: ClassVar[str] = 'develop'
     
     def __init__(self, type_uri, fuzzymode=True):
+        """
+        Initialize a CLAMS vocabulary type.
+
+        :param type_uri: full URI or short name of the CLAMS vocabulary type
+        :param fuzzymode: if True, enables fuzzy equality comparison that ignores version differences
+        """
         super().__init__(type_uri)
         self.fuzzy_eq = fuzzymode
     

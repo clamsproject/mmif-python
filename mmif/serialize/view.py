@@ -215,7 +215,7 @@ class View(MmifObject):
         :param document: the Document object to add
         :param overwrite: if set to True, will overwrite
                           an existing view with the same ID
-        :return: None
+        :return: the added Document object (as an Annotation)
         """
         return self.add_annotation(document, overwrite)
 
@@ -270,18 +270,18 @@ class View(MmifObject):
     def get_document_by_id(self, doc_id) -> Document:
         """
         .. deprecated:: 1.1.0
-           Will be removed in 2.0.0. 
-           Use general ``Mmif.__getitem__()`` method instead to retrieve 
-           any document across the MMIF, or View.__getitems__() to 
+           Will be removed in 2.0.0.
+           Use general ``Mmif.__getitem__()`` method instead to retrieve
+           any document across the MMIF, or View.__getitems__() to
            retrieve documents within the view.
 
-        Thinly wraps the Mmif.__getitem__ method and returns an Annotation 
-        object. Note that although this method is under View class, it can 
-        be used to retrieve any annotation across the entire MMIF.
+        Thinly wraps the Mmif.__getitem__ method and returns a Document
+        object. Note that although this method is under View class, it can
+        be used to retrieve any document across the entire MMIF.
 
-        :param ann_id: the ID of the annotation to retrieve.
-        :return: found :class:`mmif.serialize.annotation.Annotation` object.
-        :raises KeyError: if the annotation with the given ID is not found
+        :param doc_id: the ID of the document to retrieve.
+        :return: found :class:`mmif.serialize.annotation.Document` object.
+        :raises KeyError: if the document with the given ID is not found
         """
         warnings.warn(
             "View.get_document_by_id() is deprecated, use view[doc_id] instead.",

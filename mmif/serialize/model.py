@@ -157,6 +157,7 @@ class MmifObject(object):
         If a subclass needs special treatment during the mapping, it needs to
         override this method.
 
+        :param alt_container: optional alternative container dict to serialize instead of _unnamed_attributes
         :return: the prepared dictionary
         """
         container = alt_container if alt_container is not None else self._unnamed_attributes
@@ -375,14 +376,13 @@ class DataList(MmifObject, Generic[T]):
 
     def get(self, key: str, default=None) -> Optional[T]:
         """
-        Standard dictionary-style get() method, albeit with no ``default``
-        parameter. Relies on the implementation of __getitem__.
+        Standard dictionary-style get() method. Relies on the implementation of __getitem__.
 
-        Will return ``None`` if the key is not found.
+        Will return the default value if the key is not found.
 
         :param key: the key to search for
-        :param default: the default value to return if the key is not found
-        :return: the value matching that key
+        :param default: the default value to return if the key is not found (defaults to None)
+        :return: the value matching that key, or the default value if not found
         """
         try:
             return self[key]
