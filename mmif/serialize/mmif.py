@@ -2,7 +2,16 @@
 The :mod:`mmif` module contains the classes used to represent a full MMIF
 file as a live Python object.
 
+The :class:`Mmif` class is a high-level container that provides convenient
+string-based access to documents, views, and annotations via ``mmif[id]``.
+The underlying ``documents`` and ``views`` attributes are list-like collections
+that use integer indexing; use ``get_by_key()`` on those for ID-based access.
+
 See the specification docs and the JSON Schema file for more information.
+
+.. versionchanged:: 1.1.3
+   DocumentsList and ViewsList now only accept integer/slice indexing.
+   Use ``get_by_key()`` for string ID access on those collections.
 """
 
 import json
@@ -139,8 +148,39 @@ class Mmif(MmifObject):
     """
     MmifObject that represents a full MMIF file.
 
+    This is a high-level container object that provides convenient string-based
+    access to documents, views, and annotations using their IDs. The underlying
+    collections (``documents`` and ``views``) are list-like and use integer
+    indexing, but Mmif itself accepts string IDs for convenient access.
+
     :param mmif_obj: the JSON data
     :param validate: whether to validate the data against the MMIF JSON schema.
+
+    Examples
+    --------
+    Accessing objects by ID (high-level, convenient):
+
+    >>> mmif = Mmif(mmif_json)
+    >>> doc = mmif['m1']              # Get document by ID
+    >>> view = mmif['v1']             # Get view by ID
+    >>> ann = mmif['v1:a1']           # Get annotation by long-form ID
+    >>>
+    >>> # Safe access with default:
+    >>> doc = mmif.get('m99', default=None)
+
+    Accessing via underlying lists (positional access):
+
+    >>> first_doc = mmif.documents[0]     # First document
+    >>> last_view = mmif.views[-1]        # Last view
+    >>> all_views = mmif.views[1:4]       # Slice of views
+    >>>
+    >>> # Access by ID on lists:
+    >>> doc = mmif.documents.get_by_key('m1')
+    >>> view = mmif.views.get_by_key('v1')
+
+    .. versionchanged:: 1.1.3
+       Underlying ``documents`` and ``views`` lists now only accept integer
+       indexing. Use ``get_by_key()`` for string ID access on those lists.
     """
 
     def __init__(self, mmif_obj: Optional[Union[bytes, str, dict]] = None, *, validate: bool = True) -> None:
@@ -768,15 +808,56 @@ class Mmif(MmifObject):
 
     def __getitem__(self, item: str) -> Union[Document, View, Annotation, MmifMetadata]:
         """
-        index ([]) implementation for Mmif. This will try to find any object, given an identifier or an immediate 
-        attribute name. When nothing is found, this will raise an error rather than returning a None 
+        High-level string-based access to MMIF objects by their IDs.
 
-        :raises KeyError: if the item is not found or if the search results are ambiguous
-        :param item: an attribute name or an object identifier (a document ID, a view ID, or an annotation ID). When 
-                     annotation ID is given as a "short" ID (without view ID prefix), the method will try to find a 
-                     match from the first view, and return immediately if found.
-        :return: the object searched for
-        :raise KeyError: if the item is not found or multiple objects are found with the same ID
+        This method provides convenient access to documents, views, and annotations
+        using their string identifiers. For long-form annotation IDs (format: ``V:A``),
+        performs a two-level search through the specified view.
+
+        Note: This is a high-level convenience method on the Mmif container itself.
+        The underlying ``documents`` and ``views`` collections are list-like and
+        only support integer indexing - use ``get_by_key()`` on those for ID-based access.
+
+        :param item: An object identifier:
+                     - Document ID (e.g., 'm1', 'd1')
+                     - View ID (e.g., 'v1', 'v_0')
+                     - Annotation ID in long form (e.g., 'v1:a1', 'v1:tf1')
+                     - Attribute name (e.g., 'metadata', 'documents', 'views')
+        :return: The requested Document, View, Annotation, or attribute object
+        :raises KeyError: If the item is not found
+
+        Examples
+        --------
+        High-level access by ID:
+
+        >>> mmif = Mmif(mmif_json)
+        >>>
+        >>> # Access documents:
+        >>> doc = mmif['m1']           # Returns Document with ID 'm1'
+        >>>
+        >>> # Access views:
+        >>> view = mmif['v1']          # Returns View with ID 'v1'
+        >>>
+        >>> # Access annotations (long-form ID):
+        >>> ann = mmif['v1:a1']        # Returns Annotation from view v1
+        >>>
+        >>> # Access attributes:
+        >>> metadata = mmif['metadata']  # Returns MmifMetadata object
+        >>>
+        >>> # Will raise KeyError:
+        >>> doc = mmif['nonexistent']  # KeyError!
+
+        For list-style positional access, use the underlying collections:
+
+        >>> first_doc = mmif.documents[0]           # Integer index
+        >>> second_view = mmif.views[1]             # Integer index
+        >>> doc_by_id = mmif.documents.get_by_key('m1')  # ID-based access
+
+        See Also
+        --------
+        get : Safe access with default value instead of raising KeyError
+        documents.get_by_key : ID-based access on the documents list
+        views.get_by_key : ID-based access on the views list
         """
         if item in self._named_attributes():
             return self.__dict__.__getitem__(item)

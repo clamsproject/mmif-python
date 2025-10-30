@@ -4,6 +4,15 @@ as a live Python object.
 
 In MMIF, views are created by apps in a pipeline that are annotating
 data that was previously present in the MMIF file.
+
+The :class:`View` class is a high-level container that provides convenient
+string-based access to annotations via ``view[id]``. The underlying
+``annotations`` attribute is a list-like collection that uses integer indexing;
+use ``get_by_key()`` on it for ID-based access.
+
+.. versionchanged:: 1.1.3
+   AnnotationsList now only accepts integer/slice indexing.
+   Use ``get_by_key()`` for string ID access on that collection.
 """
 import json
 import warnings
@@ -26,9 +35,38 @@ class View(MmifObject):
     a list of annotations, and potentially a JSON-LD ``@context``
     IRI.
 
+    This is a high-level container object that provides convenient string-based
+    access to annotations using their IDs. The underlying ``annotations`` collection
+    is list-like and uses integer indexing, but View itself accepts string IDs for
+    convenient access.
+
     If ``view_obj`` is not provided, an empty View will be generated.
 
     :param view_obj: the JSON data that defines the view
+
+    Examples
+    --------
+    Accessing annotations by ID (high-level, convenient):
+
+    >>> view = mmif['v1']
+    >>> ann = view['v1:a1']        # Get annotation by ID
+    >>> doc = view['v1:td1']       # Get document by ID
+    >>>
+    >>> # Safe access with default:
+    >>> ann = view.get('v1:a999', default=None)
+
+    Accessing via underlying list (positional access):
+
+    >>> first_ann = view.annotations[0]      # First annotation
+    >>> last_ann = view.annotations[-1]      # Last annotation
+    >>> some_anns = view.annotations[1:5]    # Slice of annotations
+    >>>
+    >>> # Access by ID on list:
+    >>> ann = view.annotations.get_by_key('v1:a1')
+
+    .. versionchanged:: 1.1.3
+       Underlying ``annotations`` list now only accepts integer indexing.
+       Use ``get_by_key()`` for string ID access on that list.
     """
 
     def __init__(self, view_obj: Optional[Union[bytes, str, dict]] = None, parent_mmif=None, *_) -> None:
@@ -294,11 +332,48 @@ class View(MmifObject):
 
     def __getitem__(self, key: str) -> 'Annotation':
         """
-        index ([]) implementation for View.
+        High-level string-based access to annotations by their IDs.
 
-        :raises KeyError: if the key is not found
-        :param key: the search string.
-        :return: the :class:`mmif.serialize.annotation.Annotation` object searched for
+        This method provides convenient access to annotations and documents
+        within this view using their string identifiers.
+
+        Note: This is a high-level convenience method on the View container itself.
+        The underlying ``annotations`` collection is list-like and only supports
+        integer indexing - use ``get_by_key()`` on it for ID-based access.
+
+        :param key: The annotation or document ID (e.g., 'v1:a1', 'v1:td1'),
+                    or an attribute name (e.g., 'metadata', 'annotations')
+        :return: The requested Annotation, Document, or attribute object
+        :raises KeyError: If the key is not found
+
+        Examples
+        --------
+        High-level access by ID:
+
+        >>> view = mmif['v1']
+        >>>
+        >>> # Access annotations:
+        >>> ann = view['v1:a1']     # Returns Annotation with ID 'v1:a1'
+        >>>
+        >>> # Access text documents in view:
+        >>> doc = view['v1:td1']    # Returns Document with ID 'v1:td1'
+        >>>
+        >>> # Access attributes:
+        >>> metadata = view['metadata']  # Returns ViewMetadata object
+        >>>
+        >>> # Will raise KeyError:
+        >>> ann = view['nonexistent']  # KeyError!
+
+        For list-style positional access, use the underlying collection:
+
+        >>> first_ann = view.annotations[0]              # Integer index
+        >>> ann_by_id = view.annotations.get_by_key('v1:a1')  # ID-based access
+
+        See Also
+        --------
+        get : Safe access with default value instead of raising KeyError
+        annotations.get_by_key : ID-based access on the annotations list
+        get_annotations : Search for annotations by type or properties
         """
         if key in self._named_attributes():
             return self.__dict__[key]
