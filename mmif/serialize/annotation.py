@@ -74,10 +74,11 @@ class Annotation(MmifObject):
                             
     def _cache_alignment(self, alignment_ann: 'Annotation', alignedto_ann: 'Annotation') -> None:
         """
-        Cache alignment information. This cache will not be serialized. 
-        
+        Cache alignment information. This cache will not be serialized.
+
         :param alignment_ann: the Alignment annotation that has this annotation on one side
         :param alignedto_ann: the annotation that this annotation is aligned to (other side of Alignment)
+        :return: None
         """
         self._alignments[alignment_ann] = alignedto_ann
     
@@ -228,10 +229,9 @@ class Annotation(MmifObject):
                      value: Union[PRMTV_TYPES, LIST_PRMTV, LIST_LIST_PRMTV, DICT_PRMTV, DICT_LIST_PRMTV]) -> None:
         """
         Adds a property to the annotation's properties.
-        
+
         :param name: the name of the property
         :param value: the property's desired value
-        :return: None
         """
         # if self.check_prop_value_is_simple_enough(value):
         self.properties[name] = value
@@ -357,29 +357,32 @@ class Document(Annotation):
                      ) -> None:
         """
         Adds a property to the document's properties.
-        
-        Unlike the parent :class:`Annotation` class, added properties of a 
-        ``Document`` object can be lost during serialization unless it belongs 
-        to somewhere in a ``Mmif`` object. This is because we want to keep 
-        ``Document`` object as "read-only" as possible. Thus, if you want to add 
-        a property to a ``Document`` object, 
-        
-        * add the document to a ``Mmif`` object (either in the documents list or 
+
+        Unlike the parent :class:`Annotation` class, added properties of a
+        ``Document`` object can be lost during serialization unless it belongs
+        to somewhere in a ``Mmif`` object. This is because we want to keep
+        ``Document`` object as "read-only" as possible. Thus, if you want to add
+        a property to a ``Document`` object,
+
+        * add the document to a ``Mmif`` object (either in the documents list or
           in a view from the views list), or
         * directly write to ``Document.properties`` instead of using this method
-          (which is not recommended). 
-        
-        With the former method, the SDK will record the added property as a 
-        `Annotation` annotation object, separate from the original `Document` 
+          (which is not recommended).
+
+        With the former method, the SDK will record the added property as a
+        `Annotation` annotation object, separate from the original `Document`
         object. See :meth:`.Mmif.generate_capital_annotations()` for more.
-        
+
         A few notes to keep in mind:
-        
-        #. You can't overwrite an existing property of a ``Document`` object. 
-        #. A MMIF can have multiple ``Annotation`` objects with the same 
+
+        #. You can't overwrite an existing property of a ``Document`` object.
+        #. A MMIF can have multiple ``Annotation`` objects with the same
            property name but different values. When this happens, the SDK will
-           only keep the latest value (in order of appearances in views list) of 
+           only keep the latest value (in order of appearances in views list) of
            the property, effectively overwriting the previous values.
+
+        :param name: the name of the property
+        :param value: the property's desired value (note: Document accepts fewer value types than Annotation)
         """
         # we don't checking if this k-v already exists in _original (new props) or _ephemeral (read from existing MMIF)
         # because it is impossible to keep the _original updated when a new annotation is added (via `new_annotation`)
@@ -609,8 +612,8 @@ class DocumentProperties(AnnotationProperties):
             self.location = input_dict.pop("location")
         super()._deserialize(input_dict)
 
-    def _serialize(self, alt_container: Optional[Dict] = None) -> dict:
-        serialized = super()._serialize()
+    def _serialize(self, *args, **kwargs) -> dict:
+        serialized = super()._serialize(**kwargs)
         if "location_" in serialized:
             serialized["location"] = serialized.pop("location_")
         return serialized

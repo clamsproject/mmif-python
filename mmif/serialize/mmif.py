@@ -219,17 +219,18 @@ class Mmif(MmifObject):
             json_str = json.loads(json_str)
         jsonschema.validators.validate(json_str, schema)
 
-    def serialize(self, pretty: bool = False, sanitize: bool = False, autogenerate_capital_annotations=True) -> str:
+    def serialize(self, sanitize: bool = False, autogenerate_capital_annotations: bool = True, **kwargs) -> str:
         """
         Serializes the MMIF object to a JSON string.
 
-        :param sanitize: If True, performs some sanitization of before returning 
+        :param sanitize: If True, performs some sanitization of before returning
             the JSON string. See :meth:`sanitize` for details.
-        :param autogenerate_capital_annotations: If True, automatically convert 
-            any "pending" temporary properties from `Document` objects to 
-            `Annotation` objects. See :meth:`generate_capital_annotations` for 
+        :param autogenerate_capital_annotations: If True, automatically convert
+            any "pending" temporary properties from `Document` objects to
+            `Annotation` objects. See :meth:`generate_capital_annotations` for
             details.
-        :param pretty: If True, returns string representation with indentation.
+        :param kwargs: Keyword arguments to pass to the parent's ``serialize``
+                       method (e.g., ``pretty=True``, ``include_context=False``).
         :return: JSON string of the MMIF object.
         """
         if autogenerate_capital_annotations:
@@ -237,7 +238,7 @@ class Mmif(MmifObject):
         # sanitization should be done after `Annotation` annotations are generated
         if sanitize:
             self.sanitize()
-        return super().serialize(pretty)
+        return super().serialize(**kwargs)
 
     def _deserialize(self, input_dict: dict) -> None:
         """
@@ -448,13 +449,13 @@ class Mmif(MmifObject):
         """
         Appends a View object to the views list.
 
-        Fails if there is already a view with the same ID or a document 
+        Fails if there is already a view with the same ID or a document
         with the same ID in the MMIF object.
 
-        :param view: the Document object to add
+        :param view: the View object to add
         :param overwrite: if set to True, will overwrite
                           an existing view with the same ID
-        :raises KeyError: if ``overwrite`` is set to False and existing 
+        :raises KeyError: if ``overwrite`` is set to False and existing
                           object (document or view) with the same ID exists
         :return: None
         """
@@ -543,6 +544,7 @@ class Mmif(MmifObject):
         Only top-level documents have locations, so we only check them.
 
         :param m_type: the type to search for
+        :param path_only: if True, returns resolved file system paths instead of location URIs
         :return: a list of the values of the location fields in the corresponding documents
         """
         docs = [document for document in self.documents if document.is_type(m_type) and document.location is not None]
@@ -556,6 +558,7 @@ class Mmif(MmifObject):
         Method to get the location of *first* document of given type.
 
         :param m_type: the type to search for
+        :param path_only: if True, returns resolved file system path instead of location URI
         :return: the value of the location field in the corresponding document
         """
         # TODO (krim @ 8/10/20): Is returning the first location desirable?
@@ -608,6 +611,8 @@ class Mmif(MmifObject):
         """
         Finds views where alignments between two given annotation types occurred.
 
+        :param at_type1: the first annotation type to search for alignments
+        :param at_type2: the second annotation type to search for alignments
         :return: a dict that keyed by view IDs (str) and has lists of alignment Annotation objects as values.
         """
         v_and_a = {}
@@ -731,8 +736,8 @@ class Mmif(MmifObject):
         """
         Finds annotations that are anchored between the given time points.
 
-        :param start: the start time point in the unit of `input_unit`
-        :param end: the end time point in the unit of `input_unit`
+        :param start: the start time point
+        :param end: the end time point
         :param time_unit: the unit of the input time points. Default is `ms`.
         :param at_types: a list of annotation types to filter with. Any type in this list will be included in the return.
         :return: an iterator of Annotation objects that are anchored between the given time points
@@ -765,12 +770,12 @@ class Mmif(MmifObject):
     def _get_linear_anchor_point(self, ann: Annotation, targets_sorted=False, start: bool = True) -> Union[int, float]:
         # TODO (krim @ 2/5/24): Update the return type once timeunits are unified to `ms` as integers (https://github.com/clamsproject/mmif/issues/192)
         """
-        Retrieves the anchor point of the annotation. Currently, this method only supports linear anchors, 
+        Retrieves the anchor point of the annotation. Currently, this method only supports linear anchors,
         namely time and text, hence does not work with spatial anchors (polygons or video-object).
-        
+
         :param ann: An Annotation object that has a linear anchor point. Namely, some subtypes of `Region` vocabulary type.
-        :param start: If True, returns the start anchor point. Otherwise, returns the end anchor point. N/A for `timePoint` anchors.
         :param targets_sorted: If True, the method will assume that the targets are sorted in the order of the anchor points.
+        :param start: If True, returns the start anchor point. Otherwise, returns the end anchor point. N/A for `timePoint` anchors.
         :return: the anchor point of the annotation. 1d for linear regions (time, text)
         """
         props = ann.properties

@@ -28,15 +28,45 @@ not_existing_attype = 'http://not.existing/type'
 tester_appname = 'http://not.existing/app'
 
 
+class TestMmifObject(unittest.TestCase):
+    
+    def test_setattr_additional_properties_disallowed(self):
+        """Test that setting additional properties raises AttributeError when disallowed"""
+        # Create an object that disallows additional properties
+        obj = MmifObject()
+        obj._unnamed_attributes = None  # Disallow additional properties
+        
+        with self.assertRaises(AttributeError) as cm:
+            obj.test_prop = "value"
+        self.assertIn("Additional properties are disallowed", str(cm.exception))
+    
+    def test_setattr_additional_properties_allowed(self):
+        """Test that setting additional properties works when allowed"""
+        obj = MmifObject()
+        obj._unnamed_attributes = {}  # Allow additional properties
+        
+        obj.test_prop = "value" 
+        self.assertEqual(obj.test_prop, "value")
+        self.assertEqual(obj._unnamed_attributes["test_prop"], "value")
+
+    def test_serialize_unnamed_attributes_none(self):
+        """Test serialization when _unnamed_attributes is None"""
+        obj = MmifObject()
+        obj._unnamed_attributes = None
+        
+        # This should not raise an error, but handle AttributeError gracefully
+        serialized = obj.serialize()
+        self.assertIsInstance(serialized, str)
+
+
 class TestMmif(unittest.TestCase):
 
     def setUp(self) -> None:
         self.mmif_examples_json = {k: json.loads(v) for k, v in MMIF_EXAMPLES.items()}
 
-    @pytest.mark.skip("comparing two `Mmif` objs with an arbitrary file path included won't work until https://github.com/seperman/deepdiff/issues/357 is addressed")
     def test_init_from_bytes(self):
-        mmif_from_str = Mmif(EVERYTHING_JSON)
-        mmif_from_bytes = Mmif(EVERYTHING_JSON.encode('utf8'))
+        mmif_from_str = Mmif(MMIF_EXAMPLES['everything'])
+        mmif_from_bytes = Mmif(MMIF_EXAMPLES['everything'].encode('utf8'))
         self.assertEqual(mmif_from_str, mmif_from_bytes)
 
     def test_str_mmif_deserialize(self):
@@ -456,10 +486,9 @@ class TestMmif(unittest.TestCase):
         except KeyError:
             self.fail("raised exception on duplicate ID add when overwrite was set to True")
     
-    @pytest.mark.skip("comparing two `Mmif` objs with an arbitrary file path included won't work until https://github.com/seperman/deepdiff/issues/357 is addressed")
     def test_eq_checking_order(self):
-        mmif1 = Mmif(EVERYTHING_JSON)
-        mmif2 = Mmif(EVERYTHING_JSON)
+        mmif1 = Mmif(MMIF_EXAMPLES['everything'])
+        mmif2 = Mmif(MMIF_EXAMPLES['everything'])
         view1 = View()
         view1.id = 'v99'
         view2 = View()
@@ -470,13 +499,67 @@ class TestMmif(unittest.TestCase):
         mmif2.add_view(view1)
         self.assertFalse(mmif1 == mmif2)
 
-        mmif3 = Mmif(EVERYTHING_JSON)
-        mmif4 = Mmif(EVERYTHING_JSON)
+        mmif3 = Mmif(MMIF_EXAMPLES['everything'])
+        mmif4 = Mmif(MMIF_EXAMPLES['everything'])
         mmif3.add_view(view1)
         mmif3.add_view(view2)
         mmif4.add_view(view1)
         mmif4.add_view(view2)
         self.assertTrue(mmif3 == mmif4)
+
+    def test_eq_basic(self):
+        """Test basic equality comparison (issue #311)"""
+        minimal_mmif = '''
+        {
+          "metadata": {
+            "mmif": "http://mmif.clams.ai/1.0.0"
+          },
+          "documents": [
+            {
+              "@type": "http://mmif.clams.ai/vocabulary/VideoDocument/v1",
+              "properties": {
+                "mime": "video",
+                "id": "d1",
+                "location": "file:///test.mp4"
+              }
+            }
+          ],
+          "views": []
+        }'''
+        m1 = Mmif(minimal_mmif)
+        m2 = Mmif(minimal_mmif)
+        self.assertTrue(m1 == m2)
+
+    def test_eq_with_different_documents(self):
+        """Test inequality when documents differ (issue #311)"""
+        mmif1_str = '''
+        {
+          "metadata": {"mmif": "http://mmif.clams.ai/1.0.0"},
+          "documents": [{"@type": "http://mmif.clams.ai/vocabulary/VideoDocument/v1",
+                         "properties": {"mime": "video", "id": "d1", "location": "file:///test1.mp4"}}],
+          "views": []
+        }'''
+        mmif2_str = mmif1_str.replace("d1", "d2")
+        m1 = Mmif(mmif1_str)
+        m2 = Mmif(mmif2_str)
+        self.assertFalse(m1 == m2)
+
+    def test_eq_ignores_contextual_attributes(self):
+        """Test that contextual attributes (timestamps) are ignored in equality comparison (issue #311)"""
+        from datetime import datetime, timedelta
+        mmif_str = '''
+        {
+          "metadata": {"mmif": "http://mmif.clams.ai/1.0.0"},
+          "documents": [{"@type": "http://mmif.clams.ai/vocabulary/VideoDocument/v1",
+                         "properties": {"mime": "video", "id": "d1", "location": "file:///test.mp4"}}],
+          "views": [{"id": "v1", "metadata": {"app": "http://mmif.clams.ai/apps/test/1.0", "contains": {}}, "annotations": []}]
+        }'''
+        m1 = Mmif(mmif_str)
+        m2 = Mmif(mmif_str)
+        # Set different timestamps
+        m1.views.get('v1').metadata.timestamp = datetime.now()
+        m2.views.get('v1').metadata.timestamp = datetime.now() + timedelta(seconds=10)
+        self.assertEqual(m1, m2)
 
     def test___getitem__(self):
         mmif_obj = Mmif(MMIF_EXAMPLES['everything'])
