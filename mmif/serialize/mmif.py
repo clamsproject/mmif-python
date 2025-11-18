@@ -5,13 +5,9 @@ file as a live Python object.
 The :class:`Mmif` class is a high-level container that provides convenient
 string-based access to documents, views, and annotations via ``mmif[id]``.
 The underlying ``documents`` and ``views`` attributes are list-like collections
-that use integer indexing; use ``get_by_key()`` on those for ID-based access.
+that use integer indexing; use container-level access for ID-based lookups.
 
 See the specification docs and the JSON Schema file for more information.
-
-.. versionchanged:: 1.1.3
-   DocumentsList and ViewsList now only accept integer/slice indexing.
-   Use ``get_by_key()`` for string ID access on those collections.
 """
 
 import json
@@ -173,14 +169,6 @@ class Mmif(MmifObject):
     >>> first_doc = mmif.documents[0]     # First document
     >>> last_view = mmif.views[-1]        # Last view
     >>> all_views = mmif.views[1:4]       # Slice of views
-    >>>
-    >>> # Access by ID on lists:
-    >>> doc = mmif.documents.get_by_key('m1')
-    >>> view = mmif.views.get_by_key('v1')
-
-    .. versionchanged:: 1.1.3
-       Underlying ``documents`` and ``views`` lists now only accept integer
-       indexing. Use ``get_by_key()`` for string ID access on those lists.
     """
 
     def __init__(self, mmif_obj: Optional[Union[bytes, str, dict]] = None, *, validate: bool = True) -> None:
@@ -821,7 +809,7 @@ class Mmif(MmifObject):
 
         Note: This is a high-level convenience method on the Mmif container itself.
         The underlying ``documents`` and ``views`` collections are list-like and
-        only support integer indexing - use ``get_by_key()`` on those for ID-based access.
+        only support integer indexing.
 
         :param item: An object identifier:
                      - Document ID (e.g., 'm1', 'd1')
@@ -856,31 +844,28 @@ class Mmif(MmifObject):
 
         >>> first_doc = mmif.documents[0]           # Integer index
         >>> second_view = mmif.views[1]             # Integer index
-        >>> doc_by_id = mmif.documents.get_by_key('m1')  # ID-based access
 
         See Also
         --------
         get : Safe access with default value instead of raising KeyError
-        documents.get_by_key : ID-based access on the documents list
-        views.get_by_key : ID-based access on the views list
         """
         if item in self._named_attributes():
             return self.__dict__.__getitem__(item)
         if self.id_delimiter in item:
             vid, _ = item.split(self.id_delimiter, 1)
-            view = self.views.get_by_key(vid)
+            view = self.views._items.get(vid)
             if view is None:
                 raise KeyError(f"View with ID {vid} not found in the MMIF object.")
-            ann = view.annotations.get_by_key(item)
+            ann = view.annotations._items.get(item)
             if ann is None:
                 raise KeyError(f"Annotation with ID {item} not found in the MMIF object.")
             return ann
         else:
             # search for document first, then views
             # raise KeyError if nothing is found
-            ret = self.documents.get_by_key(item)
+            ret = self.documents._items.get(item)
             if ret is None:
-                ret = self.views.get_by_key(item)
+                ret = self.views._items.get(item)
                 if ret is None:
                     raise KeyError(f"Object with ID {item} not found in the MMIF object. ")
                 else:

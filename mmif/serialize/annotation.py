@@ -232,6 +232,7 @@ class Annotation(MmifObject):
 
         :param name: the name of the property
         :param value: the property's desired value
+        :return: None
         """
         # if self.check_prop_value_is_simple_enough(value):
         self.properties[name] = value

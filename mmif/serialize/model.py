@@ -13,13 +13,12 @@ for the different components of MMIF is added in the subclasses.
 
 This module defines two main collection types:
 
-- :class:`DataList`: List-like collections that support integer/slice indexing.
-  Use ``get_by_key()`` for string ID access.
+- :class:`DataList`: List-like collections that support integer/slice
+  indexing. For ID-based access, use indexing or ``get`` in the container
+  level. For example, for DocumentList, use its parent Mmif object's
+  getter methods to access documents by ID. (e.g., ``mmif['doc1']``).
 - :class:`DataDict`: Dict-like collections that support string key access.
 
-.. versionchanged:: 1.1.3
-   DataList now only accepts integers/slices in ``__getitem__``. Use
-   ``get_by_key()`` for string-based ID access.
 """
 
 import json
@@ -451,13 +450,13 @@ class DataList(MmifObject, Generic[T]):
         """
         .. deprecated:: 1.1.3
            Do not use in new code. Will be removed in 2.0.0.
-           Use ``get_by_key()`` for string-based ID access or ``[int]`` for
-           positional access.
+           Use container-level access or positional indexing instead.
 
         Deprecated method for retrieving list elements by string ID.
 
         :param key: the key to search for
-        :param default: the default value to return if the key is not found (defaults to None)
+        :param default: the default value to return if the key is not found
+                        (defaults to None)
         :return: the value matching that key, or the default value if not found
 
         Examples
@@ -468,60 +467,24 @@ class DataList(MmifObject, Generic[T]):
 
         New patterns to use instead:
 
-        >>> # For ID-based access:
-        >>> view = mmif.views.get_by_key('v1')
+        >>> # For ID-based access, use container:
+        >>> view = mmif['v1']
+        >>> # Or with safe access:
+        >>> view = mmif.get('v1', default=None)
         >>> # For positional access:
         >>> view = mmif.views[0]
-        >>> # For high-level safe access:
-        >>> view = mmif.get('v1', default=None)
 
         See Also
         --------
-        get_by_key : Replacement method for string ID access
         __getitem__ : List-style positional access with integers
         """
         warnings.warn(
-            "The 'get' method is deprecated and will be removed in 2.0.0. "
-            "Use `get_by_key()` for string-based ID access or `[int]` for "
-            "positional access.",
+            "The 'get' method on list-like collections is deprecated and "
+            "will be removed in 2.0.0. Use container-level access "
+            "(e.g., mmif['v1']) or positional indexing (e.g., views[0]).",
             DeprecationWarning,
             stacklevel=2
         )
-        return self.get_by_key(key, default)
-        
-    def get_by_key(self, key: str, default=None) -> Optional[T]:
-        """
-        .. versionadded:: 1.1.3
-
-        Retrieve an element from the list by its string ID.
-
-        This is the recommended way to access list elements by their identifier.
-        Unlike ``__getitem__`` which only accepts integers for list-style access,
-        this method accepts string IDs and returns a default value if not found.
-
-        :param key: The string ID of the element to retrieve
-        :param default: The value to return if the ID is not found (default: None)
-        :return: The element with the matching ID, or the default value
-
-        Examples
-        --------
-        Accessing elements by ID:
-
-        >>> # Get a view by ID:
-        >>> view = mmif.views.get_by_key('v1')
-        >>> if view is None:
-        ...     print("View not found")
-        >>>
-        >>> # Get with a custom default:
-        >>> doc = mmif.documents.get_by_key('doc99', default=default_doc)
-        >>>
-        >>> # Get annotation from a view:
-        >>> ann = view.annotations.get_by_key('v1:a1')
-
-        See Also
-        --------
-        __getitem__ : List-style positional access with integers/slices
-        """
         return self._items.get(key, default)
 
     def _append_with_key(self, key: str, value: T, overwrite=False) -> None:
@@ -553,11 +516,12 @@ class DataList(MmifObject, Generic[T]):
 
         This method provides pythonic list behavior - it only accepts integers
         for positional access or slices for range access. For string-based ID
-        access, use ``get_by_key()`` instead.
+        access, use container-level indexing instead (e.g., ``mmif['v1']``).
 
         :param key: An integer index or slice object
         :return: The element at the index, or a list of elements for slices
-        :raises TypeError: If key is not an integer or slice (e.g., if a string is passed)
+        :raises TypeError: If key is not an integer or slice (e.g., if a
+                          string is passed)
 
         Examples
         --------
@@ -573,11 +537,10 @@ class DataList(MmifObject, Generic[T]):
         >>> first_three_views = mmif.views[0:3]
         >>>
         >>> # This will raise TypeError:
-        >>> view = mmif.views['v1']  # TypeError! Use get_by_key('v1') instead
-
-        See Also
-        --------
-        get_by_key : String-based ID access with optional default value
+        >>> view = mmif.views['v1']  # TypeError!
+        >>>
+        >>> # For ID-based access, use container:
+        >>> view = mmif['v1']  # Correct way
         """
         if isinstance(key, (int, slice)):
             # Python's dicts preserve insertion order since 3.7.
