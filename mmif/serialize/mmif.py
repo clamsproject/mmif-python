@@ -868,7 +868,4 @@ class Mmif(MmifObject):
                 ret = self.views._items.get(item)
                 if ret is None:
                     raise KeyError(f"Object with ID {item} not found in the MMIF object. ")
-                else:
-                    return ret
-            else:
-                return ret
+            return ret
