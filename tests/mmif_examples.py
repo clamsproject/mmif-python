@@ -1,6 +1,7 @@
 import itertools
 import os
 import subprocess
+from pathlib import Path
 from string import Template
 from urllib import request
 
@@ -20,8 +21,11 @@ def _load_from_url_or_git(url):
     If LOCALMMIF env var is set, use git show to load from local repo.
     LOCALMMIF should be the path to the local mmif repository.
     """
-    localmmif = os.environ.get('LOCALMMIF')
-    if localmmif:
+    localmmif_str = os.environ.get('LOCALMMIF')
+    if localmmif_str:
+        localmmif = Path(localmmif_str)
+        if not localmmif.is_dir():
+            raise ValueError(f"LOCALMMIF path is not a valid directory: {localmmif}")
         # Extract the version/branch and file path from the URL
         # URL format: https://raw.githubusercontent.com/clamsproject/mmif/{version}/{filepath}
         url_prefix = "https://raw.githubusercontent.com/clamsproject/mmif/"
@@ -35,7 +39,7 @@ def _load_from_url_or_git(url):
                 try:
                     result = subprocess.run(
                         ['git', 'show', git_ref],
-                        cwd=localmmif,
+                        cwd=str(localmmif),
                         capture_output=True,
                         text=True,
                         check=True

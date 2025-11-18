@@ -337,14 +337,14 @@ class MmifObject(object):
         try:
             self.__getitem__(key)
             return True
-        except (TypeError, AttributeError, KeyError):
+        except (TypeError, KeyError):
             return False
 
     def __getitem__(self, key) -> Any:
         if key in self._named_attributes():
             value = self.__dict__[key]
         elif self._unnamed_attributes is None:
-            raise AttributeError(f"Additional properties are disallowed by {self.__class__}: {key}")
+            raise KeyError(f"Additional properties are disallowed by {self.__class__}: {key}")
         else: 
             value = self._unnamed_attributes[key]
         if key not in self._required_attributes and self.is_empty(value):
