@@ -206,7 +206,13 @@ def generate_source_mmif_from_file(documents, prefix=None, scheme='file', **igno
         location = str(location)
         doc = Document()
         doc.at_type = at_types[mime.split('/', maxsplit=1)[0]]
-        doc.properties.location = f"{location_uri.scheme}://{location if not location.startswith(location_uri.scheme) else location[len(location_uri.scheme)+3:]}"
+        # Use the scheme parameter if urlparse misinterpreted the location string
+        if location_uri.scheme == scheme or location_uri.scheme == 'file':
+            # Correct scheme was used, build location with parsed scheme
+            doc.properties.location = f"{location_uri.scheme}://{location if not location.startswith(location_uri.scheme + '://') else location[len(location_uri.scheme)+3:]}"
+        else:
+            # urlparse incorrectly interpreted part of location as a scheme, use the scheme parameter instead
+            doc.properties.location = f"{scheme}://{location}"
         doc.properties.id = f'd{doc_id}'
         doc.properties.mime = mime
         pl.add_document(doc)

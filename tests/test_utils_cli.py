@@ -114,6 +114,18 @@ class TestSource(unittest.TestCase):
         self.assertTrue('baapb' in schemes)
         self.assertTrue('file' in schemes)
 
+    def test_scheme_with_colon_in_location(self):
+        # Test for bug fix: location with colon should not be misinterpreted as a scheme
+        self.scheme = 'baapb'
+        self.docs.append("video:cpb-aacip-507-v40js9j432:video")
+        source_mmif = Mmif(self.generate_source_mmif())
+        self.assertEqual(len(source_mmif.documents), 1)
+        doc = source_mmif.documents[0]
+        # Verify the scheme is correct
+        self.assertEqual(doc.location_scheme(), 'baapb')
+        # Verify the full location preserves the original identifier with colon
+        self.assertEqual(doc.location, 'baapb://cpb-aacip-507-v40js9j432:video')
+
 
 class TestRewind(unittest.TestCase):
     def setUp(self):
