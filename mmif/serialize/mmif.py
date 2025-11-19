@@ -2,6 +2,11 @@
 The :mod:`mmif` module contains the classes used to represent a full MMIF
 file as a live Python object.
 
+The :class:`Mmif` class is a high-level container that provides convenient
+string-based access to documents, views, and annotations via ``mmif[id]``.
+The underlying ``documents`` and ``views`` attributes are list-like collections
+that use integer indexing; use container-level access for ID-based lookups.
+
 See the specification docs and the JSON Schema file for more information.
 """
 
@@ -139,8 +144,35 @@ class Mmif(MmifObject):
     """
     MmifObject that represents a full MMIF file.
 
+    This is a high-level container object that provides convenient string-based
+    access to documents, views, and annotations using their IDs. The underlying
+    collections (``documents`` and ``views``) are list-like and use integer
+    indexing, but Mmif itself accepts string IDs for convenient access.
+
     :param mmif_obj: the JSON data
     :param validate: whether to validate the data against the MMIF JSON schema.
+
+    Examples
+    --------
+    Accessing objects by ID (high-level, convenient):
+
+    .. code-block:: python
+
+       mmif = Mmif(mmif_json)
+       doc = mmif['m1']              # Get document by ID
+       view = mmif['v1']             # Get view by ID
+       ann = mmif['v1:a1']           # Get annotation by long-form ID
+
+       # Safe access with default:
+       doc = mmif.get('m99', default=None)
+
+    Accessing via underlying lists (positional access):
+
+    .. code-block:: python
+
+       first_doc = mmif.documents[0]     # First document
+       last_view = mmif.views[-1]        # Last view
+       all_views = mmif.views[1:4]       # Slice of views
     """
 
     def __init__(self, mmif_obj: Optional[Union[bytes, str, dict]] = None, *, validate: bool = True) -> None:
@@ -267,8 +299,8 @@ class Mmif(MmifObject):
         ## caching alignments
         if all(map(lambda x: x in alignment_ann.properties, ('source', 'target'))):
             try:
-                source_ann = self[alignment_ann.get('source')]
-                target_ann = self[alignment_ann.get('target')]
+                source_ann = self.__getitem__(alignment_ann.get('source'))
+                target_ann = self.__getitem__(alignment_ann.get('target'))
                 if isinstance(source_ann, Annotation) and isinstance(target_ann, Annotation):
                     source_ann._cache_alignment(alignment_ann, target_ann)
                     target_ann._cache_alignment(alignment_ann, source_ann)
@@ -591,7 +623,7 @@ class Mmif(MmifObject):
                     aligned_types = set()
                     for ann_id in [alignment['target'], alignment['source']]:
                         ann_id = cast(str, ann_id)
-                        aligned_type = cast(Annotation, self[ann_id]).at_type
+                        aligned_type = cast(Annotation, self.__getitem__(ann_id)).at_type
                         aligned_types.add(aligned_type)
                     aligned_types = list(aligned_types)  # because membership check for sets also checks hash() values
                     if len(aligned_types) == 2 and at_type1 in aligned_types and at_type2 in aligned_types:
@@ -750,10 +782,10 @@ class Mmif(MmifObject):
                 point = math.inf if start else -1
                 comp = min if start else max
                 for target_id in ann.get_property('targets'):
-                    point = comp(point, self._get_linear_anchor_point(self[target_id], start=start))
+                    point = comp(point, self._get_linear_anchor_point(self.__getitem__(target_id), start=start))
                 return point
             target_id = ann.get_property('targets')[0 if start else -1]
-            return self._get_linear_anchor_point(self[target_id], start=start)
+            return self._get_linear_anchor_point(self.__getitem__(target_id), start=start)
         elif (start and 'start' in props) or (not start and 'end' in props):
             return ann.get_property('start' if start else 'end')
         else:
@@ -771,50 +803,77 @@ class Mmif(MmifObject):
         """
         return self._get_linear_anchor_point(annotation, start=False)
 
-    def __getitem__(self, item: str) \
-            -> Union[Document, View, Annotation, MmifMetadata, DocumentsList, ViewsList]:
+    def __getitem__(self, item: str) -> Union[Document, View, Annotation, MmifMetadata]:
         """
-        index ([]) implementation for Mmif. This will try to find any object, given an identifier or an immediate 
-        attribute name. When nothing is found, this will raise an error rather than returning a None 
+        High-level string-based access to MMIF objects by their IDs.
 
-        :raises KeyError: if the item is not found or if the search results are ambiguous
-        :param item: an attribute name or an object identifier (a document ID, a view ID, or an annotation ID). When 
-                     annotation ID is given as a "short" ID (without view ID prefix), the method will try to find a 
-                     match from the first view, and return immediately if found.
-        :return: the object searched for
-        :raise KeyError: if the item is not found or multiple objects are found with the same ID
+        This method provides convenient access to documents, views, and annotations
+        using their string identifiers. For long-form annotation IDs (format: ``V:A``),
+        performs a two-level search through the specified view.
+
+        Note: This is a high-level convenience method on the Mmif container itself.
+        The underlying ``documents`` and ``views`` collections are list-like and
+        only support integer indexing.
+
+        :param item: An object identifier:
+                     - Document ID (e.g., 'm1', 'd1')
+                     - View ID (e.g., 'v1', 'v_0')
+                     - Annotation ID in long form (e.g., 'v1:a1', 'v1:tf1')
+                     - Attribute name (e.g., 'metadata', 'documents', 'views')
+        :return: The requested Document, View, Annotation, or attribute object
+        :raises KeyError: If the item is not found
+
+        Examples
+        --------
+        High-level access by ID:
+
+        .. code-block:: python
+
+           mmif = Mmif(mmif_json)
+
+           # Access documents:
+           doc = mmif['m1']           # Returns Document with ID 'm1'
+
+           # Access views:
+           view = mmif['v1']          # Returns View with ID 'v1'
+
+           # Access annotations (long-form ID):
+           ann = mmif['v1:a1']        # Returns Annotation from view v1
+
+           # Access attributes:
+           metadata = mmif['metadata']  # Returns MmifMetadata object
+
+           # Will raise KeyError:
+           doc = mmif['nonexistent']  # KeyError!
+
+        For list-style positional access, use the underlying collections:
+
+        .. code-block:: python
+
+           first_doc = mmif.documents[0]           # Integer index
+           second_view = mmif.views[1]             # Integer index
+
+        See Also
+        --------
+        get : Safe access with default value instead of raising KeyError
         """
         if item in self._named_attributes():
-            return self.__dict__[item]
+            return self.__dict__.__getitem__(item)
         if self.id_delimiter in item:
             vid, _ = item.split(self.id_delimiter, 1)
-            return self.views[vid].annotations[item]
+            view = self.views._items.get(vid)
+            if view is None:
+                raise KeyError(f"View with ID {vid} not found in the MMIF object.")
+            ann = view.annotations._items.get(item)
+            if ann is None:
+                raise KeyError(f"Annotation with ID {item} not found in the MMIF object.")
+            return ann
         else:
             # search for document first, then views
             # raise KeyError if nothing is found
-            try:
-                return self.documents.__getitem__(item)
-            except KeyError:
-                try:
-                    return self.views.__getitem__(item)
-                except KeyError:
+            ret = self.documents._items.get(item)
+            if ret is None:
+                ret = self.views._items.get(item)
+                if ret is None:
                     raise KeyError(f"Object with ID {item} not found in the MMIF object. ")
-    
-    def get(self, obj_id, default=None):
-        """
-        High-level getter for Mmif. This will try to find any object, given 
-        an identifier or an immediate attribute name. When nothing is found, 
-        this will return a default value instead of raising an error.
-
-        :param obj_id: an immediate attribute name or an object identifier 
-                     (a document ID, a view ID, or an annotation ID). When 
-                     annotation ID is given as a "short" ID (without view 
-                     ID prefix), the method will try to find a match from 
-                     the first view, and return immediately if found.
-        :param default: the default value to return if none is found
-        :return: the object searched for or the default value
-        """
-        try:
-            return self.__getitem__(obj_id)
-        except KeyError:
-            return default
+            return ret

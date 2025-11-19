@@ -232,6 +232,7 @@ class Annotation(MmifObject):
 
         :param name: the name of the property
         :param value: the property's desired value
+        :return: None
         """
         # if self.check_prop_value_is_simple_enough(value):
         self.properties[name] = value
@@ -256,18 +257,41 @@ class Annotation(MmifObject):
 
     def get(self, prop_name: str, default=None):
         """
-        A getter for Annotation, will search for a property by its name, 
-        and return the value if found, or the default value if not found.
-        This is designed to allow for directly accessing properties without 
-        having to go through the properties object, or view-level 
-        annotation metadata (common properties) encoded in the 
-        ``view.metadata.contains`` dict. Note that the regular properties 
-        will take the priority over the view-level common properties when 
-        there are name conflicts.
-        
-        :param prop_name: the name of the property to get
-        :param default: the value to return if the property is not found
-        :return: the value of the property
+        Safe property access with optional default value.
+
+        Searches for an annotation property by name and returns its value,
+        or a default value if not found. This method searches in multiple
+        locations with the following priority:
+
+        1. Direct properties (in ``annotation.properties``)
+        2. Ephemeral properties (view-level metadata from ``contains``)
+        3. Special fields (``@type``, ``properties``)
+
+        This allows convenient access to properties without explicitly
+        checking the ``properties`` object or view-level metadata.
+
+        :param prop_name: The name of the property to retrieve
+        :param default: The value to return if the property is not found (default: None)
+        :return: The property value, or the default value if not found
+
+        Examples
+        --------
+        .. code-block:: python
+
+           # Access annotation properties:
+           label = annotation.get('label', default='unknown')
+           start_time = annotation.get('start', default=0)
+
+           # Access @type:
+           at_type = annotation.get('@type')
+
+           # Safe access with custom default:
+           targets = annotation.get('targets', default=[])
+
+        See Also
+        --------
+        __getitem__ : Direct property access that raises KeyError when not found
+        get_property : Alias for this method
         """
         try:
             return self.__getitem__(prop_name)
@@ -381,13 +405,44 @@ class Document(Annotation):
 
     def get(self, prop_name, default=None):
         """
-        A special getter for Document properties. The major difference from
-        the super class's :py:meth:`Annotation.get` method is that Document 
-        class has one more set of *"pending"* properties, that are added after 
-        the Document object is created and will be serialized as a separate 
-        :py:class:`Annotation` object of which ``@type = Annotation``. The 
-        pending properties will take the priority over the regular properties 
-        when there are conflicts.
+        Safe property access with optional default value for Document objects.
+
+        Searches for a document property by name and returns its value, or a
+        default value if not found. Documents have a more complex property
+        hierarchy than regular annotations:
+
+        Priority order (highest to lowest):
+        1. Special fields ('id', 'location')
+        2. Pending properties (added after creation, to be serialized as ``Annotation`` objects)
+        3. Ephemeral properties (from existing ``Annotation`` annotations or view metadata)
+        4. Original properties (in ``document.properties``)
+
+        This allows convenient access to all document properties regardless of
+        where they're stored internally.
+
+        :param prop_name: The name of the property to retrieve
+        :param default: The value to return if the property is not found (default: None)
+        :return: The property value, or the default value if not found
+
+        Examples
+        --------
+        .. code-block:: python
+
+           # Access document properties:
+           mime = document.get('mime', default='application/octet-stream')
+           location = document.get('location')
+
+           # Access properties added after creation (pending):
+           author = document.get('author', default='anonymous')
+           publisher = document.get('publisher')
+
+           # Access ephemeral properties from Annotation objects:
+           sentiment = document.get('sentiment', default='neutral')
+
+        See Also
+        --------
+        add_property : Add a new property to the document
+        Mmif.generate_capital_annotations : How pending properties are serialized
         """
         if prop_name == 'id':
             # because all three dicts have `id` key as required field, we need
@@ -402,7 +457,7 @@ class Document(Annotation):
         elif prop_name in self._props_ephemeral:
             return self._props_ephemeral[prop_name]
         else:
-            return super().get(prop_name)
+            return super().get(prop_name, default)
 
     get_property = get
     

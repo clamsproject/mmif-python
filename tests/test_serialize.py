@@ -885,14 +885,14 @@ class TestView(unittest.TestCase):
         self.assertTrue(td1.properties.text_value == td1.text_value)
         self.assertNotEqual(td1.text_language, td2.text_language)
         self.assertEqual(english_text, td1.text_value)
-        self.assertEqual(td1, self.view_obj.annotations.get(td1.id))
+        self.assertEqual(td1, self.view_obj[td1.id])
         td3 = self.view_obj.new_textdocument(english_text, mime='plain/text')
         self.assertEqual(td1.text_value, td3.text_value)
         self.assertEqual(len(td1.properties), len(td3.properties) - 1)
 
     def test_parent(self):
         mmif_obj = Mmif(self.mmif_examples_json['everything'])
-        self.assertTrue(all(anno.parent == v.id for v in mmif_obj.views for anno in mmif_obj.get_view_by_id(v.id).annotations))
+        self.assertTrue(all(anno.parent == v.id for v in mmif_obj.views for anno in mmif_obj[v.id].annotations))
     
     def test_non_existing_parent(self):
         anno_obj = Annotation(FRACTIONAL_EXAMPLES['doc_only'])
@@ -903,20 +903,20 @@ class TestView(unittest.TestCase):
 
     def test_get_by_id(self):
         mmif_obj = Mmif(MMIF_EXAMPLES['everything'])
-        mmif_obj['m1']
-        mmif_obj['v4:td1']
+        mmif_obj.__getitem__('m1')
+        mmif_obj.__getitem__('v4:td1')
         with self.assertRaises(KeyError):
-            mmif_obj['m55']
+            mmif_obj.__getitem__('m55')
         with self.assertRaises(KeyError):
-            mmif_obj['v1:td1']
-        view_obj = mmif_obj['v4']
-        td1 = view_obj['v4:td1']
+            mmif_obj.__getitem__('v1:td1')
+        view_obj = mmif_obj.__getitem__('v4')
+        td1 = view_obj.__getitem__('v4:td1')
         self.assertEqual(td1.properties.mime, 'text/plain')
-        a1 = view_obj['v4:a1']
+        a1 = view_obj.__getitem__('v4:a1')
         self.assertEqual(a1.at_type, AnnotationTypes.Alignment)
         with self.assertRaises(KeyError):
-            view_obj['completely-unlikely-annotation-id']
-            
+            view_obj.__getitem__('completely-unlikely-annotation-id')
+
     def test_get_annotations(self):
         mmif_obj = Mmif(MMIF_EXAMPLES['everything'])
         # simple search by at_type
@@ -996,7 +996,8 @@ class TestView(unittest.TestCase):
         self.assertTrue(aview.has_error())
         self.assertTrue(isinstance(mmif_obj.get_last_error(), str))
         err_str = 'custom error as a single long string'
-        aview.metadata.error = err_str
+        aview.metadata.error = ErrorDict({'message': err_str})
+        print(aview.metadata.error)
         self.assertTrue(aview.has_error())
         self.assertTrue(isinstance(mmif_obj.get_last_error(), str))
         self.assertIn(err_str, mmif_obj.get_last_error())
@@ -1122,7 +1123,7 @@ class TestAnnotation(unittest.TestCase):
                     removed_prop_key, removed_prop_value = list(props.items())[-1]
                     props.pop(removed_prop_key)
                     new_mmif = Mmif(datum['json'])
-                    new_mmif.get_view_by_id(view_id).annotations[first_ann_id].add_property(removed_prop_key, removed_prop_value)
+                    new_mmif.get(view_id).annotations[first_ann_id].add_property(removed_prop_key, removed_prop_value)
                     self.assertEqual(json.loads(datum['string'])['views'][j],
                                      json.loads(new_mmif.serialize())['views'][j],
                                      f'Failed on {i}, {view_id}')
@@ -1319,9 +1320,9 @@ class TestDocument(unittest.TestCase):
         doc1.add_property('publisher', 'they')
         self.assertEqual(2, len(doc1._props_pending))
         mmif_roundtrip3 = Mmif(mmif_roundtrip2.serialize())
-        r0_v_anns = list(mmif_roundtrip3.views[r0_vid].get_annotations(AnnotationTypes.Annotation))
-        r1_v_anns = list(mmif_roundtrip3.views[r1_vid].get_annotations(AnnotationTypes.Annotation))
-        r2_v_anns = list(mmif_roundtrip3.views[r2_vid].get_annotations(AnnotationTypes.Annotation))
+        r0_v_anns = list(mmif_roundtrip3[r0_vid].get_annotations(AnnotationTypes.Annotation))
+        r1_v_anns = list(mmif_roundtrip3[r1_vid].get_annotations(AnnotationTypes.Annotation))
+        r2_v_anns = list(mmif_roundtrip3[r2_vid].get_annotations(AnnotationTypes.Annotation))
         # two props (`author` and `publisher`) are serialized to one `Annotation` objects
         self.assertEqual(1, len(r0_v_anns))  
         self.assertEqual(0, len(r1_v_anns))
@@ -1407,7 +1408,7 @@ class TestDocument(unittest.TestCase):
             mmif[f'doc{i+1}'].add_property('author', authors[i])
         mmif_roundtrip = Mmif(mmif.serialize())
         for i in range(1, 3):
-            cap_anns = list(mmif_roundtrip.views[f'v{i}'].get_annotations(AnnotationTypes.Annotation))
+            cap_anns = list(mmif_roundtrip[f'v{i}'].get_annotations(AnnotationTypes.Annotation))
             self.assertEqual(1, len(cap_anns))
             self.assertEqual(authors[i-1], cap_anns[0].get_property('author'))
             
@@ -1474,7 +1475,7 @@ class TestDocument(unittest.TestCase):
                     properties.pop(removed_prop_key)
                     try:
                         new_mmif = Mmif(datum['json'])
-                        new_mmif.get_document_by_id(document_id).add_property(removed_prop_key, removed_prop_value)
+                        new_mmif.get(document_id).add_property(removed_prop_key, removed_prop_value)
                         self.assertEqual(json.loads(datum['string']), json.loads(new_mmif.serialize()), f'Failed on {i}, {document_id}')
                     except ValidationError:
                         continue
@@ -1488,13 +1489,6 @@ class TestDataStructure(unittest.TestCase):
     def test_setitem(self):
         self.datalist['v1'] = View({'id': 'v1'})
         self.datalist['v2'] = View({'id': 'v2'})
-
-    def test_getitem(self):
-        self.assertIs(self.mmif_obj['v1'], self.datalist['v1'])
-
-    def test_getitem_raises(self):
-        with self.assertRaises(KeyError):
-            _ = self.datalist['reserved_names']
 
     def test_append(self):
         self.assertTrue('v256' not in self.datalist._items)
@@ -1545,7 +1539,157 @@ class TestDataStructure(unittest.TestCase):
                 self.assertEqual("can't set item on a reserved name", ke.args[0])
 
     def test_get(self):
-        self.assertEqual(self.datalist['v1'], self.datalist.get('v1'))
+        # Test that get() returns the correct view and returns default for
+        # non-existent IDs
+        view = self.datalist.get('v1')
+        self.assertIsNotNone(view)
+        self.assertEqual('v1', view.id)
+
+        # Test default value
+        self.assertIsNone(self.datalist.get('nonexistent'))
+        self.assertEqual('default', self.datalist.get('nonexistent', 'default'))
+
+    # New tests for pythonic getters (#295)
+    def test_integer_indexing(self):
+        """Test that DataList supports integer indexing (list-like behavior)."""
+        # Positive indexing
+        first_view = self.datalist[0]
+        self.assertEqual('v1', first_view.id)
+
+        second_view = self.datalist[1]
+        self.assertEqual('v2', second_view.id)
+
+        # Negative indexing
+        last_view = self.datalist[-1]
+        self.assertEqual('v8', last_view.id)
+
+        second_to_last = self.datalist[-2]
+        self.assertEqual('v7', second_to_last.id)
+
+    def test_slice_indexing(self):
+        """Test that DataList supports slice indexing (list-like behavior)."""
+        # Basic slice
+        first_three = self.datalist[0:3]
+        self.assertEqual(3, len(first_three))
+        self.assertIsInstance(first_three, list)
+        self.assertEqual('v1', first_three[0].id)
+        self.assertEqual('v3', first_three[2].id)
+
+        # Slice with step
+        every_other = self.datalist[::2]
+        self.assertEqual(4, len(every_other))
+        self.assertEqual('v1', every_other[0].id)
+        self.assertEqual('v3', every_other[1].id)
+        self.assertEqual('v5', every_other[2].id)
+
+        # Slice from middle
+        middle = self.datalist[2:5]
+        self.assertEqual(3, len(middle))
+        self.assertEqual('v3', middle[0].id)
+        self.assertEqual('v4', middle[1].id)
+
+        # Empty slice
+        empty = self.datalist[10:20]
+        self.assertEqual(0, len(empty))
+
+    def test_string_indexing_raises_typeerror(self):
+        """Test that DataList raises TypeError for string indexing."""
+        # String indexing should raise TypeError
+        with self.assertRaises(TypeError) as cm:
+            _ = self.datalist['v1']
+        self.assertIn("list indices must be integers or slices", str(cm.exception))
+        self.assertIn("not str", str(cm.exception))
+
+        # Test with documents list too
+        with self.assertRaises(TypeError) as cm:
+            _ = self.mmif_obj.documents['m1']
+        self.assertIn("list indices must be integers or slices", str(cm.exception))
+
+    def test_get_deprecated_warning(self):
+        """Test that get() method raises DeprecationWarning."""
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            result = self.datalist.get('v1')
+
+            # Check that warning was raised
+            self.assertEqual(1, len(w))
+            self.assertTrue(issubclass(w[0].category, DeprecationWarning))
+            self.assertIn("deprecated", str(w[0].message).lower())
+            self.assertIn("2.0.0", str(w[0].message))
+
+            # But it should still work and return the view
+            self.assertIsNotNone(result)
+            self.assertEqual('v1', result.id)
+
+    def test_high_level_mmif_string_access(self):
+        """Test that high-level Mmif container accepts string IDs."""
+        # Mmif should accept string access (container behavior)
+        view = self.mmif_obj['v1']
+        self.assertEqual('v1', view.id)
+
+        doc = self.mmif_obj['m1']
+        self.assertEqual('m1', doc.id)
+
+        # Long-form annotation ID
+        ann = self.mmif_obj['v5:bb1']
+        self.assertIsNotNone(ann)
+
+    def test_high_level_view_string_access(self):
+        """Test that high-level View container accepts string IDs."""
+        view = self.mmif_obj['v4']
+
+        # View should accept string access (container behavior)
+        ann = view['v4:a1']
+        self.assertIsNotNone(ann)
+        self.assertEqual('v4:a1', ann.id)
+
+    def test_mmif_get_with_default(self):
+        """Test safe access on Mmif with default values."""
+        # Existing object
+        view = self.mmif_obj.get('v1')
+        self.assertIsNotNone(view)
+        self.assertEqual('v1', view.id)
+
+        # Non-existent object with default
+        result = self.mmif_obj.get('v999', default=None)
+        self.assertIsNone(result)
+
+        # Non-existent with custom default
+        default_value = "not found"
+        result = self.mmif_obj.get('v999', default=default_value)
+        self.assertEqual(default_value, result)
+
+    def test_mixed_access_patterns(self):
+        """Test that different access patterns can be used together."""
+        # Integer access on list
+        first_view = self.mmif_obj.views[0]
+
+        # String access on high-level container
+        specific_view = self.mmif_obj['v5']
+
+        # All should work
+        self.assertEqual('v1', first_view.id)
+        self.assertEqual('v5', specific_view.id)
+
+    def test_datalist_all_collections(self):
+        """Test that all DataList subclasses behave consistently."""
+        # ViewsList
+        view_by_int = self.mmif_obj.views[0]
+        view_by_container = self.mmif_obj[view_by_int.id]
+        self.assertEqual(view_by_int.id, view_by_container.id)
+
+        # DocumentsList
+        if len(self.mmif_obj.documents) > 0:
+            doc_by_int = self.mmif_obj.documents[0]
+            doc_by_container = self.mmif_obj[doc_by_int.id]
+            self.assertEqual(doc_by_int.id, doc_by_container.id)
+
+        # AnnotationsList
+        view = self.mmif_obj['v4']
+        if len(view.annotations) > 0:
+            ann_by_int = view.annotations[0]
+            ann_by_container = view[ann_by_int.id]
+            self.assertEqual(ann_by_int.id, ann_by_container.id)
 
     def test_update(self):
         other_contains = """{

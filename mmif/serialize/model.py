@@ -10,11 +10,21 @@ or as an already-loaded Python dictionary. This base class provides the
 core functionality for deserializing MMIF JSON data into live objects
 and serializing live objects into MMIF JSON data. Specialized behavior
 for the different components of MMIF is added in the subclasses.
+
+This module defines two main collection types:
+
+- :class:`DataList`: List-like collections that support integer/slice
+  indexing. For ID-based access, use indexing or ``get`` in the container
+  level. For example, for DocumentList, use its parent Mmif object's
+  getter methods to access documents by ID. (e.g., ``mmif['doc1']``).
+- :class:`DataDict`: Dict-like collections that support string key access.
+
 """
 
 import json
+import warnings
 from datetime import datetime
-from typing import Union, Any, Dict, Optional, TypeVar, Generic, Generator, Iterator, Type, Set, ClassVar
+from typing import Union, Any, Dict, Optional, TypeVar, Generic, Generator, Iterator, Type, Set, ClassVar, List
 
 T = TypeVar('T')
 S = TypeVar('S')
@@ -327,20 +337,57 @@ class MmifObject(object):
         try:
             self.__getitem__(key)
             return True
-        except (TypeError, AttributeError, KeyError):
+        except (TypeError, KeyError):
             return False
 
-    def __getitem__(self, key) -> Union['MmifObject', str, datetime]:
+    def __getitem__(self, key) -> Any:
         if key in self._named_attributes():
             value = self.__dict__[key]
         elif self._unnamed_attributes is None:
-            raise AttributeError(f"Additional properties are disallowed by {self.__class__}: {key}")
+            raise KeyError(f"Additional properties are disallowed by {self.__class__}: {key}")
         else: 
             value = self._unnamed_attributes[key]
         if key not in self._required_attributes and self.is_empty(value):
             raise KeyError(f"Property not found: {key} (is it set?)")
         else: 
             return value
+
+    def get(self, obj_id, default=None):
+        """
+        High-level safe getter that returns a default value instead of raising KeyError.
+
+        This method wraps ``__getitem__()`` with exception handling, making it safe
+        to query for objects that might not exist. Available on all MmifObject subclasses.
+
+        :param obj_id: An attribute name or object identifier (document ID, view ID,
+                       annotation ID, or property name depending on the object type).
+                       For Mmif objects: when annotation ID is given as a "short" ID
+                       (without view ID prefix), searches from the first view.
+        :param default: The value to return if the key is not found (default: None)
+        :return: The object/value searched for, or the default value if not found
+
+        Examples
+        --------
+        Safe access pattern (works on all MmifObject subclasses):
+
+        .. code-block:: python
+
+           # On Mmif objects:
+           view = mmif.get('v1', default=None)  # Returns None if not found
+           doc = mmif.get('doc1', default=None)
+
+           # On Annotation/Document objects:
+           label = annotation.get('label', default='unknown')
+           author = document.get('author', default='anonymous')
+
+        See Also
+        --------
+        __getitem__ : Direct access that raises KeyError when not found
+        """
+        try:
+            return self.__getitem__(obj_id)
+        except KeyError:
+            return default
 
 
 class MmifObjectEncoder(json.JSONEncoder):
@@ -403,18 +450,48 @@ class DataList(MmifObject, Generic[T]):
 
     def get(self, key: str, default=None) -> Optional[T]:
         """
-        Standard dictionary-style get() method. Relies on the implementation of __getitem__.
+        .. deprecated:: 1.1.3
+           Do not use in new code. Will be removed in 2.0.0.
+           Use container-level access or positional indexing instead.
 
-        Will return the default value if the key is not found.
+        Deprecated method for retrieving list elements by string ID.
 
         :param key: the key to search for
-        :param default: the default value to return if the key is not found (defaults to None)
+        :param default: the default value to return if the key is not found
+                        (defaults to None)
         :return: the value matching that key, or the default value if not found
+
+        Examples
+        --------
+        Old pattern (deprecated, do not use):
+
+        .. code-block:: python
+
+           view = mmif.views.get('v1')  # DeprecationWarning!
+
+        New patterns to use instead:
+
+        .. code-block:: python
+
+           # For ID-based access, use container:
+           view = mmif['v1']
+           # Or with safe access:
+           view = mmif.get('v1', default=None)
+           # For positional access:
+           view = mmif.views[0]
+
+        See Also
+        --------
+        __getitem__ : List-style positional access with integers
         """
-        try:
-            return self[key]
-        except KeyError:
-            return default
+        warnings.warn(
+            "The 'get' method on list-like collections is deprecated and "
+            "will be removed in 2.0.0. Use container-level access "
+            "(e.g., mmif['v1']) or positional indexing (e.g., views[0]).",
+            DeprecationWarning,
+            stacklevel=2
+        )
+        return self._items.get(key, default)
 
     def _append_with_key(self, key: str, value: T, overwrite=False) -> None:
         """
@@ -439,11 +516,46 @@ class DataList(MmifObject, Generic[T]):
     def append(self, value, overwrite):
         raise NotImplementedError()
 
-    def __getitem__(self, key: str) -> T:
-        if key not in self.reserved_names:
-            return self._items.__getitem__(key)
+    def __getitem__(self, key: Union[int, slice]) -> Union[T, List[T]]:
+        """
+        List-style positional access using integers or slices.
+
+        This method provides pythonic list behavior - it only accepts integers
+        for positional access or slices for range access. For string-based ID
+        access, use container-level indexing instead (e.g., ``mmif['v1']``).
+
+        :param key: An integer index or slice object
+        :return: The element at the index, or a list of elements for slices
+        :raises TypeError: If key is not an integer or slice (e.g., if a
+                          string is passed)
+
+        Examples
+        --------
+        Positional access (pythonic list behavior):
+
+        .. code-block:: python
+
+           # Get first view:
+           first_view = mmif.views[0]
+
+           # Get last document:
+           last_doc = mmif.documents[-1]
+
+           # Slice to get multiple elements:
+           first_three_views = mmif.views[0:3]
+
+           # This will raise TypeError:
+           view = mmif.views['v1']  # TypeError!
+
+           # For ID-based access, use container:
+           view = mmif['v1']  # Correct way
+        """
+        if isinstance(key, (int, slice)):
+            # Python's dicts preserve insertion order since 3.7.
+            # We can convert values to a list and index it.
+            return list(self._items.values())[key]
         else:
-            raise KeyError("Don't use __getitem__ to access a reserved name")
+            raise TypeError(f"list indices must be integers or slices, not {type(key).__name__}")
 
     def __setitem__(self, key: str, value: T):
         if key not in self.reserved_names:
@@ -480,6 +592,28 @@ class DataDict(MmifObject, Generic[T, S]):
         return super()._serialize(self._items, **kwargs)
 
     def get(self, key: T, default=None) -> Optional[S]:
+        """
+        Dictionary-style safe access with optional default value.
+
+        This method provides pythonic dict behavior - returns the value for
+        the given key, or a default value if the key is not found.
+
+        :param key: The key to look up
+        :param default: The value to return if key is not found (default: None)
+        :return: The value associated with the key, or the default value
+
+        Examples
+        --------
+        .. code-block:: python
+
+           # Access contains metadata:
+           timeframe_meta = view.metadata.contains.get(AnnotationTypes.TimeFrame)
+           if timeframe_meta is None:
+               print("No TimeFrame annotations in this view")
+
+           # With custom default:
+           value = some_dict.get('key', default={})
+        """
         return self._items.get(key, default)
 
     def _append_with_key(self, key: T, value: S, overwrite=False) -> None:
