@@ -45,18 +45,22 @@ class View(MmifObject):
     --------
     Accessing annotations by ID (high-level, convenient):
 
-    >>> view = mmif['v1']
-    >>> ann = view['v1:a1']        # Get annotation by ID
-    >>> doc = view['v1:td1']       # Get document by ID
-    >>>
-    >>> # Safe access with default:
-    >>> ann = view.get('v1:a999', default=None)
+    .. code-block:: python
+
+       view = mmif['v1']
+       ann = view['v1:a1']        # Get annotation by ID
+       doc = view['v1:td1']       # Get document by ID
+
+       # Safe access with default:
+       ann = view.get('v1:a999', default=None)
 
     Accessing via underlying list (positional access):
 
-    >>> first_ann = view.annotations[0]      # First annotation
-    >>> last_ann = view.annotations[-1]      # Last annotation
-    >>> some_anns = view.annotations[1:5]    # Slice of annotations
+    .. code-block:: python
+
+       first_ann = view.annotations[0]      # First annotation
+       last_ann = view.annotations[-1]      # Last annotation
+       some_anns = view.annotations[1:5]    # Slice of annotations
     """
 
     def __init__(self, view_obj: Optional[Union[bytes, str, dict]] = None, parent_mmif=None, *_) -> None:
@@ -340,23 +344,27 @@ class View(MmifObject):
         --------
         High-level access by ID:
 
-        >>> view = mmif['v1']
-        >>>
-        >>> # Access annotations:
-        >>> ann = view['v1:a1']     # Returns Annotation with ID 'v1:a1'
-        >>>
-        >>> # Access text documents in view:
-        >>> doc = view['v1:td1']    # Returns Document with ID 'v1:td1'
-        >>>
-        >>> # Access attributes:
-        >>> metadata = view['metadata']  # Returns ViewMetadata object
-        >>>
-        >>> # Will raise KeyError:
-        >>> ann = view['nonexistent']  # KeyError!
+        .. code-block:: python
+
+           view = mmif['v1']
+
+           # Access annotations:
+           ann = view['v1:a1']     # Returns Annotation with ID 'v1:a1'
+
+           # Access text documents in view:
+           doc = view['v1:td1']    # Returns Document with ID 'v1:td1'
+
+           # Access attributes:
+           metadata = view['metadata']  # Returns ViewMetadata object
+
+           # Will raise KeyError:
+           ann = view['nonexistent']  # KeyError!
 
         For list-style positional access, use the underlying collection:
 
-        >>> first_ann = view.annotations[0]              # Integer index
+        .. code-block:: python
+
+           first_ann = view.annotations[0]              # Integer index
 
         See Also
         --------

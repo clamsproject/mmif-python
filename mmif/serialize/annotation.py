@@ -276,15 +276,17 @@ class Annotation(MmifObject):
 
         Examples
         --------
-        >>> # Access annotation properties:
-        >>> label = annotation.get('label', default='unknown')
-        >>> start_time = annotation.get('start', default=0)
-        >>>
-        >>> # Access @type:
-        >>> at_type = annotation.get('@type')
-        >>>
-        >>> # Safe access with custom default:
-        >>> targets = annotation.get('targets', default=[])
+        .. code-block:: python
+
+           # Access annotation properties:
+           label = annotation.get('label', default='unknown')
+           start_time = annotation.get('start', default=0)
+
+           # Access @type:
+           at_type = annotation.get('@type')
+
+           # Safe access with custom default:
+           targets = annotation.get('targets', default=[])
 
         See Also
         --------
@@ -424,16 +426,18 @@ class Document(Annotation):
 
         Examples
         --------
-        >>> # Access document properties:
-        >>> mime = document.get('mime', default='application/octet-stream')
-        >>> location = document.get('location')
-        >>>
-        >>> # Access properties added after creation (pending):
-        >>> author = document.get('author', default='anonymous')
-        >>> publisher = document.get('publisher')
-        >>>
-        >>> # Access ephemeral properties from Annotation objects:
-        >>> sentiment = document.get('sentiment', default='neutral')
+        .. code-block:: python
+
+           # Access document properties:
+           mime = document.get('mime', default='application/octet-stream')
+           location = document.get('location')
+
+           # Access properties added after creation (pending):
+           author = document.get('author', default='anonymous')
+           publisher = document.get('publisher')
+
+           # Access ephemeral properties from Annotation objects:
+           sentiment = document.get('sentiment', default='neutral')
 
         See Also
         --------

@@ -370,13 +370,15 @@ class MmifObject(object):
         --------
         Safe access pattern (works on all MmifObject subclasses):
 
-        >>> # On Mmif objects:
-        >>> view = mmif.get('v1', default=None)  # Returns None if not found
-        >>> doc = mmif.get('doc1', default=None)
-        >>>
-        >>> # On Annotation/Document objects:
-        >>> label = annotation.get('label', default='unknown')
-        >>> author = document.get('author', default='anonymous')
+        .. code-block:: python
+
+           # On Mmif objects:
+           view = mmif.get('v1', default=None)  # Returns None if not found
+           doc = mmif.get('doc1', default=None)
+
+           # On Annotation/Document objects:
+           label = annotation.get('label', default='unknown')
+           author = document.get('author', default='anonymous')
 
         See Also
         --------
@@ -463,16 +465,20 @@ class DataList(MmifObject, Generic[T]):
         --------
         Old pattern (deprecated, do not use):
 
-        >>> view = mmif.views.get('v1')  # DeprecationWarning!
+        .. code-block:: python
+
+           view = mmif.views.get('v1')  # DeprecationWarning!
 
         New patterns to use instead:
 
-        >>> # For ID-based access, use container:
-        >>> view = mmif['v1']
-        >>> # Or with safe access:
-        >>> view = mmif.get('v1', default=None)
-        >>> # For positional access:
-        >>> view = mmif.views[0]
+        .. code-block:: python
+
+           # For ID-based access, use container:
+           view = mmif['v1']
+           # Or with safe access:
+           view = mmif.get('v1', default=None)
+           # For positional access:
+           view = mmif.views[0]
 
         See Also
         --------
@@ -527,20 +533,22 @@ class DataList(MmifObject, Generic[T]):
         --------
         Positional access (pythonic list behavior):
 
-        >>> # Get first view:
-        >>> first_view = mmif.views[0]
-        >>>
-        >>> # Get last document:
-        >>> last_doc = mmif.documents[-1]
-        >>>
-        >>> # Slice to get multiple elements:
-        >>> first_three_views = mmif.views[0:3]
-        >>>
-        >>> # This will raise TypeError:
-        >>> view = mmif.views['v1']  # TypeError!
-        >>>
-        >>> # For ID-based access, use container:
-        >>> view = mmif['v1']  # Correct way
+        .. code-block:: python
+
+           # Get first view:
+           first_view = mmif.views[0]
+
+           # Get last document:
+           last_doc = mmif.documents[-1]
+
+           # Slice to get multiple elements:
+           first_three_views = mmif.views[0:3]
+
+           # This will raise TypeError:
+           view = mmif.views['v1']  # TypeError!
+
+           # For ID-based access, use container:
+           view = mmif['v1']  # Correct way
         """
         if isinstance(key, (int, slice)):
             # Python's dicts preserve insertion order since 3.7.
@@ -596,13 +604,15 @@ class DataDict(MmifObject, Generic[T, S]):
 
         Examples
         --------
-        >>> # Access contains metadata:
-        >>> timeframe_meta = view.metadata.contains.get(AnnotationTypes.TimeFrame)
-        >>> if timeframe_meta is None:
-        ...     print("No TimeFrame annotations in this view")
-        >>>
-        >>> # With custom default:
-        >>> value = some_dict.get('key', default={})
+        .. code-block:: python
+
+           # Access contains metadata:
+           timeframe_meta = view.metadata.contains.get(AnnotationTypes.TimeFrame)
+           if timeframe_meta is None:
+               print("No TimeFrame annotations in this view")
+
+           # With custom default:
+           value = some_dict.get('key', default={})
         """
         return self._items.get(key, default)
 

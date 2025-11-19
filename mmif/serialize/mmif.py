@@ -156,19 +156,23 @@ class Mmif(MmifObject):
     --------
     Accessing objects by ID (high-level, convenient):
 
-    >>> mmif = Mmif(mmif_json)
-    >>> doc = mmif['m1']              # Get document by ID
-    >>> view = mmif['v1']             # Get view by ID
-    >>> ann = mmif['v1:a1']           # Get annotation by long-form ID
-    >>>
-    >>> # Safe access with default:
-    >>> doc = mmif.get('m99', default=None)
+    .. code-block:: python
+
+       mmif = Mmif(mmif_json)
+       doc = mmif['m1']              # Get document by ID
+       view = mmif['v1']             # Get view by ID
+       ann = mmif['v1:a1']           # Get annotation by long-form ID
+
+       # Safe access with default:
+       doc = mmif.get('m99', default=None)
 
     Accessing via underlying lists (positional access):
 
-    >>> first_doc = mmif.documents[0]     # First document
-    >>> last_view = mmif.views[-1]        # Last view
-    >>> all_views = mmif.views[1:4]       # Slice of views
+    .. code-block:: python
+
+       first_doc = mmif.documents[0]     # First document
+       last_view = mmif.views[-1]        # Last view
+       all_views = mmif.views[1:4]       # Slice of views
     """
 
     def __init__(self, mmif_obj: Optional[Union[bytes, str, dict]] = None, *, validate: bool = True) -> None:
@@ -823,27 +827,31 @@ class Mmif(MmifObject):
         --------
         High-level access by ID:
 
-        >>> mmif = Mmif(mmif_json)
-        >>>
-        >>> # Access documents:
-        >>> doc = mmif['m1']           # Returns Document with ID 'm1'
-        >>>
-        >>> # Access views:
-        >>> view = mmif['v1']          # Returns View with ID 'v1'
-        >>>
-        >>> # Access annotations (long-form ID):
-        >>> ann = mmif['v1:a1']        # Returns Annotation from view v1
-        >>>
-        >>> # Access attributes:
-        >>> metadata = mmif['metadata']  # Returns MmifMetadata object
-        >>>
-        >>> # Will raise KeyError:
-        >>> doc = mmif['nonexistent']  # KeyError!
+        .. code-block:: python
+
+           mmif = Mmif(mmif_json)
+
+           # Access documents:
+           doc = mmif['m1']           # Returns Document with ID 'm1'
+
+           # Access views:
+           view = mmif['v1']          # Returns View with ID 'v1'
+
+           # Access annotations (long-form ID):
+           ann = mmif['v1:a1']        # Returns Annotation from view v1
+
+           # Access attributes:
+           metadata = mmif['metadata']  # Returns MmifMetadata object
+
+           # Will raise KeyError:
+           doc = mmif['nonexistent']  # KeyError!
 
         For list-style positional access, use the underlying collections:
 
-        >>> first_doc = mmif.documents[0]           # Integer index
-        >>> second_view = mmif.views[1]             # Integer index
+        .. code-block:: python
+
+           first_doc = mmif.documents[0]           # Integer index
+           second_view = mmif.views[1]             # Integer index
 
         See Also
         --------
