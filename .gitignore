@@ -82,5 +82,9 @@ mmif/vocabulary
 documentation/_build/
 
 /VERSION
-_issues
 
+
+# Documentation build artifacts
+documentation/_build/
+build/__pycache__/
+docs-testbuilds/
