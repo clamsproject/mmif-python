@@ -74,10 +74,11 @@ class Annotation(MmifObject):
                             
     def _cache_alignment(self, alignment_ann: 'Annotation', alignedto_ann: 'Annotation') -> None:
         """
-        Cache alignment information. This cache will not be serialized. 
-        
+        Cache alignment information. This cache will not be serialized.
+
         :param alignment_ann: the Alignment annotation that has this annotation on one side
         :param alignedto_ann: the annotation that this annotation is aligned to (other side of Alignment)
+        :return: None
         """
         self._alignments[alignment_ann] = alignedto_ann
     
@@ -228,7 +229,7 @@ class Annotation(MmifObject):
                      value: Union[PRMTV_TYPES, LIST_PRMTV, LIST_LIST_PRMTV, DICT_PRMTV, DICT_LIST_PRMTV]) -> None:
         """
         Adds a property to the annotation's properties.
-        
+
         :param name: the name of the property
         :param value: the property's desired value
         :return: None
@@ -256,18 +257,41 @@ class Annotation(MmifObject):
 
     def get(self, prop_name: str, default=None):
         """
-        A getter for Annotation, will search for a property by its name, 
-        and return the value if found, or the default value if not found.
-        This is designed to allow for directly accessing properties without 
-        having to go through the properties object, or view-level 
-        annotation metadata (common properties) encoded in the 
-        ``view.metadata.contains`` dict. Note that the regular properties 
-        will take the priority over the view-level common properties when 
-        there are name conflicts.
-        
-        :param prop_name: the name of the property to get
-        :param default: the value to return if the property is not found
-        :return: the value of the property
+        Safe property access with optional default value.
+
+        Searches for an annotation property by name and returns its value,
+        or a default value if not found. This method searches in multiple
+        locations with the following priority:
+
+        1. Direct properties (in ``annotation.properties``)
+        2. Ephemeral properties (view-level metadata from ``contains``)
+        3. Special fields (``@type``, ``properties``)
+
+        This allows convenient access to properties without explicitly
+        checking the ``properties`` object or view-level metadata.
+
+        :param prop_name: The name of the property to retrieve
+        :param default: The value to return if the property is not found (default: None)
+        :return: The property value, or the default value if not found
+
+        Examples
+        --------
+        .. code-block:: python
+
+           # Access annotation properties:
+           label = annotation.get('label', default='unknown')
+           start_time = annotation.get('start', default=0)
+
+           # Access @type:
+           at_type = annotation.get('@type')
+
+           # Safe access with custom default:
+           targets = annotation.get('targets', default=[])
+
+        See Also
+        --------
+        __getitem__ : Direct property access that raises KeyError when not found
+        get_property : Alias for this method
         """
         try:
             return self.__getitem__(prop_name)
@@ -336,29 +360,32 @@ class Document(Annotation):
                      ) -> None:
         """
         Adds a property to the document's properties.
-        
-        Unlike the parent :class:`Annotation` class, added properties of a 
-        ``Document`` object can be lost during serialization unless it belongs 
-        to somewhere in a ``Mmif`` object. This is because we want to keep 
-        ``Document`` object as "read-only" as possible. Thus, if you want to add 
-        a property to a ``Document`` object, 
-        
-        * add the document to a ``Mmif`` object (either in the documents list or 
+
+        Unlike the parent :class:`Annotation` class, added properties of a
+        ``Document`` object can be lost during serialization unless it belongs
+        to somewhere in a ``Mmif`` object. This is because we want to keep
+        ``Document`` object as "read-only" as possible. Thus, if you want to add
+        a property to a ``Document`` object,
+
+        * add the document to a ``Mmif`` object (either in the documents list or
           in a view from the views list), or
         * directly write to ``Document.properties`` instead of using this method
-          (which is not recommended). 
-        
-        With the former method, the SDK will record the added property as a 
-        `Annotation` annotation object, separate from the original `Document` 
+          (which is not recommended).
+
+        With the former method, the SDK will record the added property as a
+        `Annotation` annotation object, separate from the original `Document`
         object. See :meth:`.Mmif.generate_capital_annotations()` for more.
-        
+
         A few notes to keep in mind:
-        
-        #. You can't overwrite an existing property of a ``Document`` object. 
-        #. A MMIF can have multiple ``Annotation`` objects with the same 
+
+        #. You can't overwrite an existing property of a ``Document`` object.
+        #. A MMIF can have multiple ``Annotation`` objects with the same
            property name but different values. When this happens, the SDK will
-           only keep the latest value (in order of appearances in views list) of 
+           only keep the latest value (in order of appearances in views list) of
            the property, effectively overwriting the previous values.
+
+        :param name: the name of the property
+        :param value: the property's desired value (note: Document accepts fewer value types than Annotation)
         """
         # we don't checking if this k-v already exists in _original (new props) or _ephemeral (read from existing MMIF)
         # because it is impossible to keep the _original updated when a new annotation is added (via `new_annotation`)
@@ -378,13 +405,44 @@ class Document(Annotation):
 
     def get(self, prop_name, default=None):
         """
-        A special getter for Document properties. The major difference from
-        the super class's :py:meth:`Annotation.get` method is that Document 
-        class has one more set of *"pending"* properties, that are added after 
-        the Document object is created and will be serialized as a separate 
-        :py:class:`Annotation` object of which ``@type = Annotation``. The 
-        pending properties will take the priority over the regular properties 
-        when there are conflicts.
+        Safe property access with optional default value for Document objects.
+
+        Searches for a document property by name and returns its value, or a
+        default value if not found. Documents have a more complex property
+        hierarchy than regular annotations:
+
+        Priority order (highest to lowest):
+        1. Special fields ('id', 'location')
+        2. Pending properties (added after creation, to be serialized as ``Annotation`` objects)
+        3. Ephemeral properties (from existing ``Annotation`` annotations or view metadata)
+        4. Original properties (in ``document.properties``)
+
+        This allows convenient access to all document properties regardless of
+        where they're stored internally.
+
+        :param prop_name: The name of the property to retrieve
+        :param default: The value to return if the property is not found (default: None)
+        :return: The property value, or the default value if not found
+
+        Examples
+        --------
+        .. code-block:: python
+
+           # Access document properties:
+           mime = document.get('mime', default='application/octet-stream')
+           location = document.get('location')
+
+           # Access properties added after creation (pending):
+           author = document.get('author', default='anonymous')
+           publisher = document.get('publisher')
+
+           # Access ephemeral properties from Annotation objects:
+           sentiment = document.get('sentiment', default='neutral')
+
+        See Also
+        --------
+        add_property : Add a new property to the document
+        Mmif.generate_capital_annotations : How pending properties are serialized
         """
         if prop_name == 'id':
             # because all three dicts have `id` key as required field, we need
@@ -399,7 +457,7 @@ class Document(Annotation):
         elif prop_name in self._props_ephemeral:
             return self._props_ephemeral[prop_name]
         else:
-            return super().get(prop_name)
+            return super().get(prop_name, default)
 
     get_property = get
     
@@ -559,8 +617,8 @@ class DocumentProperties(AnnotationProperties):
             self.location = input_dict.pop("location")
         super()._deserialize(input_dict)
 
-    def _serialize(self, alt_container: Optional[Dict] = None) -> dict:
-        serialized = super()._serialize()
+    def _serialize(self, *args, **kwargs) -> dict:
+        serialized = super()._serialize(**kwargs)
         if "location_" in serialized:
             serialized["location"] = serialized.pop("location_")
         return serialized

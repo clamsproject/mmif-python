@@ -1,4 +1,7 @@
 import itertools
+import os
+import subprocess
+from pathlib import Path
 from string import Template
 from urllib import request
 
@@ -11,10 +14,47 @@ __all__ = [
     'FRACTIONAL_EXAMPLES',
 ]
 
+
+def _load_from_url_or_git(url):
+    """
+    Load content from URL or local git repository.
+    If LOCALMMIF env var is set, use git show to load from local repo.
+    LOCALMMIF should be the path to the local mmif repository.
+    """
+    localmmif_str = os.environ.get('LOCALMMIF')
+    if localmmif_str:
+        localmmif = Path(localmmif_str)
+        if not localmmif.is_dir():
+            raise ValueError(f"LOCALMMIF path is not a valid directory: {localmmif}")
+        # Extract the version/branch and file path from the URL
+        # URL format: https://raw.githubusercontent.com/clamsproject/mmif/{version}/{filepath}
+        url_prefix = "https://raw.githubusercontent.com/clamsproject/mmif/"
+        if url.startswith(url_prefix):
+            remainder = url[len(url_prefix):]
+            parts = remainder.split('/', 1)
+            if len(parts) == 2:
+                version, filepath = parts
+                # Use git show to get the file from the specific version
+                git_ref = f"{version}:{filepath}"
+                try:
+                    result = subprocess.run(
+                        ['git', 'show', git_ref],
+                        cwd=str(localmmif),
+                        capture_output=True,
+                        text=True,
+                        check=True
+                    )
+                    return result.stdout
+                except subprocess.CalledProcessError as e:
+                    raise RuntimeError(f"Failed to load {git_ref} from local git repo at {localmmif}: {e.stderr}")
+
+    # Fallback to URL loading
+    return request.urlopen(url).read().decode('utf-8')
+
 everything_file_url = f"https://raw.githubusercontent.com/clamsproject/mmif/{__specver__}/specifications/samples/everything/raw.json"
-old_mmif_w_short_id = f"https://raw.githubusercontent.com/clamsproject/mmif/1.0.5/specifications/samples/everything/raw.json"
-EVERYTHING_JSON = request.urlopen(everything_file_url).read().decode('utf-8')
-OLD_SHORTID_JSON = request.urlopen(old_mmif_w_short_id).read().decode('utf-8')
+old_mmif_w_short_id_url = f"https://raw.githubusercontent.com/clamsproject/mmif/1.0.5/specifications/samples/everything/raw.json"
+EVERYTHING_JSON = _load_from_url_or_git(everything_file_url)
+OLD_SHORTID_JSON = _load_from_url_or_git(old_mmif_w_short_id_url)
 SWT_1_0_JSON = open('tests/samples/1.0/swt.mmif').read()
 
 # for keys and values in chain all typevers in mmif.vocabulary.*_types modules

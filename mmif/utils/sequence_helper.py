@@ -150,17 +150,17 @@ def smooth_outlying_short_intervals(scores: List[float],
         works essentially in the "stitching" only mode.
                  
     :param scores: **SORTED** list of scores to be smoothed. The score list
-                   is assumed to be "exhaust" the entire time or space of 
+                   is assumed to be "exhaust" the entire time or space of
                    the underlying document segment.
                    (Sorted by the start, and then by the end of anchors)
-    :param min_score: minimum threshold to use to discard 
-                      low-scored units (strictly less than)
-    :param min_spseq_size: minimum size of a positive sequence not to be 
+    :param min_spseq_size: minimum size of a positive sequence not to be
                           smoothed (greater or equal to)
     :param min_snseq_size: minimum size of a negative sequence not to be
                           smoothed (greater or equal to)
+    :param min_score: minimum threshold to use to discard
+                      low-scored units (strictly less than)
     :return: list of tuples of start(inclusive)/end(exclusive) indices
-             of the "positive" sequences. Negative sequences (regardless of 
+             of the "positive" sequences. Negative sequences (regardless of
              their size) are not included in the output.
     """
 

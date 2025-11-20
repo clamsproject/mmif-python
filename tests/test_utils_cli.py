@@ -44,11 +44,11 @@ class TestSource(unittest.TestCase):
         return params
 
     def generate_source_mmif(self):
-        
-        # to suppress output (otherwise, set to stdout by default
+
+        # to suppress output (otherwise, set to stdout by default)
         args = self.parser.parse_args(self.get_params())
-        args.output = os.devnull
-        
+        args.output = open(os.devnull, 'w')
+
         return source.main(args)
 
     def test_accept_file_paths(self):
