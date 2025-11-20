@@ -1,4 +1,23 @@
 
+## releasing 1.2.0 (2025-11-20)
+### Overview
+This version is minor release with addition of a new cli (`describe`), lots of in-line documentation updates, and deprecation of some "getter" methods
+
+### Additions
+* `mmif describe` command to summarize views and annotations of a give MMIF file (https://github.com/clamsproject/mmif-python/pull/339). 
+
+### Changes
+* "list-like" objects in MMIF (`DataList`, `DocumentsList`, `ViewsList`, `AnnotationsList`) - `get()` method is now deprecated (https://github.com/clamsproject/mmif-python/issues/295). Use their parent containers' `get` methods 
+```
+mmif.views.get(some_view_id)  # will show deprecation warning as of 1.1.3 (note that there's no 1.1.3, we moved from 1.1.2 to 1.2.0)
+# instead use 
+mmif.get(some_view_id)
+# same for view.annotations.get(ann_id) ==> view.get(ann_id)
+```
+* comparing two Mmif objects no longer depends on buggy `deepdiff` library, and handled more robustly (https://github.com/clamsproject/mmif-python/issues/311)
+* many  outdated documentation updates
+
+
 ## releasing 1.1.2 (2025-07-28)
 ### Overview
 Patch release with a hotfix of a bug. 
