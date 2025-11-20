@@ -50,14 +50,23 @@ def generate_param_hash(params: dict) -> str:
 
 def get_pipeline_specs(
     mmif_file: Union[str, Path]
-) -> List[Tuple[str, str, dict, Optional[int], Optional[dict], int, dict]]:
+) -> Tuple[
+    List[Tuple[str, str, dict, Optional[int], Optional[dict], int, dict]],
+    List[str], List[str], List[str]
+]:
     """
     Read a MMIF file and extract the pipeline specification from it.
 
+    Extracts app configurations, profiling data, and annotation statistics
+    for each contentful view. Views with errors, warnings, or no annotations
+    are tracked separately.
+
     :param mmif_file: Path to the MMIF file
-    :return: List of tuples containing (view_id, app_name, configs,
+    :return: Tuple of (spec_list, error_views, warning_views, empty_views)
+             where spec_list contains tuples of (view_id, app_name, configs,
              running_time_ms, running_hardware, annotation_count,
-             annotations_by_type) for each view in the pipeline
+             annotations_by_type) for each contentful view, and the three
+             lists contain view IDs for error/warning/empty views respectively
     """
     if not isinstance(mmif_file, (str, Path)):
         raise ValueError(
@@ -69,12 +78,20 @@ def get_pipeline_specs(
 
     data = Mmif(mmif_str)
     spec = []
+    error_views = []
+    warning_views = []
+    empty_views = []
 
     for view in data.views:
-        # Skip views with errors, warnings, or no annotations
-        if view.has_error() or view.has_warnings():
+        # Track error, warning, and empty views (mutually exclusive)
+        if view.has_error():
+            error_views.append(view.id)
+            continue
+        elif view.has_warnings():
+            warning_views.append(view.id)
             continue
         elif len(view.annotations) == 0:
+            empty_views.append(view.id)
             continue
 
         app = view.metadata.get("app")
@@ -125,7 +142,7 @@ def get_pipeline_specs(
             annotation_count, annotations_by_type
         ))
 
-    return spec
+    return spec, error_views, warning_views, empty_views
 
 
 def generate_pipeline_identifier(mmif_file: Union[str, Path]) -> str:
@@ -136,7 +153,8 @@ def generate_pipeline_identifier(mmif_file: Union[str, Path]) -> str:
     app_name/version/param_hash/app_name2/version2/param_hash2/...
 
     Uses view.metadata.parameters (raw user-passed values) for hashing
-    to ensure reproducibility.
+    to ensure reproducibility. Views with errors or warnings are excluded
+    from the identifier; empty views (no annotations) are included.
 
     :param mmif_file: Path to the MMIF file
     :return: Pipeline identifier string
@@ -153,10 +171,8 @@ def generate_pipeline_identifier(mmif_file: Union[str, Path]) -> str:
     segments = []
 
     for view in data.views:
-        # Skip views with errors, warnings, or no annotations
+        # Skip views with errors or warnings
         if view.has_error() or view.has_warnings():
-            continue
-        elif len(view.annotations) == 0:
             continue
 
         app = view.metadata.get("app")
@@ -188,9 +204,17 @@ def describe_argparser():
         'file.'
     )
     additional = textwrap.dedent("""
-    MMIF describe extracts pipeline information from a MMIF file, including
-    app names, runtime configurations, and runtime profiling statistics 
-    for each view in the processing pipeline.""")
+    MMIF describe extracts pipeline information from a MMIF file and outputs
+    a JSON summary including:
+
+    - pipeline_id: unique identifier for the pipeline based on apps, versions,
+      and parameter hashes (excludes error/warning views)
+    - stats: annotation counts (total and per-view), counts by annotation type,
+      and lists of error/warning/empty view IDs
+    - views: map of view IDs to app configurations and profiling data
+
+    Views with errors or warnings are tracked but excluded from the pipeline
+    identifier and annotation statistics.""")
     return oneliner, oneliner + '\n\n' + additional
 
 
@@ -222,6 +246,17 @@ def prep_argparser(**kwargs):
 
 
 def main(args):
+    """
+    Main entry point for the describe CLI command.
+
+    Reads a MMIF file and outputs a JSON summary containing:
+    - pipeline_id: unique identifier for the pipeline
+    - stats: view counts, annotation counts (total/per-view/per-type),
+      and lists of error/warning/empty view IDs
+    - views: map of view IDs to app configurations and profiling data
+
+    :param args: Parsed command-line arguments
+    """
     # Read MMIF content
     mmif_content = args.MMIF_FILE.read()
 
@@ -235,7 +270,9 @@ def main(args):
         tmp_path = tmp.name
 
     try:
-        spec = get_pipeline_specs(tmp_path)
+        spec, error_views, warning_views, empty_views = get_pipeline_specs(
+            tmp_path
+        )
         pipeline_id = generate_pipeline_identifier(tmp_path)
 
         # Convert to JSON-serializable format and calculate stats
@@ -275,6 +312,9 @@ def main(args):
             "pipeline_id": pipeline_id,
             "stats": {
                 "viewCount": len(views),
+                "errorViews": error_views,
+                "warningViews": warning_views,
+                "emptyViews": empty_views,
                 "annotationCount": annotation_count_stats,
                 "annotationCountByType": annotation_count_by_type
             },
