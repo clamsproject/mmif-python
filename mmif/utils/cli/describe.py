@@ -9,19 +9,22 @@ from typing import Union, List, Tuple, Optional
 from mmif import Mmif
 
 
-def split_appname_appversion(long_app_id: str) -> Tuple[str, str]:
+def split_appname_appversion(
+    long_app_id: str
+) -> Tuple[Optional[str], Optional[str]]:
     """
     Split app name and version from a long app identifier.
 
     Assumes the identifier looks like "uri://APP_DOMAIN/APP_NAME/APP_VERSION"
 
     :param long_app_id: Full app identifier URI
-    :return: Tuple of (app_name, app_version)
+    :return: Tuple of (app_name, app_version), either may be None if not found
     """
     app_path = Path(long_app_id).parts
     app_name = app_path[2] if len(app_path) > 2 else None
     app_version = app_path[3] if len(app_path) > 3 else None
-    if app_version is not None and app_name.endswith(app_version):
+    if (app_version is not None and app_name is not None
+            and app_name.endswith(app_version)):
         app_name = app_name[:-len(app_version) - 1]
     if app_version == 'unresolvable':
         app_version = None
@@ -51,7 +54,7 @@ def generate_param_hash(params: dict) -> str:
 def get_pipeline_specs(
     mmif_file: Union[str, Path]
 ) -> Tuple[
-    List[Tuple[str, str, dict, Optional[int], Optional[dict], int, dict]],
+    List[Tuple[str, Optional[str], dict, Optional[str], Optional[dict], int, dict]],
     List[str], List[str], List[str]
 ]:
     """
@@ -97,27 +100,15 @@ def get_pipeline_specs(
         app = view.metadata.get("app")
         configs = view.metadata.get("appConfiguration", {})
 
-        # Parse running time from hh:mm:ss.ms format to milliseconds
+        # Get running time string (H:MM:SS.microseconds format)
         # Support both new (appProfiling.runningTime) and old (appRunningTime)
         running_time = None
-        time_str = None
         if "appProfiling" in view.metadata:
             profiling = view.metadata["appProfiling"]
             if isinstance(profiling, dict) and "runningTime" in profiling:
-                time_str = profiling["runningTime"]
+                running_time = profiling["runningTime"]
         elif "appRunningTime" in view.metadata:
-            time_str = view.metadata["appRunningTime"]
-
-        if time_str:
-            try:
-                rest, ms = time_str.split(".")
-                running_time = sum(
-                    int(x) * 60**i
-                    for i, x in enumerate(reversed(rest.split(":")))
-                ) * 1000 + int(ms)
-            except (ValueError, AttributeError):
-                # If parsing fails, leave as None
-                pass
+            running_time = view.metadata["appRunningTime"]
 
         # Support both new (appProfiling.hardware) and old (appRunningHardware)
         running_hardware = None
@@ -176,6 +167,8 @@ def generate_pipeline_identifier(mmif_file: Union[str, Path]) -> str:
             continue
 
         app = view.metadata.get("app")
+        if app is None:
+            continue
         app_name, app_version = split_appname_appversion(app)
 
         # Use raw parameters for reproducibility
@@ -187,8 +180,9 @@ def generate_pipeline_identifier(mmif_file: Union[str, Path]) -> str:
         param_hash = generate_param_hash(param_dict)
 
         # Build segment: app_name/version/hash
+        name_str = app_name if app_name else "unknown"
         version_str = app_version if app_version else "unversioned"
-        segments.append(f"{app_name}/{version_str}/{param_hash}")
+        segments.append(f"{name_str}/{version_str}/{param_hash}")
 
     return '/'.join(segments)
 
