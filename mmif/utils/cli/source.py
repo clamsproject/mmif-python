@@ -258,10 +258,9 @@ def prep_argparser(**kwargs):
     )
     parser.add_argument(
         '-o', '--output',
-        default=None,
-        action='store',
-        nargs='?',
-        help='A name of a file to capture a generated MMIF json. When not given, MMIF is printed to stdout.'
+        type=argparse.FileType('w'),
+        default=sys.stdout,
+        help='output file path, or STDOUT if not provided.'
     )
     scheme_help = 'A scheme to associate with the document location URI. When not given, the default scheme is `file://`.'
     if len(discovered_docloc_plugins) > 0:
@@ -279,12 +278,8 @@ def prep_argparser(**kwargs):
 
 
 def main(args):
-    if args.output:
-        out_f = open(args.output, 'w')
-    else:
-        out_f = sys.stdout
     mmif = generate_source_mmif_from_file(windows_path=False, **vars(args))
-    out_f.write(mmif)
+    args.output.write(mmif)
     return mmif
 
 if __name__ == '__main__':

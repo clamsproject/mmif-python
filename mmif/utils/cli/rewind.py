@@ -76,14 +76,14 @@ def describe_argparser():
 def prep_argparser(**kwargs):
     parser = argparse.ArgumentParser(description=describe_argparser()[1], 
                                      formatter_class=argparse.RawDescriptionHelpFormatter, **kwargs)
-    parser.add_argument("IN_MMIF_FILE",
+    parser.add_argument("MMIF_FILE",
                         nargs="?", type=argparse.FileType("r"),
                         default=None if sys.stdin.isatty() else sys.stdin,
                         help='input MMIF file path, or STDIN if `-` or not provided.')
-    parser.add_argument("OUT_MMIF_FILE",
-                        nargs="?", type=argparse.FileType("w"),
+    parser.add_argument("-o", "--output",
+                        type=argparse.FileType("w"),
                         default=sys.stdout,
-                        help='output MMIF file path, or STDOUT if `-` or not provided.')
+                        help='output file path, or STDOUT if not provided.')
     parser.add_argument("-p", '--pretty', action='store_true', 
                         help="Pretty-print rewound MMIF")
     parser.add_argument("-n", '--number', default="0", type=int,
@@ -95,7 +95,7 @@ def prep_argparser(**kwargs):
 
 
 def main(args):
-    mmif_obj = mmif.Mmif(args.IN_MMIF_FILE.read())
+    mmif_obj = mmif.Mmif(args.MMIF_FILE.read())
 
     if args.number == 0:  # If user doesn't know how many views to rewind, give them choices.
         choice = prompt_user(mmif_obj)
@@ -104,7 +104,7 @@ def main(args):
     if not isinstance(choice, int) or choice <= 0:
         raise ValueError(f"Only can rewind by a positive number of views. Got {choice}.")
 
-    args.OUT_MMIF_FILE.write(rewind_mmif(mmif_obj, choice, args.mode == 'view').serialize(pretty=args.pretty))
+    args.output.write(rewind_mmif(mmif_obj, choice, args.mode == 'view').serialize(pretty=args.pretty))
 
 
 if __name__ == "__main__":
