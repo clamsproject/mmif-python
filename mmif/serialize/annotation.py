@@ -2,7 +2,7 @@
 The :mod:`annotation` module contains the classes used to represent a
 MMIF annotation as a live Python object.
 
-In MMIF, annotations are created by apps in a pipeline as a part
+In MMIF, annotations are created by apps in a workflow as a part
 of a view. For documentation on how views are represented, see
 :mod:`mmif.serialize.view`.
 """

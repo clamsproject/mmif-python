@@ -51,14 +51,20 @@ def generate_param_hash(params: dict) -> str:
     return hashlib.md5(param_string.encode('utf-8')).hexdigest()
 
 
-def get_pipeline_specs(
+def get_pipeline_specs(mmif_file: Union[str, Path]):
+    import warnings
+    warnings.warn("get_pipeline_specs is deprecated, use get_workflow_specs instead", DeprecationWarning)
+    return get_workflow_specs(mmif_file)
+
+
+def get_workflow_specs(
     mmif_file: Union[str, Path]
 ) -> Tuple[
     List[Tuple[str, Optional[str], dict, Optional[str], Optional[dict], int, dict]],
     List[str], List[str], List[str]
 ]:
     """
-    Read a MMIF file and extract the pipeline specification from it.
+    Read a MMIF file and extract the workflow specification from it.
 
     Extracts app configurations, profiling data, and annotation statistics
     for each contentful view. Views with errors, warnings, or no annotations
@@ -137,8 +143,14 @@ def get_pipeline_specs(
 
 
 def generate_pipeline_identifier(mmif_file: Union[str, Path]) -> str:
+    import warnings
+    warnings.warn("generate_pipeline_identifier is deprecated, use generate_workflow_identifier instead", DeprecationWarning)
+    return generate_workflow_identifier(mmif_file)
+
+
+def generate_workflow_identifier(mmif_file: Union[str, Path]) -> str:
     """
-    Generate a pipeline identifier string from a MMIF file.
+    Generate a workflow identifier string from a MMIF file.
 
     The identifier follows the storage directory structure format:
     app_name/version/param_hash/app_name2/version2/param_hash2/...
@@ -148,7 +160,7 @@ def generate_pipeline_identifier(mmif_file: Union[str, Path]) -> str:
     from the identifier; empty views (no annotations) are included.
 
     :param mmif_file: Path to the MMIF file
-    :return: Pipeline identifier string
+    :return: Workflow identifier string
     """
     if not isinstance(mmif_file, (str, Path)):
         raise ValueError(
@@ -187,6 +199,7 @@ def generate_pipeline_identifier(mmif_file: Union[str, Path]) -> str:
     return '/'.join(segments)
 
 
+
 def describe_argparser():
     """
     Returns two strings: one-line description of the argparser, and
@@ -194,20 +207,20 @@ def describe_argparser():
     `clams <subcmd> --help`, respectively.
     """
     oneliner = (
-        'provides CLI to describe the pipeline specification from a MMIF '
+        'provides CLI to describe the workflow specification from a MMIF '
         'file.'
     )
     additional = textwrap.dedent("""
-    MMIF describe extracts pipeline information from a MMIF file and outputs
+    MMIF describe extracts workflow information from a MMIF file and outputs
     a JSON summary including:
 
-    - pipeline_id: unique identifier for the pipeline based on apps, versions,
+    - workflowId: unique identifier for the workflow based on apps, versions,
       and parameter hashes (excludes error/warning views)
     - stats: annotation counts (total and per-view), counts by annotation type,
       and lists of error/warning/empty view IDs
     - views: map of view IDs to app configurations and profiling data
 
-    Views with errors or warnings are tracked but excluded from the pipeline
+    Views with errors or warnings are tracked but excluded from the workflow
     identifier and annotation statistics.""")
     return oneliner, oneliner + '\n\n' + additional
 
@@ -264,10 +277,10 @@ def main(args):
         tmp_path = tmp.name
 
     try:
-        spec, error_views, warning_views, empty_views = get_pipeline_specs(
+        spec, error_views, warning_views, empty_views = get_workflow_specs(
             tmp_path
         )
-        pipeline_id = generate_pipeline_identifier(tmp_path)
+        pipeline_id = generate_workflow_identifier(tmp_path)
 
         # Convert to JSON-serializable format and calculate stats
         views = {}

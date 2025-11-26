@@ -33,7 +33,7 @@ def rewind_mmif(mmif_obj: mmif.Mmif, choice: int, choice_is_viewnum: bool = True
     Rewind MMIF by deleting the last N views. 
     The number of views to rewind is given as a number of "views", or number of "producer apps". 
     By default, the number argument is interpreted as the number of "views". 
-    Note that when the same app is repeatedly run in a CLAMS pipeline and produces multiple views in a row,
+    Note that when the same app is repeatedly run in a CLAMS workflow and produces multiple views in a row,
     rewinding in "app" mode will rewind all those views at once.
 
     :param mmif_obj: mmif object
@@ -66,7 +66,7 @@ def describe_argparser():
     returns two strings: one-line description of the argparser, and addition material, 
     which will be shown in `clams --help` and `clams <subcmd> --help`, respectively.
     """
-    oneliner = 'provides CLI to rewind a MMIF from a CLAMS pipeline.'
+    oneliner = 'provides CLI to rewind a MMIF from a CLAMS workflow.'
     additional = textwrap.dedent("""
     MMIF rewinder rewinds a MMIF by deleting the last N views.
     N can be specified as a number of views, or a number of producer apps. """)
