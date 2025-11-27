@@ -5,6 +5,7 @@
 # https://www.sphinx-doc.org/en/master/usage/configuration.html
 
 import datetime
+import textwrap
 
 # -- Path setup --------------------------------------------------------------
 
@@ -110,4 +111,40 @@ smv_prefer_remote_refs = True
 # 1. sphinx-mv/main.py know current version of the library by git tag, 
 #    but conf.py has no way to know that... 
 # 2. target-versions.csv file can be read once and used in the for loop 
-#    in sphinx-mv/main.py, but here it should be read in for each `docs` bulid. 
+# ... (previous content)
+
+def generate_cli_rst(app):
+    import mmif
+    from mmif import prep_argparser_and_subcmds, find_all_modules
+    
+    # Generate main help
+    os.environ['COLUMNS'] = '100'
+    parser, subparsers = prep_argparser_and_subcmds()
+    help_text = parser.format_help()
+    
+    content = []
+    
+    content.append('Main Command\n')
+    content.append('------------\n\n')
+    content.append('.. code-block:: text\n\n')
+    content.append(textwrap.indent(help_text, '    '))
+    content.append('\n\n')
+    
+    # Generate subcommand help
+    for cli_module in find_all_modules('mmif.utils.cli'):
+        cli_module_name = cli_module.__name__.rsplit('.')[-1]
+        subparser = cli_module.prep_argparser(prog=f'mmif {cli_module_name}')
+        sub_help = subparser.format_help()
+        
+        content.append(f'{cli_module_name}\n')
+        content.append('-' * len(cli_module_name) + '\n\n')
+        content.append('.. code-block:: text\n\n')
+        content.append(textwrap.indent(sub_help, '    '))
+        content.append('\n\n')
+
+    with open(proj_root_dir / 'documentation' / 'cli_help.rst', 'w') as f:
+        f.write(''.join(content))
+
+
+def setup(app):
+    app.connect('builder-inited', generate_cli_rst)

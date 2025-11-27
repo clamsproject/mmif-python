@@ -635,7 +635,7 @@ class Mmif(MmifObject):
     def get_views_for_document(self, doc_id: str) -> List[View]:
         """
         Returns the list of all views that have annotations anchored on a particular document.
-        Note that when the document is inside a view (generated during the pipeline's running),
+        Note that when the document is inside a view (generated during the workflow's running),
         doc_id must be prefixed with the view_id.
         """
         views = []

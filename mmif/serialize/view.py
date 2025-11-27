@@ -2,7 +2,7 @@
 The :mod:`view` module contains the classes used to represent a MMIF view
 as a live Python object.
 
-In MMIF, views are created by apps in a pipeline that are annotating
+In MMIF, views are created by apps in a workflow that are annotating
 data that was previously present in the MMIF file.
 
 The :class:`View` class is a high-level container that provides convenient
