@@ -3,6 +3,7 @@ import hashlib
 import json
 import sys
 import textwrap
+from collections import Counter
 from pathlib import Path
 from typing import Union, List, Tuple, Optional
 
@@ -10,7 +11,7 @@ from mmif import Mmif
 
 
 def split_appname_appversion(
-    long_app_id: str
+        long_app_id: str
 ) -> Tuple[Optional[str], Optional[str]]:
     """
     Split app name and version from a long app identifier.
@@ -58,7 +59,7 @@ def get_pipeline_specs(mmif_file: Union[str, Path]):
 
 
 def get_workflow_specs(
-    mmif_file: Union[str, Path]
+        mmif_file: Union[str, Path]
 ) -> Tuple[
     List[Tuple[str, Optional[str], dict, Optional[str], Optional[dict], int, dict]],
     List[str], List[str], List[str]
@@ -173,6 +174,10 @@ def generate_workflow_identifier(mmif_file: Union[str, Path]) -> str:
     data = Mmif(mmif_str)
     segments = []
 
+    # first prefix is source information, sorted by document type
+    sources = Counter(doc.at_type.shortname for doc in data.documents)
+    segments.append('-'.join([f'{k}-{sources[k]}' for k in sorted(sources.keys())]))
+
     for view in data.views:
         # Skip views with errors or warnings
         if view.has_error() or view.has_warnings():
@@ -199,7 +204,6 @@ def generate_workflow_identifier(mmif_file: Union[str, Path]) -> str:
     return '/'.join(segments)
 
 
-
 def describe_argparser():
     """
     Returns two strings: one-line description of the argparser, and
@@ -214,8 +218,8 @@ def describe_argparser():
     MMIF describe extracts workflow information from a MMIF file and outputs
     a JSON summary including:
 
-    - workflowId: unique identifier for the workflow based on apps, versions,
-      and parameter hashes (excludes error/warning views)
+    - workflowId: unique identifier for the workflow based on source document, 
+      apps, versions, and parameter hashes (excludes error/warning views)
     - stats: annotation counts (total and per-view), counts by annotation type,
       and lists of error/warning/empty view IDs
     - views: map of view IDs to app configurations and profiling data
@@ -257,7 +261,7 @@ def main(args):
     Main entry point for the describe CLI command.
 
     Reads a MMIF file and outputs a JSON summary containing:
-    - pipeline_id: unique identifier for the pipeline
+    - workflow_id: unique identifier for the source and app sequence
     - stats: view counts, annotation counts (total/per-view/per-type),
       and lists of error/warning/empty view IDs
     - views: map of view IDs to app configurations and profiling data
@@ -271,7 +275,7 @@ def main(args):
     # If input is from stdin, create a temp file
     import tempfile
     with tempfile.NamedTemporaryFile(
-        mode='w', suffix='.mmif', delete=False
+            mode='w', suffix='.mmif', delete=False
     ) as tmp:
         tmp.write(mmif_content)
         tmp_path = tmp.name
@@ -280,7 +284,7 @@ def main(args):
         spec, error_views, warning_views, empty_views = get_workflow_specs(
             tmp_path
         )
-        pipeline_id = generate_workflow_identifier(tmp_path)
+        workflow_id = generate_workflow_identifier(tmp_path)
 
         # Convert to JSON-serializable format and calculate stats
         views = {}
@@ -316,7 +320,7 @@ def main(args):
                 annotation_count_by_type[at_type][view_id] = count
 
         output = {
-            "pipeline_id": pipeline_id,
+            "workflowId": workflow_id,
             "stats": {
                 "viewCount": len(views),
                 "errorViews": error_views,
