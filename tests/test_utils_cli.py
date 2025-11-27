@@ -50,9 +50,9 @@ class TestSource(unittest.TestCase):
 
         # to suppress output (otherwise, set to stdout by default)
         args = self.parser.parse_args(self.get_params())
-        args.output = open(os.devnull, 'w')
-
-        return source.main(args)
+        with open(os.devnull, 'w') as devnull:
+            args.output = devnull
+            return source.main(args)
 
     def test_accept_file_paths(self):
         self.docs.append("video:/a/b/c.mp4")
@@ -176,313 +176,136 @@ class TestDescribe(unittest.TestCase):
     def setUp(self):
         """Create test MMIF structures."""
         self.parser = describe.prep_argparser()
-
-        # Create a basic MMIF with some documents
+        self.maxDiff = None
         self.basic_mmif = Mmif(
-            {
-                "metadata": {"mmif": "http://mmif.clams.ai/1.0.0"},
-                "documents": [
-                    {
-                        "@type": "http://mmif.clams.ai/vocabulary/VideoDocument/v1",
-                        "properties": {
-                            "id": "d1",
-                            "mime": "video/mp4",
-                            "location": "file:///test/video.mp4"
-                        }
-                    },
-                    {
-                        "@type": "http://mmif.clams.ai/vocabulary/TextDocument/v1",
-                        "properties": {
-                            "id": "d2",
-                            "mime": "text/plain",
-                            "location": "file:///test/text.txt"
-                        }
-                    }
-                ],
-                "views": [],
-            }
+            '{"metadata": {"mmif": "http://mmif.clams.ai/1.0.0"}, "documents": [{"@type": "http://mmif.clams.ai/vocabulary/VideoDocument/v1", "properties": {"id": "d1", "mime": "video/mp4", "location": "file:///test/video.mp4"}}], "views": []}'
         )
 
     def create_temp_mmif_file(self, mmif_obj):
         """Helper to create a temporary MMIF file."""
         tmp = tempfile.NamedTemporaryFile(mode='w', suffix='.mmif', delete=False)
-        tmp.write(mmif_obj.serialize(pretty=False))
+        if isinstance(mmif_obj, Mmif):
+            content_to_write = mmif_obj.serialize(pretty=False)
+        else:
+            content_to_write = json.dumps(mmif_obj)
+        tmp.write(content_to_write)
         tmp.close()
         return tmp.name
 
-    def test_split_appname_appversion(self):
-        """Test splitting app name and version from URI."""
-        # Normal case
-        app_name, app_version = describe.split_appname_appversion(
-            "http://apps.clams.ai/test-app/v1.0.0"
-        )
-        self.assertEqual(app_name, "test-app")
-        self.assertEqual(app_version, "v1.0.0")
-
-        # With app name ending with version
-        app_name, app_version = describe.split_appname_appversion(
-            "http://apps.clams.ai/test-app-v1.0.0/v1.0.0"
-        )
-        self.assertEqual(app_name, "test-app")
-        self.assertEqual(app_version, "v1.0.0")
-
-        # Unresolvable version
-        app_name, app_version = describe.split_appname_appversion(
-            "http://apps.clams.ai/test-app/unresolvable"
-        )
-        self.assertEqual(app_name, "test-app")
-        self.assertIsNone(app_version)
-
-        # Short URI
-        app_name, app_version = describe.split_appname_appversion(
-            "http://apps.clams.ai"
-        )
-        self.assertIsNone(app_name)
-        self.assertIsNone(app_version)
-
-    def test_generate_param_hash(self):
-        """Test parameter hash generation."""
-        # Empty params
-        hash1 = describe.generate_param_hash({})
-        self.assertEqual(len(hash1), 32)  # MD5 hash length
-
-        # Same params should give same hash
-        params = {"param1": "value1", "param2": 42}
-        hash2 = describe.generate_param_hash(params)
-        hash3 = describe.generate_param_hash(params)
-        self.assertEqual(hash2, hash3)
-
-        # Order shouldn't matter (sorted internally)
-        params_reversed = {"param2": 42, "param1": "value1"}
-        hash4 = describe.generate_param_hash(params_reversed)
-        self.assertEqual(hash2, hash4)
-
-        # Different params should give different hash
-        params_diff = {"param1": "value1", "param2": 43}
-        hash5 = describe.generate_param_hash(params_diff)
-        self.assertNotEqual(hash2, hash5)
-
-    def test_get_workflow_specs_empty(self):
-        """Test get_workflow_specs with MMIF containing no views."""
+    def test_describe_single_mmif_empty(self):
         tmp_file = self.create_temp_mmif_file(self.basic_mmif)
         try:
-            spec, error_views, warning_views, empty_views = describe.get_workflow_specs(tmp_file)
-            self.assertEqual(len(spec), 0)
-            self.assertEqual(len(error_views), 0)
-            self.assertEqual(len(warning_views), 0)
-            self.assertEqual(len(empty_views), 0)
+            result = describe.describe_single_mmif(tmp_file)
+            self.assertEqual(result["stats"]["appCount"], 0)
+            self.assertEqual(len(result["apps"]), 0)
+            self.assertEqual(result["stats"]["annotationCount"]["total"], 0)
         finally:
             os.unlink(tmp_file)
 
-    def test_get_workflow_specs_with_views(self):
-        """Test get_workflow_specs with MMIF containing views with annotations."""
-        # Add a view with annotations
+    def test_describe_single_mmif_one_app(self):
         view = self.basic_mmif.new_view()
         view.metadata.app = "http://apps.clams.ai/test-app/v1.0.0"
-        view.metadata.appConfiguration = {"threshold": 0.5}
-        view.metadata.parameters = {"threshold": "0.5"}
-        view.new_annotation(AnnotationTypes.TimeFrame, start=0, end=1000)
-        view.new_annotation(AnnotationTypes.TimeFrame, start=1000, end=2000)
-
+        view.metadata.timestamp = "2024-01-01T12:00:00Z"
+        view.metadata.appProfiling = {"runningTime": "0:00:01.234"}
+        view.new_annotation(AnnotationTypes.TimeFrame)
         tmp_file = self.create_temp_mmif_file(self.basic_mmif)
         try:
-            spec, error_views, warning_views, empty_views = describe.get_workflow_specs(tmp_file)
-            self.assertEqual(len(spec), 1)
-            self.assertEqual(len(error_views), 0)
-            self.assertEqual(len(warning_views), 0)
-            self.assertEqual(len(empty_views), 0)
-
-            # Check the spec content
-            view_id, app, configs, running_time, running_hardware, annotation_count, annotations_by_type = spec[0]
-            self.assertEqual(app, "http://apps.clams.ai/test-app/v1.0.0")
-            self.assertEqual(configs, {"threshold": 0.5})
-            self.assertIsNone(running_time)
-            self.assertIsNone(running_hardware)
-            self.assertEqual(annotation_count, 2)
-            self.assertIn(str(AnnotationTypes.TimeFrame), annotations_by_type)
-            self.assertEqual(annotations_by_type[str(AnnotationTypes.TimeFrame)], 2)
+            result = describe.describe_single_mmif(tmp_file)
+            self.assertEqual(result["stats"]["appCount"], 1)
+            self.assertEqual(len(result["apps"]), 1)
+            app_exec = result["apps"][0]
+            self.assertEqual(app_exec["app"], view.metadata.app)
+            self.assertEqual(app_exec["viewIds"], [view.id])
+            self.assertEqual(app_exec["appProfiling"]["runningTime"], 1234)
         finally:
             os.unlink(tmp_file)
 
-    def test_get_workflow_specs_with_profiling(self):
-        """Test get_workflow_specs with appProfiling metadata."""
-        view = self.basic_mmif.new_view()
-        view.metadata.app = "http://apps.clams.ai/test-app/v1.0.0"
-        view.metadata.appProfiling = {
-            "runningTime": "0:00:05.123456",
-            "hardware": {"cpu": "Intel", "gpu": "NVIDIA"}
-        }
-        view.new_annotation(AnnotationTypes.TimeFrame, start=0, end=1000)
-
+    def test_describe_single_mmif_one_app_two_views(self):
+        view1 = self.basic_mmif.new_view()
+        view1.metadata.app = "http://apps.clams.ai/test-app/v1.0.0"
+        view1.metadata.timestamp = "2024-01-01T12:00:00Z"
+        view1.new_annotation(AnnotationTypes.TimeFrame)
+        view2 = self.basic_mmif.new_view()
+        view2.metadata.app = "http://apps.clams.ai/test-app/v1.0.0"
+        view2.metadata.timestamp = "2024-01-01T12:00:00Z"
+        view2.new_annotation(AnnotationTypes.TimeFrame)
         tmp_file = self.create_temp_mmif_file(self.basic_mmif)
         try:
-            spec, _, _, _ = describe.get_workflow_specs(tmp_file)
-            self.assertEqual(len(spec), 1)
-
-            view_id, app, configs, running_time, running_hardware, annotation_count, annotations_by_type = spec[0]
-            self.assertEqual(running_time, "0:00:05.123456")
-            self.assertEqual(running_hardware, {"cpu": "Intel", "gpu": "NVIDIA"})
+            result = describe.describe_single_mmif(tmp_file)
+            self.assertEqual(result["stats"]["appCount"], 1)
+            self.assertEqual(len(result["apps"]), 1)
+            app_exec = result["apps"][0]
+            self.assertEqual(app_exec["viewIds"], [view1.id, view2.id])
         finally:
             os.unlink(tmp_file)
 
-    def test_get_workflow_specs_with_old_profiling(self):
-        """Test get_workflow_specs with deprecated appRunningTime metadata."""
+    def test_describe_single_mmif_error_view(self):
         view = self.basic_mmif.new_view()
         view.metadata.app = "http://apps.clams.ai/test-app/v1.0.0"
-        # Use old metadata keys
-        view.metadata["appRunningTime"] = "0:00:03.456789"
-        view.metadata["appRunningHardware"] = {"cpu": "AMD"}
-        view.new_annotation(AnnotationTypes.TimeFrame, start=0, end=1000)
-
-        tmp_file = self.create_temp_mmif_file(self.basic_mmif)
-        try:
-            spec, _, _, _ = describe.get_workflow_specs(tmp_file)
-            self.assertEqual(len(spec), 1)
-
-            view_id, app, configs, running_time, running_hardware, annotation_count, annotations_by_type = spec[0]
-            self.assertEqual(running_time, "0:00:03.456789")
-            self.assertEqual(running_hardware, {"cpu": "AMD"})
-        finally:
-            os.unlink(tmp_file)
-
-    def test_get_workflow_specs_empty_view(self):
-        """Test get_workflow_specs with view containing no annotations."""
-        view = self.basic_mmif.new_view()
-        view.metadata.app = "http://apps.clams.ai/test-app/v1.0.0"
-
-        tmp_file = self.create_temp_mmif_file(self.basic_mmif)
-        try:
-            spec, error_views, warning_views, empty_views = describe.get_workflow_specs(tmp_file)
-            self.assertEqual(len(spec), 0)
-            self.assertEqual(len(empty_views), 1)
-            self.assertIn(view.id, empty_views)
-        finally:
-            os.unlink(tmp_file)
-
-    def test_get_workflow_specs_error_view(self):
-        """Test get_workflow_specs with view containing errors."""
-        view = self.basic_mmif.new_view()
-        view.metadata.app = "http://apps.clams.ai/test-app/v1.0.0"
+        view.metadata.timestamp = "2024-01-01T12:00:00Z"
         view.metadata.error = {"message": "Something went wrong"}
-
         tmp_file = self.create_temp_mmif_file(self.basic_mmif)
         try:
-            spec, error_views, warning_views, empty_views = describe.get_workflow_specs(tmp_file)
-            self.assertEqual(len(spec), 0)
-            self.assertEqual(len(error_views), 1)
-            self.assertIn(view.id, error_views)
+            result = describe.describe_single_mmif(tmp_file)
+            self.assertEqual(result["stats"]["appCount"], 0)
+            self.assertEqual(len(result["apps"]), 0)
+            self.assertEqual(len(result["stats"]["errorViews"]), 1)
         finally:
             os.unlink(tmp_file)
 
-    def test_get_workflow_specs_warning_view(self):
-        """Test get_workflow_specs with view containing warnings."""
-        view = self.basic_mmif.new_view()
-        view.metadata.app = "http://apps.clams.ai/test-app/v1.0.0"
-        view.metadata.warnings = ["Warning 1", "Warning 2"]
-
-        tmp_file = self.create_temp_mmif_file(self.basic_mmif)
+    @unittest.mock.patch('jsonschema.validators.validate')
+    def test_describe_single_mmif_with_unassigned_views(self, mock_validate):
+        raw_mmif = json.loads(self.basic_mmif.serialize())
+        raw_mmif['views'].append({'id': 'v1', 'metadata': {'app': 'http://apps.clams.ai/app1/v1.0.0', 'timestamp': '2024-01-01T12:00:00Z'}, 'annotations': []})
+        raw_mmif['views'].append({'id': 'v2', 'metadata': {'app': 'http://apps.clams.ai/app2/v2.0.0'}, 'annotations': []})
+        raw_mmif['views'].append({'id': 'v3', 'metadata': {'timestamp': '2024-01-01T12:01:00Z', 'app': ''}, 'annotations': []})
+        tmp_file = self.create_temp_mmif_file(raw_mmif)
         try:
-            spec, error_views, warning_views, empty_views = describe.get_workflow_specs(tmp_file)
-            self.assertEqual(len(spec), 0)
-            self.assertEqual(len(warning_views), 1)
-            self.assertIn(view.id, warning_views)
+            result = describe.describe_single_mmif(tmp_file)
+            self.assertEqual(result['stats']['appCount'], 1)
+            self.assertEqual(len(result['apps']), 2)
+            special_entry = result['apps'][-1]
+            self.assertEqual(special_entry['app'], 'http://apps.clams.ai/non-existing-app/v1')
+            self.assertEqual(len(special_entry['viewIds']), 2)
+            self.assertIn('v2', special_entry['viewIds'])
+            self.assertIn('v3', special_entry['viewIds'])
         finally:
             os.unlink(tmp_file)
 
-    def test_generate_workflow_identifier_basic(self):
-        """Test workflow identifier generation with basic workflow."""
-        # Add views
+    def test_generate_workflow_identifier_grouped(self):
         view1 = self.basic_mmif.new_view()
         view1.metadata.app = "http://apps.clams.ai/app1/v1.0.0"
-        view1.metadata.parameters = {"param1": "value1"}
-        view1.new_annotation(AnnotationTypes.TimeFrame, start=0, end=1000)
-
+        view1.metadata.timestamp = "2024-01-01T12:00:00Z"
         view2 = self.basic_mmif.new_view()
-        view2.metadata.app = "http://apps.clams.ai/app2/v2.0.0"
-        view2.metadata.parameters = {}
-        view2.new_annotation(AnnotationTypes.BoundingBox, coordinates=[[0, 0], [10, 10]])
-
+        view2.metadata.app = "http://apps.clams.ai/app1/v1.0.0"
+        view2.metadata.timestamp = "2024-01-01T12:00:00Z"
+        view3 = self.basic_mmif.new_view()
+        view3.metadata.app = "http://apps.clams.ai/app2/v2.0.0"
+        view3.metadata.timestamp = "2024-01-01T12:01:00Z"
         tmp_file = self.create_temp_mmif_file(self.basic_mmif)
         try:
             workflow_id = describe.generate_workflow_identifier(tmp_file)
-
-            # Check structure: should contain source info and two app segments
             segments = workflow_id.split('/')
-            # First segment is sources (TextDocument-1-VideoDocument-1)
-            self.assertIn('TextDocument-1', segments[0])
-            self.assertIn('VideoDocument-1', segments[0])
-
-            # Check app segments exist
-            self.assertIn('app1', workflow_id)
-            self.assertIn('app2', workflow_id)
-            self.assertIn('v1.0.0', workflow_id)
-            self.assertIn('v2.0.0', workflow_id)
+            self.assertEqual(len(segments), 7)
+            self.assertIn('app1', segments[1])
+            self.assertIn('app2', segments[4])
         finally:
             os.unlink(tmp_file)
 
-    def test_generate_workflow_identifier_excludes_errors(self):
-        """Test that workflow identifier excludes views with errors."""
-        view1 = self.basic_mmif.new_view()
-        view1.metadata.app = "http://apps.clams.ai/app1/v1.0.0"
-        view1.metadata.parameters = {}
-        view1.new_annotation(AnnotationTypes.TimeFrame, start=0, end=1000)
-
-        view2 = self.basic_mmif.new_view()
-        view2.metadata.app = "http://apps.clams.ai/app2/v2.0.0"
-        view2.metadata.error = {"message": "Error occurred"}
-
-        tmp_file = self.create_temp_mmif_file(self.basic_mmif)
+    def test_describe_collection_empty(self):
+        dummy_dir = 'dummy_mmif_collection'
+        os.makedirs(dummy_dir, exist_ok=True)
         try:
-            workflow_id = describe.generate_workflow_identifier(tmp_file)
-
-            # Should contain app1 but not app2
-            self.assertIn('app1', workflow_id)
-            self.assertNotIn('app2', workflow_id)
+            output = describe.describe_mmif_collection(dummy_dir)
+            expected = {
+                'mmifCountByStatus': {'total': 0, 'successful': 0, 'withErrors': 0, 'withWarnings': 0, 'invalid': 0},
+                'mmifCountByWorkflow': {},
+                'appProfilings': {},
+                'annotationCountByType': {'total': 0}
+            }
+            self.assertEqual(output, expected)
         finally:
-            os.unlink(tmp_file)
-
-    def test_generate_workflow_identifier_excludes_warnings(self):
-        """Test that workflow identifier excludes views with warnings."""
-        view1 = self.basic_mmif.new_view()
-        view1.metadata.app = "http://apps.clams.ai/app1/v1.0.0"
-        view1.metadata.parameters = {}
-        view1.new_annotation(AnnotationTypes.TimeFrame, start=0, end=1000)
-
-        view2 = self.basic_mmif.new_view()
-        view2.metadata.app = "http://apps.clams.ai/app2/v2.0.0"
-        view2.metadata.warnings = ["Warning message"]
-
-        tmp_file = self.create_temp_mmif_file(self.basic_mmif)
-        try:
-            workflow_id = describe.generate_workflow_identifier(tmp_file)
-
-            # Should contain app1 but not app2
-            self.assertIn('app1', workflow_id)
-            self.assertNotIn('app2', workflow_id)
-        finally:
-            os.unlink(tmp_file)
-
-    def test_generate_workflow_identifier_includes_empty_views(self):
-        """Test that workflow identifier includes empty views (no annotations)."""
-        view1 = self.basic_mmif.new_view()
-        view1.metadata.app = "http://apps.clams.ai/app1/v1.0.0"
-        view1.metadata.parameters = {}
-        view1.new_annotation(AnnotationTypes.TimeFrame, start=0, end=1000)
-
-        view2 = self.basic_mmif.new_view()
-        view2.metadata.app = "http://apps.clams.ai/app2/v2.0.0"
-        view2.metadata.parameters = {}
-        # No annotations added
-
-        tmp_file = self.create_temp_mmif_file(self.basic_mmif)
-        try:
-            workflow_id = describe.generate_workflow_identifier(tmp_file)
-
-            # Should contain both apps (empty views are included)
-            self.assertIn('app1', workflow_id)
-            self.assertIn('app2', workflow_id)
-        finally:
-            os.unlink(tmp_file)
+            os.rmdir(dummy_dir)
 
 
 if __name__ == '__main__':
