@@ -139,9 +139,11 @@ class TestRewind(unittest.TestCase):
         )
     
     @staticmethod
-    def add_dummy_view(mmif: Mmif, appname: str):
+    def add_dummy_view(mmif: Mmif, appname: str, timestamp: str = None):
         v = mmif.new_view()
         v.metadata.app = appname
+        if timestamp:
+            v.metadata.timestamp = timestamp
         v.new_annotation(AnnotationTypes.Annotation)
 
     def test_view_rewind(self):
@@ -158,16 +160,29 @@ class TestRewind(unittest.TestCase):
         self.assertEqual(len(rewound.views), len(self.mmif_one.views))
 
     def test_app_rewind(self):
-        # Regular Case
-        app_one_views = 3 
-        app_two_views = 2
-        for i in range(app_one_views):
-            self.add_dummy_view(self.mmif_one, 'dummy_app_one')
-        for j in range(app_two_views):
-            self.add_dummy_view(self.mmif_one, 'dummy_app_two')
-        self.assertEqual(len(self.mmif_one.views), app_one_views + app_two_views)
+        # Create 3 app executions
+        # App 1 (T1): 2 views
+        self.add_dummy_view(self.mmif_one, 'dummy_app_one', '2024-01-01T12:00:00Z')
+        self.add_dummy_view(self.mmif_one, 'dummy_app_one', '2024-01-01T12:00:00Z')
+        # App 2 (T2): 1 view
+        self.add_dummy_view(self.mmif_one, 'dummy_app_two', '2024-01-01T12:01:00Z')
+        # App 3 (T3): 2 views
+        self.add_dummy_view(self.mmif_one, 'dummy_app_three', '2024-01-01T12:02:00Z')
+        self.add_dummy_view(self.mmif_one, 'dummy_app_three', '2024-01-01T12:02:00Z')
+        
+        self.assertEqual(len(self.mmif_one.views), 5)
+
+        # Rewind 1 app execution (the 'dummy_app_three' execution)
         rewound = rewind.rewind_mmif(self.mmif_one, 1, choice_is_viewnum=False)
-        self.assertEqual(len(rewound.views), app_one_views)
+        
+        # 5 - 2 = 3 views should remain
+        self.assertEqual(len(rewound.views), 3)
+        
+        # Check that the correct views were removed
+        remaining_apps = {v.metadata.app for v in rewound.views}
+        self.assertNotIn('dummy_app_three', remaining_apps)
+        self.assertIn('dummy_app_one', remaining_apps)
+        self.assertIn('dummy_app_two', remaining_apps)
 
 
 class TestDescribe(unittest.TestCase):
@@ -195,7 +210,7 @@ class TestDescribe(unittest.TestCase):
     def test_describe_single_mmif_empty(self):
         tmp_file = self.create_temp_mmif_file(self.basic_mmif)
         try:
-            result = describe.describe_single_mmif(tmp_file)
+            result = mmif.utils.workflow_helper.describe_single_mmif(tmp_file)
             self.assertEqual(result["stats"]["appCount"], 0)
             self.assertEqual(len(result["apps"]), 0)
             self.assertEqual(result["stats"]["annotationCount"]["total"], 0)
@@ -210,7 +225,7 @@ class TestDescribe(unittest.TestCase):
         view.new_annotation(AnnotationTypes.TimeFrame)
         tmp_file = self.create_temp_mmif_file(self.basic_mmif)
         try:
-            result = describe.describe_single_mmif(tmp_file)
+            result = mmif.utils.workflow_helper.describe_single_mmif(tmp_file)
             self.assertEqual(result["stats"]["appCount"], 1)
             self.assertEqual(len(result["apps"]), 1)
             app_exec = result["apps"][0]
@@ -231,7 +246,7 @@ class TestDescribe(unittest.TestCase):
         view2.new_annotation(AnnotationTypes.TimeFrame)
         tmp_file = self.create_temp_mmif_file(self.basic_mmif)
         try:
-            result = describe.describe_single_mmif(tmp_file)
+            result = mmif.utils.workflow_helper.describe_single_mmif(tmp_file)
             self.assertEqual(result["stats"]["appCount"], 1)
             self.assertEqual(len(result["apps"]), 1)
             app_exec = result["apps"][0]
@@ -246,7 +261,7 @@ class TestDescribe(unittest.TestCase):
         view.metadata.error = {"message": "Something went wrong"}
         tmp_file = self.create_temp_mmif_file(self.basic_mmif)
         try:
-            result = describe.describe_single_mmif(tmp_file)
+            result = mmif.utils.workflow_helper.describe_single_mmif(tmp_file)
             self.assertEqual(result["stats"]["appCount"], 0)
             self.assertEqual(len(result["apps"]), 0)
             self.assertEqual(len(result["stats"]["errorViews"]), 1)
@@ -261,7 +276,7 @@ class TestDescribe(unittest.TestCase):
         raw_mmif['views'].append({'id': 'v3', 'metadata': {'timestamp': '2024-01-01T12:01:00Z', 'app': ''}, 'annotations': []})
         tmp_file = self.create_temp_mmif_file(raw_mmif)
         try:
-            result = describe.describe_single_mmif(tmp_file)
+            result = mmif.utils.workflow_helper.describe_single_mmif(tmp_file)
             self.assertEqual(result['stats']['appCount'], 1)
             self.assertEqual(len(result['apps']), 2)
             special_entry = result['apps'][-1]
@@ -272,31 +287,11 @@ class TestDescribe(unittest.TestCase):
         finally:
             os.unlink(tmp_file)
 
-    def test_generate_workflow_identifier_grouped(self):
-        view1 = self.basic_mmif.new_view()
-        view1.metadata.app = "http://apps.clams.ai/app1/v1.0.0"
-        view1.metadata.timestamp = "2024-01-01T12:00:00Z"
-        view2 = self.basic_mmif.new_view()
-        view2.metadata.app = "http://apps.clams.ai/app1/v1.0.0"
-        view2.metadata.timestamp = "2024-01-01T12:00:00Z"
-        view3 = self.basic_mmif.new_view()
-        view3.metadata.app = "http://apps.clams.ai/app2/v2.0.0"
-        view3.metadata.timestamp = "2024-01-01T12:01:00Z"
-        tmp_file = self.create_temp_mmif_file(self.basic_mmif)
-        try:
-            workflow_id = describe.generate_workflow_identifier(tmp_file)
-            segments = workflow_id.split('/')
-            self.assertEqual(len(segments), 7)
-            self.assertIn('app1', segments[1])
-            self.assertIn('app2', segments[4])
-        finally:
-            os.unlink(tmp_file)
-
     def test_describe_collection_empty(self):
         dummy_dir = 'dummy_mmif_collection'
         os.makedirs(dummy_dir, exist_ok=True)
         try:
-            output = describe.describe_mmif_collection(dummy_dir)
+            output = mmif.utils.workflow_helper.describe_mmif_collection(dummy_dir)
             expected = {
                 'mmifCountByStatus': {'total': 0, 'successful': 0, 'withErrors': 0, 'withWarnings': 0, 'invalid': 0},
                 'mmifCountByWorkflow': {},

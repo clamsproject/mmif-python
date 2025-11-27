@@ -3,26 +3,26 @@ import sys
 import textwrap
 
 import mmif
+from mmif.utils.workflow_helper import group_views_by_app
 
 
 def prompt_user(mmif_obj: mmif.Mmif) -> int:
     """
     Function to ask user to choose the rewind range.
     """
+    grouped_apps = group_views_by_app(mmif_obj.views)
+    view_to_app_num = {}
+    for i, execution in enumerate(grouped_apps):
+        for view in execution:
+            view_to_app_num[view.id] = i + 1
 
-    ## Give a user options (#, "app", "timestamp") - time order
-    n = len(mmif_obj.views)
-    i = 0  # option number
-    aname = ""
-    a = 0
     # header
     print("\n" + "{:<8} {:<8} {:<30} {:<100}".format("view-num", "app-num", "timestamp", "app"))
+    view_num = 0
     for view in reversed(mmif_obj.views):
-        if view.metadata.app != aname:
-            aname = view.metadata.app
-            a += 1
-        i += 1
-        print("{:<8} {:<8} {:<30} {:<100}".format(i, a, str(view.metadata.timestamp), str(view.metadata.app)))
+        view_num += 1
+        app_exec_num = view_to_app_num.get(view.id, 'N/A')
+        print("{:<8} {:<15} {:<30} {:<100}".format(view_num, app_exec_num, str(view.metadata.timestamp), str(view.metadata.app)))
 
     ## User input
     return int(input("\nEnter the number to delete from that point by rewinding: "))
@@ -46,16 +46,9 @@ def rewind_mmif(mmif_obj: mmif.Mmif, choice: int, choice_is_viewnum: bool = True
         for vid in list(v.id for v in mmif_obj.views)[-1:-choice-1:-1]:
             mmif_obj.views._items.pop(vid)
     else:
-        app_count = 0
-        cur_app = ""
-        vid_to_pop = []
-        for v in reversed(mmif_obj.views):
-            vid_to_pop.append(v.id)
-            if app_count >= choice:
-                break
-            if v.metadata.app != cur_app:
-                app_count += 1
-                cur_app = v.metadata.app
+        grouped_apps = group_views_by_app(mmif_obj.views)
+        executions_to_rewind = grouped_apps[-choice:]
+        vid_to_pop = [view.id for execution in executions_to_rewind for view in execution]
         for vid in vid_to_pop:
             mmif_obj.views._items.pop(vid)
     return mmif_obj
