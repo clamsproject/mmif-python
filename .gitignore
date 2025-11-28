@@ -84,3 +84,4 @@ documentation/_build/
 /VERSION
 _issues
 
+documentation/cli_help.rst

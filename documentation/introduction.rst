@@ -87,3 +87,9 @@ To get subcomponents, you can use various getters implemented in subclasses. For
 
 For a full list of available helper methods, please refer to :ref:`the API documentation <apidoc>`. 
 
+MMIF usage in CLAMS Workflows
+-----------------------------
+
+In the context of CLAMS, a **Workflow** refers to the sequence of CLAMS applications that have been executed to generate the views and annotations within a MMIF file.
+
+When using the ``mmif-python`` SDK, a unique identifier for a workflow (``workflowId``) is calculated based on the applications involved. This identifier is constructed by concatenating the application name, version, and a hash of the runtime parameters for each step in the sequence. This ensures that the identifier uniquely represents not just the apps used, but their specific configurations, aiding in reproducibility.

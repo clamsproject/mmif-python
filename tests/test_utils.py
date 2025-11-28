@@ -1,5 +1,7 @@
 import pathlib
 import unittest
+import tempfile
+import json
 
 import pytest
 
@@ -218,6 +220,67 @@ class TestTextDocHelper(unittest.TestCase):
             "Hello , this is Jim Lehrer with the NewsHour on PBS . "
             "In the nineteen eighties , barking dogs have increasingly become a problem in urban areas .",
             full_sliced_text)
+
+
+class TestWorkflowHelper(unittest.TestCase):
+
+    def setUp(self) -> None:
+        self.maxDiff = None
+        self.basic_mmif = Mmif(
+            '{"metadata": {"mmif": "http://mmif.clams.ai/1.0.0"}, "documents": [{"@type": "http://mmif.clams.ai/vocabulary/VideoDocument/v1", "properties": {"id": "d1", "mime": "video/mp4", "location": "file:///test/video.mp4"}}], "views": []}'
+        )
+
+    def create_temp_mmif_file(self, mmif_obj):
+        """Helper to create a temporary MMIF file."""
+        import tempfile
+        import json
+        tmp = tempfile.NamedTemporaryFile(mode='w', suffix='.mmif', delete=False)
+        if isinstance(mmif_obj, Mmif):
+            content_to_write = mmif_obj.serialize(pretty=False)
+        else:
+            content_to_write = json.dumps(mmif_obj)
+        tmp.write(content_to_write)
+        tmp.close()
+        return tmp.name
+
+    def test_split_appname_appversion(self):
+        from mmif.utils.workflow_helper import _split_appname_appversion
+        app_name, app_version = _split_appname_appversion("http://apps.clams.ai/test-app/v1.0.0")
+        self.assertEqual(app_name, "test-app")
+        self.assertEqual(app_version, "v1.0.0")
+
+    def test_generate_param_hash(self):
+        from mmif.utils.workflow_helper import generate_param_hash
+        params = {"param1": "value1", "param2": 42}
+        hash1 = generate_param_hash(params)
+        hash2 = generate_param_hash(params)
+        self.assertEqual(hash1, hash2)
+        params_reversed = {"param2": 42, "param1": "value1"}
+        hash3 = generate_param_hash(params_reversed)
+        self.assertEqual(hash1, hash3)
+
+    def test_generate_workflow_identifier_grouped(self):
+        from mmif.vocabulary import AnnotationTypes
+        from mmif.utils import workflow_helper
+        view1 = self.basic_mmif.new_view()
+        view1.metadata.app = "http://apps.clams.ai/app1/v1.0.0"
+        view1.metadata.timestamp = "2024-01-01T12:00:00Z"
+        view2 = self.basic_mmif.new_view()
+        view2.metadata.app = "http://apps.clams.ai/app1/v1.0.0"
+        view2.metadata.timestamp = "2024-01-01T12:00:00Z"
+        view3 = self.basic_mmif.new_view()
+        view3.metadata.app = "http://apps.clams.ai/app2/v2.0.0"
+        view3.metadata.timestamp = "2024-01-01T12:01:00Z"
+        tmp_file = self.create_temp_mmif_file(self.basic_mmif)
+        import os
+        try:
+            workflow_id = workflow_helper.generate_workflow_identifier(tmp_file)
+            segments = workflow_id.split('/')
+            self.assertEqual(len(segments), 7)
+            self.assertIn('app1', segments[1])
+            self.assertIn('app2', segments[4])
+        finally:
+            os.unlink(tmp_file)
 
 
 if __name__ == '__main__':

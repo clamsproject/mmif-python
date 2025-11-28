@@ -233,7 +233,7 @@ def prep_argparser(**kwargs):
         name[len('mmif_docloc_'):]: importlib.import_module(name) for _, name, _ in pkgutil.iter_modules() if
         re.match(r'mmif[-_]docloc[-_]', name)
     }
-    parser = argparse.ArgumentParser(description=describe_argparser()[1], formatter_class=argparse.RawTextHelpFormatter, **kwargs)
+    parser = argparse.ArgumentParser(description=describe_argparser()[1], formatter_class=argparse.RawDescriptionHelpFormatter, **kwargs)
     parser.add_argument(
         'documents',
         default=None,
