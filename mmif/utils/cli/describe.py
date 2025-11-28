@@ -7,6 +7,8 @@ from typing import Union
 
 from mmif.utils.workflow_helper import generate_workflow_identifier, describe_single_mmif, \
     describe_mmif_collection
+# gen_param_hash is imported for backward compatibility
+from mmif.utils.workflow_helper import generate_param_hash
 
 
 def get_pipeline_specs(mmif_file: Union[str, Path]):
