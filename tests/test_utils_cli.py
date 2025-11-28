@@ -213,7 +213,7 @@ class TestDescribe(unittest.TestCase):
             result = mmif.utils.workflow_helper.describe_single_mmif(tmp_file)
             self.assertEqual(result["stats"]["appCount"], 0)
             self.assertEqual(len(result["apps"]), 0)
-            self.assertEqual(result["stats"]["annotationCount"]["total"], 0)
+            self.assertEqual(result["stats"]["annotationCountByType"], {})
         finally:
             os.unlink(tmp_file)
 
@@ -231,7 +231,7 @@ class TestDescribe(unittest.TestCase):
             app_exec = result["apps"][0]
             self.assertEqual(app_exec["app"], view.metadata.app)
             self.assertEqual(app_exec["viewIds"], [view.id])
-            self.assertEqual(app_exec["appProfiling"]["runningTime"], 1234)
+            self.assertEqual(app_exec["appProfiling"]["runningTimeMS"], 1234)
         finally:
             os.unlink(tmp_file)
 
@@ -294,9 +294,8 @@ class TestDescribe(unittest.TestCase):
             output = mmif.utils.workflow_helper.describe_mmif_collection(dummy_dir)
             expected = {
                 'mmifCountByStatus': {'total': 0, 'successful': 0, 'withErrors': 0, 'withWarnings': 0, 'invalid': 0},
-                'mmifCountByWorkflow': {},
-                'appProfilings': {},
-                'annotationCountByType': {'total': 0}
+                'workflows': [],
+                'annotationCountByType': {}
             }
             self.assertEqual(output, expected)
         finally:
