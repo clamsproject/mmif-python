@@ -1,11 +1,11 @@
 import argparse
+import shutil
 import subprocess
 import sys
-import os
-import venv
 import tempfile
-import shutil
+import venv
 from pathlib import Path
+
 
 def run_command(command, cwd=None, check=True, env=None):
     """Helper to run a shell command."""
@@ -16,8 +16,10 @@ def run_command(command, cwd=None, check=True, env=None):
         sys.exit(result.returncode)
     return result
 
+
 class Venv:
     """A helper class to manage a virtual environment."""
+
     def __init__(self, venv_dir):
         self.venv_dir = Path(venv_dir)
         self.python = self.venv_dir / "bin" / "python"
@@ -37,16 +39,22 @@ class Venv:
     def run_sphinx_build(self, *args, cwd=None, check=True):
         return run_command([self.sphinx_build, *args], cwd=cwd, check=check)
 
-def build_docs_local(source_dir: Path):
+
+def build_docs_local(source_dir: Path, output_dir: Path):
     """
     Builds documentation for the provided source directory.
     Assumes it's running in an environment with necessary tools.
     """
     print("--- Running in Local Build Mode ---")
-    
+
     # 1. Generate source code and install in editable mode.
     print("\n--- Step 1: Generating source code and installing in editable mode ---")
-    run_command([sys.executable, "-m", "pip", "install", "-e", "."], cwd=source_dir)
+    try:
+        run_command([sys.executable, "-m", "pip", "install", "-e", "."], cwd=source_dir)
+    except SystemExit:
+        print("Warning: 'pip install -e .' failed. This might be due to an externally managed environment.")
+        print("Attempting to proceed with documentation build assuming dependencies are met...")
+
 
     # 2. Install documentation-specific dependencies.
     print("\n--- Step 2: Installing documentation dependencies ---")
@@ -54,24 +62,34 @@ def build_docs_local(source_dir: Path):
     if not doc_reqs.exists():
         print(f"Error: Documentation requirements not found at {doc_reqs}")
         sys.exit(1)
-    run_command([sys.executable, "-m", "pip", "install", "-r", str(doc_reqs)])
+    try:
+        run_command([sys.executable, "-m", "pip", "install", "-r", str(doc_reqs)])
+    except SystemExit:
+        print("Warning: Failed to install documentation dependencies.")
+        # Check if sphinx-build is available
+        if shutil.which("sphinx-build") is None:
+            print("Error: 'sphinx-build' not found and installation failed.")
+            print("Please install dependencies manually or run this script inside a virtual environment.")
+            sys.exit(1)
+        print("Assuming dependencies are already installed...")
 
     # 3. Build the documentation using Sphinx.
     print("\n--- Step 3: Building Sphinx documentation ---")
     docs_source_dir = source_dir / "documentation"
-    docs_build_dir = docs_source_dir / "_build" / "html"
+    docs_build_dir = output_dir / "develop"
     sphinx_command = [
         "sphinx-build",
         str(docs_source_dir),
         str(docs_build_dir),
         "-b", "html",  # build html
-        "-a",          # write all files (rebuild everything)
-        "-E",          # don't use a saved environment, reread all files
+        "-a",  # write all files (rebuild everything)
+        "-E",  # don't use a saved environment, reread all files
     ]
     run_command(sphinx_command)
 
     print(f"\nDocumentation build complete. Output in: {docs_build_dir}")
     return docs_build_dir
+
 
 def build_versioned_docs(env: Venv, source_path: Path, version: str):
     """
@@ -95,6 +113,7 @@ def build_versioned_docs(env: Venv, source_path: Path, version: str):
     version_file.write_text(version)
 
     # Inject linkcode_resolve function into conf.py for GitHub source links
+    # because some old version of conf.py may not have it
     print("\n--- Injecting linkcode_resolve into conf.py ---")
     conf_py = source_path / "documentation" / "conf.py"
     if conf_py.exists():
@@ -212,6 +231,7 @@ def build_docs_for_version(version: str, output_base_dir: Path, repo_path: Path 
 
         print(f"\nDocumentation for {version} built successfully in: {version_output_dir}")
 
+
 def get_all_tags():
     """Get all git tags sorted by version."""
     result = subprocess.run(
@@ -250,8 +270,8 @@ def main():
     parser.add_argument(
         "--output-dir",
         metavar="<path>",
-        default="docs-testbuilds",
-        help="The base directory for versioned documentation output (default: docs-testbuilds)."
+        default="docs-test",
+        help="The base directory for versioned documentation output (default: docs-test). For non-versioned builds, this is ignored, and the artifacts are placed in the local documentation _build/html directory."
     )
     parser.add_argument(
         "--list-versions",
@@ -267,25 +287,25 @@ def main():
             print(f"  {tag}")
         return
 
+    output_dir = Path(args.output_dir)
+    output_dir.mkdir(exist_ok=True)
     if args.build_all_since:
-        output_dir = Path(args.output_dir)
-        output_dir.mkdir(exist_ok=True)
         versions = get_tags_since(args.build_all_since)
         print(f"Building documentation for {len(versions)} versions: {versions}")
         failed = []
         for i, version in enumerate(versions, 1):
-            print(f"\n{'='*60}")
+            print(f"\n{'=' * 60}")
             print(f"Building version {version} ({i}/{len(versions)})")
-            print(f"{'='*60}")
+            print(f"{'=' * 60}")
             try:
                 build_docs_for_version(version, output_dir)
             except Exception as e:
                 print(f"ERROR building {version}: {e}")
                 failed.append((version, str(e)))
 
-        print(f"\n{'='*60}")
+        print(f"\n{'=' * 60}")
         print(f"BUILD SUMMARY")
-        print(f"{'='*60}")
+        print(f"{'=' * 60}")
         print(f"Total versions: {len(versions)}")
         print(f"Successful: {len(versions) - len(failed)}")
         print(f"Failed: {len(failed)}")
@@ -294,11 +314,10 @@ def main():
             for version, error in failed:
                 print(f"  {version}: {error}")
     elif args.build_ver:
-        output_dir = Path(args.output_dir)
-        output_dir.mkdir(exist_ok=True)
         build_docs_for_version(args.build_ver, output_dir)
     else:
-        build_docs_local(Path.cwd())
+        build_docs_local(Path.cwd(), output_dir)
+
 
 if __name__ == "__main__":
     main()

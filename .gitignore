@@ -77,14 +77,7 @@ mmif/vocabulary
 ./VERSION*
 .hypothesis
 
-
-# sphinx/autodoc files
-documentation/_build/
-
-/VERSION
-
-
 # Documentation build artifacts
-documentation/_build/
 documentation/cli_help.rst
+documentation/whatsnew.rst
 docs-test
