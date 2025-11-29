@@ -1,4 +1,16 @@
 
+## releasing 1.2.1 (2025-11-28)
+### Overview
+Updated output formats of the experimental `mmif describe` command
+
+### Changes
+* `mmif describe` command 
+    * simplified output JSON format of single-mmif input (`mmif.utils.workflow_helper.describe_single_mmif`)
+    * more informative output from multi-mmif input (`mmif.utils.workflow_helper.describe_mmif_collection`)
+
+> [!NOTE]
+> `mmif describe` (and the underlying `mmif.utils.workflow_helper`) is still experimental and subject to change in future releases without notice. Backward compatibility is not guaranteed.
+
 ## releasing 1.2.0 (2025-11-20)
 ### Overview
 This version is minor release with addition of a new cli (`describe`), lots of in-line documentation updates, and deprecation of some "getter" methods
