@@ -3,26 +3,26 @@ import sys
 import textwrap
 
 import mmif
+from mmif.utils.workflow_helper import group_views_by_app
 
 
 def prompt_user(mmif_obj: mmif.Mmif) -> int:
     """
     Function to ask user to choose the rewind range.
     """
+    grouped_apps = group_views_by_app(mmif_obj.views)
+    view_to_app_num = {}
+    for i, execution in enumerate(grouped_apps):
+        for view in execution:
+            view_to_app_num[view.id] = i + 1
 
-    ## Give a user options (#, "app", "timestamp") - time order
-    n = len(mmif_obj.views)
-    i = 0  # option number
-    aname = ""
-    a = 0
     # header
     print("\n" + "{:<8} {:<8} {:<30} {:<100}".format("view-num", "app-num", "timestamp", "app"))
+    view_num = 0
     for view in reversed(mmif_obj.views):
-        if view.metadata.app != aname:
-            aname = view.metadata.app
-            a += 1
-        i += 1
-        print("{:<8} {:<8} {:<30} {:<100}".format(i, a, str(view.metadata.timestamp), str(view.metadata.app)))
+        view_num += 1
+        app_exec_num = view_to_app_num.get(view.id, 'N/A')
+        print("{:<8} {:<15} {:<30} {:<100}".format(view_num, app_exec_num, str(view.metadata.timestamp), str(view.metadata.app)))
 
     ## User input
     return int(input("\nEnter the number to delete from that point by rewinding: "))
@@ -33,7 +33,7 @@ def rewind_mmif(mmif_obj: mmif.Mmif, choice: int, choice_is_viewnum: bool = True
     Rewind MMIF by deleting the last N views. 
     The number of views to rewind is given as a number of "views", or number of "producer apps". 
     By default, the number argument is interpreted as the number of "views". 
-    Note that when the same app is repeatedly run in a CLAMS pipeline and produces multiple views in a row,
+    Note that when the same app is repeatedly run in a CLAMS workflow and produces multiple views in a row,
     rewinding in "app" mode will rewind all those views at once.
 
     :param mmif_obj: mmif object
@@ -46,16 +46,9 @@ def rewind_mmif(mmif_obj: mmif.Mmif, choice: int, choice_is_viewnum: bool = True
         for vid in list(v.id for v in mmif_obj.views)[-1:-choice-1:-1]:
             mmif_obj.views._items.pop(vid)
     else:
-        app_count = 0
-        cur_app = ""
-        vid_to_pop = []
-        for v in reversed(mmif_obj.views):
-            vid_to_pop.append(v.id)
-            if app_count >= choice:
-                break
-            if v.metadata.app != cur_app:
-                app_count += 1
-                cur_app = v.metadata.app
+        grouped_apps = group_views_by_app(mmif_obj.views)
+        executions_to_rewind = grouped_apps[-choice:]
+        vid_to_pop = [view.id for execution in executions_to_rewind for view in execution]
         for vid in vid_to_pop:
             mmif_obj.views._items.pop(vid)
     return mmif_obj
@@ -66,7 +59,7 @@ def describe_argparser():
     returns two strings: one-line description of the argparser, and addition material, 
     which will be shown in `clams --help` and `clams <subcmd> --help`, respectively.
     """
-    oneliner = 'provides CLI to rewind a MMIF from a CLAMS pipeline.'
+    oneliner = 'provides CLI to rewind a MMIF from a CLAMS workflow.'
     additional = textwrap.dedent("""
     MMIF rewinder rewinds a MMIF by deleting the last N views.
     N can be specified as a number of views, or a number of producer apps. """)
@@ -76,14 +69,14 @@ def describe_argparser():
 def prep_argparser(**kwargs):
     parser = argparse.ArgumentParser(description=describe_argparser()[1], 
                                      formatter_class=argparse.RawDescriptionHelpFormatter, **kwargs)
-    parser.add_argument("IN_MMIF_FILE",
+    parser.add_argument("MMIF_FILE",
                         nargs="?", type=argparse.FileType("r"),
                         default=None if sys.stdin.isatty() else sys.stdin,
                         help='input MMIF file path, or STDIN if `-` or not provided.')
-    parser.add_argument("OUT_MMIF_FILE",
-                        nargs="?", type=argparse.FileType("w"),
+    parser.add_argument("-o", "--output",
+                        type=argparse.FileType("w"),
                         default=sys.stdout,
-                        help='output MMIF file path, or STDOUT if `-` or not provided.')
+                        help='output file path, or STDOUT if not provided.')
     parser.add_argument("-p", '--pretty', action='store_true', 
                         help="Pretty-print rewound MMIF")
     parser.add_argument("-n", '--number', default="0", type=int,
@@ -95,7 +88,7 @@ def prep_argparser(**kwargs):
 
 
 def main(args):
-    mmif_obj = mmif.Mmif(args.IN_MMIF_FILE.read())
+    mmif_obj = mmif.Mmif(args.MMIF_FILE.read())
 
     if args.number == 0:  # If user doesn't know how many views to rewind, give them choices.
         choice = prompt_user(mmif_obj)
@@ -104,7 +97,7 @@ def main(args):
     if not isinstance(choice, int) or choice <= 0:
         raise ValueError(f"Only can rewind by a positive number of views. Got {choice}.")
 
-    args.OUT_MMIF_FILE.write(rewind_mmif(mmif_obj, choice, args.mode == 'view').serialize(pretty=args.pretty))
+    args.output.write(rewind_mmif(mmif_obj, choice, args.mode == 'view').serialize(pretty=args.pretty))
 
 
 if __name__ == "__main__":

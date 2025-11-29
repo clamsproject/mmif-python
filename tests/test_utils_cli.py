@@ -1,11 +1,14 @@
 import contextlib
 import io
+import json
 import os
+import tempfile
 import unittest.mock
 
 import mmif
 from mmif.utils.cli import rewind
 from mmif.utils.cli import source
+from mmif.utils.cli import describe
 
 from mmif.serialize import Mmif
 from mmif.vocabulary import DocumentTypes, AnnotationTypes
@@ -44,12 +47,12 @@ class TestSource(unittest.TestCase):
         return params
 
     def generate_source_mmif(self):
-        
-        # to suppress output (otherwise, set to stdout by default
+
+        # to suppress output (otherwise, set to stdout by default)
         args = self.parser.parse_args(self.get_params())
-        args.output = os.devnull
-        
-        return source.main(args)
+        with open(os.devnull, 'w') as devnull:
+            args.output = devnull
+            return source.main(args)
 
     def test_accept_file_paths(self):
         self.docs.append("video:/a/b/c.mp4")
@@ -136,9 +139,11 @@ class TestRewind(unittest.TestCase):
         )
     
     @staticmethod
-    def add_dummy_view(mmif: Mmif, appname: str):
+    def add_dummy_view(mmif: Mmif, appname: str, timestamp: str = None):
         v = mmif.new_view()
         v.metadata.app = appname
+        if timestamp:
+            v.metadata.timestamp = timestamp
         v.new_annotation(AnnotationTypes.Annotation)
 
     def test_view_rewind(self):
@@ -155,16 +160,147 @@ class TestRewind(unittest.TestCase):
         self.assertEqual(len(rewound.views), len(self.mmif_one.views))
 
     def test_app_rewind(self):
-        # Regular Case
-        app_one_views = 3 
-        app_two_views = 2
-        for i in range(app_one_views):
-            self.add_dummy_view(self.mmif_one, 'dummy_app_one')
-        for j in range(app_two_views):
-            self.add_dummy_view(self.mmif_one, 'dummy_app_two')
-        self.assertEqual(len(self.mmif_one.views), app_one_views + app_two_views)
+        # Create 3 app executions
+        # App 1 (T1): 2 views
+        self.add_dummy_view(self.mmif_one, 'dummy_app_one', '2024-01-01T12:00:00Z')
+        self.add_dummy_view(self.mmif_one, 'dummy_app_one', '2024-01-01T12:00:00Z')
+        # App 2 (T2): 1 view
+        self.add_dummy_view(self.mmif_one, 'dummy_app_two', '2024-01-01T12:01:00Z')
+        # App 3 (T3): 2 views
+        self.add_dummy_view(self.mmif_one, 'dummy_app_three', '2024-01-01T12:02:00Z')
+        self.add_dummy_view(self.mmif_one, 'dummy_app_three', '2024-01-01T12:02:00Z')
+        
+        self.assertEqual(len(self.mmif_one.views), 5)
+
+        # Rewind 1 app execution (the 'dummy_app_three' execution)
         rewound = rewind.rewind_mmif(self.mmif_one, 1, choice_is_viewnum=False)
-        self.assertEqual(len(rewound.views), app_one_views)
+        
+        # 5 - 2 = 3 views should remain
+        self.assertEqual(len(rewound.views), 3)
+        
+        # Check that the correct views were removed
+        remaining_apps = {v.metadata.app for v in rewound.views}
+        self.assertNotIn('dummy_app_three', remaining_apps)
+        self.assertIn('dummy_app_one', remaining_apps)
+        self.assertIn('dummy_app_two', remaining_apps)
+
+
+class TestDescribe(unittest.TestCase):
+    """Test suite for the describe CLI module."""
+
+    def setUp(self):
+        """Create test MMIF structures."""
+        self.parser = describe.prep_argparser()
+        self.maxDiff = None
+        self.basic_mmif = Mmif(
+            '{"metadata": {"mmif": "http://mmif.clams.ai/1.0.0"}, "documents": [{"@type": "http://mmif.clams.ai/vocabulary/VideoDocument/v1", "properties": {"id": "d1", "mime": "video/mp4", "location": "file:///test/video.mp4"}}], "views": []}'
+        )
+
+    def create_temp_mmif_file(self, mmif_obj):
+        """Helper to create a temporary MMIF file."""
+        tmp = tempfile.NamedTemporaryFile(mode='w', suffix='.mmif', delete=False)
+        if isinstance(mmif_obj, Mmif):
+            content_to_write = mmif_obj.serialize(pretty=False)
+        else:
+            content_to_write = json.dumps(mmif_obj)
+        tmp.write(content_to_write)
+        tmp.close()
+        return tmp.name
+
+    def test_describe_single_mmif_empty(self):
+        tmp_file = self.create_temp_mmif_file(self.basic_mmif)
+        try:
+            result = mmif.utils.workflow_helper.describe_single_mmif(tmp_file)
+            self.assertEqual(result["stats"]["appCount"], 0)
+            self.assertEqual(len(result["apps"]), 0)
+            self.assertEqual(result["stats"]["annotationCountByType"], {})
+        finally:
+            os.unlink(tmp_file)
+
+    def test_describe_single_mmif_one_app(self):
+        view = self.basic_mmif.new_view()
+        view.metadata.app = "http://apps.clams.ai/test-app/v1.0.0"
+        view.metadata.timestamp = "2024-01-01T12:00:00Z"
+        view.metadata.appProfiling = {"runningTime": "0:00:01.234"}
+        view.new_annotation(AnnotationTypes.TimeFrame)
+        tmp_file = self.create_temp_mmif_file(self.basic_mmif)
+        try:
+            result = mmif.utils.workflow_helper.describe_single_mmif(tmp_file)
+            self.assertEqual(result["stats"]["appCount"], 1)
+            self.assertEqual(len(result["apps"]), 1)
+            app_exec = result["apps"][0]
+            self.assertEqual(app_exec["app"], view.metadata.app)
+            self.assertEqual(app_exec["viewIds"], [view.id])
+            self.assertEqual(app_exec["appProfiling"]["runningTimeMS"], 1234)
+        finally:
+            os.unlink(tmp_file)
+
+    def test_describe_single_mmif_one_app_two_views(self):
+        view1 = self.basic_mmif.new_view()
+        view1.metadata.app = "http://apps.clams.ai/test-app/v1.0.0"
+        view1.metadata.timestamp = "2024-01-01T12:00:00Z"
+        view1.new_annotation(AnnotationTypes.TimeFrame)
+        view2 = self.basic_mmif.new_view()
+        view2.metadata.app = "http://apps.clams.ai/test-app/v1.0.0"
+        view2.metadata.timestamp = "2024-01-01T12:00:00Z"
+        view2.new_annotation(AnnotationTypes.TimeFrame)
+        tmp_file = self.create_temp_mmif_file(self.basic_mmif)
+        try:
+            result = mmif.utils.workflow_helper.describe_single_mmif(tmp_file)
+            self.assertEqual(result["stats"]["appCount"], 1)
+            self.assertEqual(len(result["apps"]), 1)
+            app_exec = result["apps"][0]
+            self.assertEqual(app_exec["viewIds"], [view1.id, view2.id])
+        finally:
+            os.unlink(tmp_file)
+
+    def test_describe_single_mmif_error_view(self):
+        view = self.basic_mmif.new_view()
+        view.metadata.app = "http://apps.clams.ai/test-app/v1.0.0"
+        view.metadata.timestamp = "2024-01-01T12:00:00Z"
+        view.metadata.error = {"message": "Something went wrong"}
+        tmp_file = self.create_temp_mmif_file(self.basic_mmif)
+        try:
+            result = mmif.utils.workflow_helper.describe_single_mmif(tmp_file)
+            self.assertEqual(result["stats"]["appCount"], 0)
+            self.assertEqual(len(result["apps"]), 0)
+            self.assertEqual(len(result["stats"]["errorViews"]), 1)
+        finally:
+            os.unlink(tmp_file)
+
+    @unittest.mock.patch('jsonschema.validators.validate')
+    def test_describe_single_mmif_with_unassigned_views(self, mock_validate):
+        raw_mmif = json.loads(self.basic_mmif.serialize())
+        raw_mmif['views'].append({'id': 'v1', 'metadata': {'app': 'http://apps.clams.ai/app1/v1.0.0', 'timestamp': '2024-01-01T12:00:00Z'}, 'annotations': []})
+        raw_mmif['views'].append({'id': 'v2', 'metadata': {'app': 'http://apps.clams.ai/app2/v2.0.0'}, 'annotations': []})
+        raw_mmif['views'].append({'id': 'v3', 'metadata': {'timestamp': '2024-01-01T12:01:00Z', 'app': ''}, 'annotations': []})
+        tmp_file = self.create_temp_mmif_file(raw_mmif)
+        try:
+            result = mmif.utils.workflow_helper.describe_single_mmif(tmp_file)
+            self.assertEqual(result['stats']['appCount'], 1)
+            self.assertEqual(len(result['apps']), 2)
+            special_entry = result['apps'][-1]
+            self.assertEqual(special_entry['app'], 'http://apps.clams.ai/non-existing-app/v1')
+            self.assertEqual(len(special_entry['viewIds']), 2)
+            self.assertIn('v2', special_entry['viewIds'])
+            self.assertIn('v3', special_entry['viewIds'])
+        finally:
+            os.unlink(tmp_file)
+
+    def test_describe_collection_empty(self):
+        dummy_dir = 'dummy_mmif_collection'
+        os.makedirs(dummy_dir, exist_ok=True)
+        try:
+            output = mmif.utils.workflow_helper.describe_mmif_collection(dummy_dir)
+            expected = {
+                'mmifCountByStatus': {'total': 0, 'successful': 0, 'withErrors': 0, 'withWarnings': 0, 'invalid': 0},
+                'workflows': [],
+                'annotationCountByType': {}
+            }
+            self.assertEqual(output, expected)
+        finally:
+            os.rmdir(dummy_dir)
+
 
 if __name__ == '__main__':
     unittest.main()

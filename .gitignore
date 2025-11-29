@@ -86,5 +86,5 @@ documentation/_build/
 
 # Documentation build artifacts
 documentation/_build/
-build/__pycache__/
-docs-testbuilds/
+documentation/cli_help.rst
+docs-test
