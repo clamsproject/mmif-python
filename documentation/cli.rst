@@ -11,10 +11,6 @@ The CLI is installed as ``mmif`` shell command. To see the available commands, r
 
     mmif --help
 
-.. contents::
-    :local:
-    :backlinks: none
-
 The following documentation is automatically generated from the CLI help messages.
 
 .. include:: cli_help.rst

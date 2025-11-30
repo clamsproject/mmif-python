@@ -1,4 +1,50 @@
 
+## releasing 1.2.1 (2025-11-28)
+### Overview
+Updated output formats of the experimental `mmif describe` command
+
+### Changes
+* `mmif describe` command 
+    * simplified output JSON format of single-mmif input (`mmif.utils.workflow_helper.describe_single_mmif`)
+    * more informative output from multi-mmif input (`mmif.utils.workflow_helper.describe_mmif_collection`)
+
+> [!NOTE]
+> `mmif describe` (and the underlying `mmif.utils.workflow_helper`) is still experimental and subject to change in future releases without notice. Backward compatibility is not guaranteed.
+
+## releasing 1.2.0 (2025-11-20)
+### Overview
+This version is minor release with addition of a new cli (`describe`), lots of in-line documentation updates, and deprecation of some "getter" methods
+
+### Additions
+* `mmif describe` command to summarize views and annotations of a give MMIF file (https://github.com/clamsproject/mmif-python/pull/339). 
+
+### Changes
+* "list-like" objects in MMIF (`DataList`, `DocumentsList`, `ViewsList`, `AnnotationsList`) - `get()` method is now deprecated (https://github.com/clamsproject/mmif-python/issues/295). Use their parent containers' `get` methods 
+```
+mmif.views.get(some_view_id)  # will show deprecation warning as of 1.1.3 (note that there's no 1.1.3, we moved from 1.1.2 to 1.2.0)
+# instead use 
+mmif.get(some_view_id)
+# same for view.annotations.get(ann_id) ==> view.get(ann_id)
+```
+* comparing two Mmif objects no longer depends on buggy `deepdiff` library, and handled more robustly (https://github.com/clamsproject/mmif-python/issues/311)
+* many  outdated documentation updates
+
+
+## releasing 1.1.2 (2025-07-28)
+### Overview
+Patch release with a hotfix of a bug. 
+
+### Changes
+* Fixed bug with handling "list of ID" props in 1.0.x MMIF. 
+
+## releasing 1.1.1 (2025-07-26)
+### Overview
+Patch release to support installation on python 3.12 and newer (fixes https://github.com/clamsproject/mmif-python/issues/314). 
+
+### Additions
+- `setup.py` is now compatible with the latest setuptools (80) .
+- [Since python 3.12 no longer ship `setuptools` as a part of standard installation](https://docs.python.org/3/whatsnew/3.12.html#ensurepip), added setuptools as a `dev` dependency.
+
 ## releasing 1.1.0  (2025-07-23)
 ### Overview
 This is a minor version release, but it includes several significant changes and improvements across the codebase. 
