@@ -21,6 +21,7 @@ import mmif
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
 project = 'mmif-python'
+blob_base_url = f'https://github.com/clamsproject/{project}/blob'
 copyright = f'{datetime.date.today().year}, Brandeis LLC'
 author = 'Brandeis LLC'
 try:
@@ -108,7 +109,7 @@ def linkcode_resolve(domain, info):
         repo_root = Path(__file__).parent.parent
         rel_path = Path(filename).relative_to(repo_root)
 
-        return f"https://github.com/clamsproject/mmif-python/blob/{git_ref}/{rel_path}#L{start_lineno}-L{end_lineno}"
+        return f"{blob_base_url}/{git_ref}/{rel_path}#L{start_lineno}-L{end_lineno}"
 
     except Exception:
         # Don't fail the entire build if one link fails, just return None
@@ -221,7 +222,7 @@ def generate_whatsnew_rst(app):
     else:
         # Dump matched markdown content directly to whatsnew.md
         with open(output_path, 'w') as f:
-            f.write(f"## What's New in {version}\n\n")
+            f.write(f"## What's New in {version}\n\n(Full changelog available in the [CHANGELOG.md]({blob_base_url}/main/CHANGELOG.md))\n")
             f.writelines(content)
 
 
