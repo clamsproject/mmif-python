@@ -77,46 +77,6 @@ def generate_vocab_enum(spec_version, clams_types_vers, mod_name) -> str:
     return string_out
 
 
-def update_target_spec(target_vers_csv, specver):
-    """
-    Function to record target spec version at build time. 
-    This will update ``documentation/target-versions.csv`` file. 
-    And in the github action for publication (``.github/workflow/publish.yml``)
-    the csv fill will be committed as a part of documentation publication. 
-    The csv file is used for 
-    
-    #. Public website for ``mmif-python`` API
-    #. ``sphinx-multiversion`` to generate ``ver`` package for older versions
-    
-    Unlike ``clams-python`` where this function is placed in ``documentation/conf.py``
-    (because the file is a part of documentation? ),
-    I put this function here in ``setup.py`` mainly because it is easier to access
-    ``version`` and ``specver`` variables in the ``setup.py``. 
-    
-    Also note that there are two make goals for documentation generation. 
-    
-    #. ``doc``: generated a single-versioned documentation from current work tree
-        * Uses vanilla ``sphinx-build`` command.
-        * Vanilla ``sphinx-build`` does not invoke ``setup.py`` at all.
-        * Thus, running vanilla cmd without sdist ran before will fail (e.g. ``ver`` package not found).
-    #. ``docs``: generated multi-version documentation from git tags
-        * Uses our fork of ``sphinx-multiversion`` (https://github.com/clamsproject/sphinx-multiversion)
-        * This will invoke ``setup.py sdist`` for each version to make sure all source dist content is generated. 
-    
-    Finally, when this function is needed to be moved to conf.py (I think that's a more proper place),
-    use this code snippet to import local ``mmif`` package and use __version__ and __specver__
-     sys.path.append("..")
-     import mmif
-    """
-    with open(target_vers_csv) as in_f, open(f'{target_vers_csv}.new', 'w') as out_f:
-        lines = in_f.readlines()
-        if not lines[1].startswith(version):
-            lines.insert(1, f'{version},"{specver}"\n')
-        for line in lines:
-            out_f.write(line)
-        shutil.move(out_f.name, in_f.name)
-
-
 def generate_vocabulary(spec_version, clams_types_vers):
     """
     :param spec_version:
@@ -220,7 +180,7 @@ def prep_ext_files(setuptools_cmd):
 
         # the following will generate a new version value based on VERSION file
         generate_subpack(mmif_name, mmif_ver_pkg, f'__version__ = "{version}"\n__specver__ = "{spec_version}"')
-        update_target_spec('documentation/target-versions.csv', spec_version)
+
 
         # and write resource files
         for res_name, res_oriname in [(mmif_schema_res_name, mmif_schema_res_oriname), (mmif_vocab_res_name, mmif_vocab_res_oriname)]:

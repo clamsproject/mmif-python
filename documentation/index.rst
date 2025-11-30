@@ -3,6 +3,12 @@ Welcome to mmif-python's documentation!
 
 .. mdinclude:: ../README.md
 
+----
+
+.. mdinclude:: whatsnew.md
+
+----
+
 .. toctree::
   :maxdepth: 2
   :caption: Contents
