@@ -35,19 +35,18 @@ publish: distclean version package test
 
 $(generatedcode): dist/$(sdistname)*.tar.gz
 
-docs: latest := $(shell git tag | sort -t. -k 1,1nr -k 2,2nr -k 3,3nr -k 4,4nr | head -n 1)
-docs: VERSION $(generatedcode)
-	rm -rf docs
-	pip install --upgrade -r requirements.txt
-	pip install --upgrade -r requirements.old
-	sphinx-multiversion documentation docs -b html -a
-	touch docs/.nojekyll
-	ln -sf $(latest) docs/latest
-	echo "<!DOCTYPE html> <html> <head> <title>Redirect to latest version</title> <meta charset=\"utf-8\"> <meta http-equiv=\"refresh\" content=\"0; url=./latest/index.html\"> </head> </html>" > docs/index.html
+docs:
+	@echo "WARNING: The 'docs' target is deprecated and will be removed."
+	@echo "The 'docs' directory is no longer used. Documentation is now hosted in the central CLAMS documentation hub."
+	@echo "Use 'make doc' for local builds or 'make doc-version' for specific versions."
+	@echo "Nothing is done."
 
-doc: VERSION $(generatedcode) # for single version sphinx - only use when developing
-	rm -rf docs
-	sphinx-build documentation docs -b html -a
+doc: # for single version sphinx - builds current source
+	python3 build-tools/docs.py
+
+doc-version: # interactive build for specific version
+	@read -p "Enter version/tag to build (e.g., v1.0.0): " ver; \
+	[ -n "$$ver" ] && python3 build-tools/docs.py --build-ver $$ver
 
 package: VERSION dist/$(sdistname)*.tar.gz
 
