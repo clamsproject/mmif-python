@@ -3,7 +3,7 @@ import json
 import sys
 import textwrap
 from pathlib import Path
-from typing import Union
+from typing import Union, cast
 
 from mmif.utils.workflow_helper import generate_workflow_identifier, describe_single_mmif, \
     describe_mmif_collection
@@ -22,7 +22,7 @@ def generate_pipeline_identifier(mmif_file: Union[str, Path]) -> str:
     import warnings
     warnings.warn("generate_pipeline_identifier is deprecated, use generate_workflow_identifier instead",
                   DeprecationWarning)
-    return generate_workflow_identifier(mmif_file)
+    return cast(str, generate_workflow_identifier(mmif_file))
 
 
 def describe_argparser():
