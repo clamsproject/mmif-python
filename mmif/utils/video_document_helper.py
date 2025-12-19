@@ -209,6 +209,51 @@ def extract_representative_frame(mmif: Mmif, time_frame: Annotation, as_PIL: boo
     return extract_frames_as_images(video_document, rep_frame_num, as_PIL=as_PIL)[0]
 
 
+def extract_target_frames(mmif: Mmif, annotation: Annotation, min_timepoints: int = 0, max_timepoints: int = sys.maxsize, fraction: float = 1.0, as_PIL: bool = False):
+    """
+    Extracts frames corresponding to the timepoints listed in the ``targets`` property of an annotation.
+    Selection of timepoints is based on minimum, maximum, and fraction of targets to include.
+
+    :param mmif: :py:class:`~mmif.serialize.mmif.Mmif` instance
+    :param annotation: :py:class:`~mmif.serialize.annotation.Annotation` instance containing a ``targets`` property
+    :param min_timepoints: minimum number of timepoints to include
+    :param max_timepoints: maximum number of timepoints to include
+    :param fraction: fraction of targets to include (ideally)
+    :param as_PIL: return :py:class:`~PIL.Image.Image` instead of :py:class:`~numpy.ndarray`
+    :return: a tuple containing (list of frames, list of selected target IDs)
+    """
+    if 'targets' not in annotation.properties:
+        raise ValueError(f'Annotation {annotation.id} does not have a "targets" property.')
+
+    targets = annotation.get_property('targets')
+    num_targets = len(targets)
+    if num_targets == 0:
+        return [], []
+
+    ideal_count = int(num_targets * fraction)
+    count = max(min_timepoints, ideal_count)
+    count = min(max_timepoints, count)
+    count = min(num_targets, count)
+
+    if count == 1:
+        indices = [num_targets // 2]
+    else:
+        indices = [int(i * (num_targets - 1) / (count - 1)) for i in range(count)]
+
+    selected_target_ids = [targets[i] for i in indices]
+    selected_timepoints = [mmif[target_id] for target_id in selected_target_ids]
+    
+    # Assuming all targets use the same document as the parent annotation if it exists, 
+    # otherwise we'll have to check each timepoint. convert_timepoint handles document lookup.
+    frame_nums = [int(convert_timepoint(mmif, tp, 'f')) for tp in selected_timepoints]
+    
+    # Get the document from the first selected timepoint to use with extract_frames_as_images
+    video_doc = mmif[selected_timepoints[0].get_property('document')]
+    images = extract_frames_as_images(video_doc, frame_nums, as_PIL=as_PIL)
+    
+    return images, selected_target_ids
+
+
 def sample_frames(start_frame: int, end_frame: int, sample_rate: float = 1) -> List[int]:
     """
     Helper function to sample frames from a time interval.
