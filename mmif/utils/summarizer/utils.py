@@ -7,6 +7,7 @@ from pathlib import Path
 from xml.sax.saxutils import quoteattr, escape
 from collections import UserList
 
+from mmif import View, Annotation
 from mmif.utils.summarizer.config import KALDI, WHISPER, CAPTIONER, SEGMENTER
 from mmif.utils.summarizer.config import TOKEN, ALIGNMENT, TIME_FRAME
 
@@ -193,7 +194,7 @@ def xml_data(text):
     return escape(str(text))
 
 
-def normalize_id(doc_ids: list, view: 'View', annotation: 'Annotation'):
+def normalize_id(doc_ids: list, view: View, annotation: Annotation):
     """Change identifiers to include the view identifier if it wasn't included,
     do nothing otherwise. This applies to the Annotation id, target, source,
     document, targets and representatives properties. Note that timePoint is
