@@ -357,27 +357,6 @@ class Node(object):
                 return None
         return None
 
-    def XXX_get_document_plus_span(self):
-        self.pp()
-        props = self.properties
-        return "%s:%s:%s" % (self.document.identifier,
-                             props['start'], props['end'])
-
-    def XXXpaths_to_docs(self):
-        """Return all the paths from the node to documents."""
-        paths = self._paths_to_docs()
-        return flatten_paths(paths)
-
-    def XXX_paths_to_docs(self):
-        paths = []
-        if not self.targets:
-            return [[self]]
-        for t in self.targets:
-            paths.append([self])
-        for i, target in enumerate(self.targets):
-            paths[i].extend(target._paths_to_docs())
-        return paths
-
     def summary(self):
         """The default summary is just the identfier, this should typically be
         overriden by sub classes."""
@@ -464,8 +443,8 @@ class EntityNode(Node):
     def end_in_video(self):
         return self.anchor().get('video-end')
 
-    def pp(self):
-        super().pp(close=False)
+    def pp(self, close=False):
+        super().pp(close=close)
         try:
             for i, p in enumerate(self.paths_to_docs()):
                 print('    %s' % ' '.join([str(n) for n in p[1:]]))
@@ -478,10 +457,6 @@ class EntityNode(Node):
         the entity occurs, it is not enough to just give the text document."""
         # TODO: in the old days this used an anchor() method which was fragile
         # TODO: revamping it now  
-
-        #anchor = self.anchor()
-        #self.document.pp()
-#        print('...', self.document.anchors
         return {
             'id': self.identifier,
             'group': self.properties['group'],
