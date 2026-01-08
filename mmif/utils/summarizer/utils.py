@@ -193,42 +193,6 @@ def xml_data(text):
     return escape(str(text))
 
 
-def XXXflatten_paths(paths):
-    """Take paths implemented as singly linked lists and return regular lists."""
-    return [flatten_path(path) for path in paths]
-
-
-def XXXflatten_path(path):
-    """Take a path implemented as singly linked lists and return a regular list."""
-    while path:
-        if len(path) == 1:
-            return path
-        else:
-            #print('>>>', len(path))
-            #for x in path:
-            #    print('  ', x)
-            first, rest = path
-            return [first] + flatten_path(rest)
-
-
-def XXXprint_paths(paths, indent=''):
-    """Print paths, which may be flattened."""
-    for path in paths:
-        print(indent, end='')
-        print_path(path)
-        print()
-
-
-def XXXprint_path(p):
-    if isinstance(p, list):
-        print('[', end=' ')
-        for e in p:
-            print_path(e)
-        print(']', end=' ')
-    else:
-        print(p, end=' ')
-
-
 def normalize_id(doc_ids: list, view: 'View', annotation: 'Annotation'):
     """Change identifiers to include the view identifier if it wasn't included,
     do nothing otherwise. This applies to the Annotation id, target, source,
