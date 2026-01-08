@@ -9,6 +9,7 @@ mmif package
    autodoc/mmif.serialize
    autodoc/mmif.vocabulary
    autodoc/mmif.utils
+   autodoc/mmif.utils.summarizer
 
 mmif_docloc_http package
 ========================

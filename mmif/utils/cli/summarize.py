@@ -12,7 +12,7 @@ def describe_argparser() -> tuple:
     respectively. For now they return the same string. The retun value should 
     still be a tuple because mmif.cli() depends on it.
     """
-    oneliner = 'provides a CLI to create a JSON Summary for a MMIF file'
+    oneliner = 'Create a JSON Summary for a MMIF file'
     return oneliner, oneliner
 
 
