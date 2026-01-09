@@ -33,6 +33,21 @@ def find_all_modules(pkgname):
             yield importlib.import_module(module)
 
 
+def prep_argparser_for_documentation():
+    """This is specifically for when building the CLI documentation with sphinxs-build,
+    which without the prog parameter would otherwise use sphinxs-build when printing
+    the command name."""
+    # TODO: this does not add the subcommands, which was faulty anyway because the
+    #       original code left us with an empty list
+    parser = argparse.ArgumentParser(prog='mmif')
+    parser.add_argument(
+        '-v', '--version',
+        action='version',
+        version=version_template.format(__version__, __specver__)
+    )
+    return parser
+
+
 def prep_argparser_and_subcmds():
     parser = argparse.ArgumentParser()
     parser.add_argument(

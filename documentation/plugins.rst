@@ -1,7 +1,7 @@
 .. _plugins:
 
-Developing plugins for MMIF Python SDK
-======================================
+Developing plugins for the MMIF Python SDK
+==========================================
 
 
 Overview 
@@ -50,7 +50,7 @@ Here's a minimal example codebase that you refer to when you develop a ``docloc`
    ├── pyproject.toml
    └── setup.cfg
 
-    $ cat pyproject.toml
+   $ cat pyproject.toml
    [build-system]
    requires = ["setuptools"]
    build-backend = "setuptools.build_meta"
@@ -85,5 +85,5 @@ And the plugin code.
 Bulit-in Document Location Scheme Plugins
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-At the moment, ``mmif-python`` PyPI distribution ships a built-in *docloc* plugin that support both ``http`` and ``https`` schemes.
-Take a look at :mod:`mmif_docloc_http` module for details. 
+At the moment, the ``mmif-python`` PyPI distribution ships a built-in *docloc* plugin that support both ``http`` and ``https`` schemes.
+Take a look at the :mod:`mmif_docloc_http` module for details. 
