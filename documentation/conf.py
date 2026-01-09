@@ -6,6 +6,7 @@ import datetime
 import inspect
 import textwrap
 import os
+import re
 import sys
 from pathlib import Path
 
@@ -64,7 +65,6 @@ html_theme_options = {
     "source_repository": "https://github.com/clamsproject/mmif-python",
     "source_branch": "main",  # Default branch for "Edit on GitHub" links
     "source_directory": "documentation/",
-
     # CLAMS brand colors
     "light_css_variables": {
         "color-brand-primary": "#008AFF",
@@ -150,27 +150,24 @@ def update_target_versions(app):
 
 
 def generate_cli_rst(app):
-    from mmif import prep_argparser_and_subcmds, find_all_modules
-
-    # Generate main help
-    os.environ['COLUMNS'] = '100'
-    parser, subparsers = prep_argparser_and_subcmds()
-    help_text = parser.format_help()
 
     content = []
 
-    content.append('Main Command\n')
-    content.append('------------\n\n')
-    content.append('.. code-block:: text\n\n')
-    content.append(textwrap.indent(help_text, '    '))
-    content.append('\n\n')
-
+    # Generate main help
+    # os.environ['COLUMNS'] = '100'
+    # parser = mmif.prep_argparser_for_documentation()
+    # help_text = parser.format_help()
+    # content.append('Main Command\n')
+    # content.append('------------\n\n')
+    # content.append('.. code-block:: text\n\n')
+    # content.append(textwrap.indent(help_text, '    '))
+    # content.append('\n\n')
+    
     # Generate subcommand help
-    for cli_module in find_all_modules('mmif.utils.cli'):
+    for cli_module in mmif.find_all_modules('mmif.utils.cli'):
         cli_module_name = cli_module.__name__.rsplit('.')[-1]
         subparser = cli_module.prep_argparser(prog=f'mmif {cli_module_name}')
         sub_help = subparser.format_help()
-
         content.append(f'{cli_module_name}\n')
         content.append('-' * len(cli_module_name) + '\n\n')
         content.append('.. code-block:: text\n\n')
@@ -182,6 +179,11 @@ def generate_cli_rst(app):
 
 
 def generate_whatsnew_rst(app):
+    """
+    Create the documentation/whatsnew.md file by pulling out the changes for the
+    current version from the changelog file.
+    """
+
     changelog_path = proj_root_dir / 'CHANGELOG.md'
     output_path = proj_root_dir / 'documentation' / 'whatsnew.md'
     if not changelog_path.exists():
@@ -190,18 +192,15 @@ def generate_whatsnew_rst(app):
             f.write("")
         return
 
-    import re
-
     content = []
     found_version = False
     version_header_re = re.compile(r'^## releasing\s+([^\s]+)\s*(\(.*\))?')
 
     print(f"DEBUG: Looking for version '{version}' in CHANGELOG.md")
 
-    with open(changelog_path, 'r') as f:
+    with changelog_path.open() as f:
         lines = f.readlines()
-
-    for line in lines:
+    for n, line in enumerate(lines):
         match = version_header_re.match(line)
         if match:
             header_version = match.group(1)
@@ -211,18 +210,23 @@ def generate_whatsnew_rst(app):
                 continue
             elif found_version:
                 break
-
         if found_version:
+            # Make the headers from the changelog mesh in properly with the headers
+            # in the documentation.
+            if line.startswith('###'):
+                line = '#' + line
             content.append(line)
 
-    if not found_version:
-        print(f"NOTE: No changelog entry found for version {version}")
-        with open(output_path, 'w') as f:
-            f.write("")
-    else:
-        # Dump matched markdown content directly to whatsnew.md
-        with open(output_path, 'w') as f:
-            f.write(f"## What's New in {version}\n\n(Full changelog available in the [CHANGELOG.md]({blob_base_url}/main/CHANGELOG.md))\n")
+    with open(output_path, 'w') as f:
+        f.write(f"### What's New in {version}\n\n")
+        f.write(
+            "The full changelog is available in [CHANGELOG.md]"
+            f"({blob_base_url}/main/CHANGELOG.md).\n\n")
+        if not found_version:
+            print(f"NOTE: No changelog entry found for this version\n\n")
+            f.write("There are no changelog entries for this version\n\n")
+        else:
+            # Dump matched markdown content directly to whatsnew.md
             f.writelines(content)
 
 
