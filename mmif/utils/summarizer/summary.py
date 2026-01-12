@@ -81,11 +81,11 @@ from collections import defaultdict
 from mmif.serialize import Mmif
 from mmif.vocabulary import DocumentTypes
 
+from mmif.utils.summarizer import config
 from mmif.utils.summarizer.utils import CharacterList
 from mmif.utils.summarizer.utils import get_aligned_tokens, timestamp
 from mmif.utils.summarizer.utils import get_transcript_view, get_last_segmenter_view, get_captions_view
 from mmif.utils.summarizer.graph import Graph
-from mmif.utils.summarizer import config
 
 
 VERSION = '0.2.0'
@@ -150,23 +150,19 @@ class Summary(object):
     def video_documents(self):
         return self.mmif.get_documents_by_type(DocumentTypes.VideoDocument)
 
-    def report(self, outfile=None, html=None, full=False, timeframes=False,
-               transcript=False, captions=False, entities=False):
+    def report(self, outfile=None):
         json_obj = {
             'mmif_version': self.mmif.metadata.mmif,
             'document': self.document.data,
             'documents': self.documents.data,
             'annotations': self.annotations.data,
-            'views': self.views.data}
-        if transcript or full:
-            json_obj['transcript'] = self.transcript.data
-        if captions or full:
-            json_obj['captions'] = self.captions.as_json()
-        if timeframes or full:
-            json_obj['timeframes'] = self.timeframes.as_json()
-            json_obj['timeframe_stats'] = self.timeframe_stats.data
-        if entities or full:
-            json_obj['entities'] = self.entities.as_json()
+            'views': self.views.data,
+            'transcript': self.transcript.data,
+            'captions': self.captions.as_json(),
+            'timeframes': self.timeframes.as_json(),
+            'timeframe_stats': self.timeframe_stats.data,
+            'entities': self.entities.as_json()
+        }
         report = json.dumps(json_obj, indent=2)
         if outfile is None:
             return report
@@ -631,17 +627,17 @@ class Captions(Nodes):
                     f'>>> PROPS    {list(doc.properties.keys())}',
                     f'>>> TEXT     ' + text.replace("\n", "")[:100],
                     f'>>> ANCHORS  {doc.anchors}')
-                if 'time-offsets' in doc.anchors:
+                if 'time-offsets' in doc.anchors and 'representatives' in doc.anchors:
                     # For older LLava-style captions
                     # http://apps.clams.ai/llava-captioner/v1.2-6-gc824c97
-                    p1, p2 = doc.anchors['time-offsets']
-                    if 'representatives' in doc.anchors:
-                        tp_id = doc.anchors["representatives"][0]
-                        tp = summary.graph.get_node(tp_id)
-                    self.captions.append(
-                        { 'identifier': doc.identifier,
-                          'time-point': tp.properties['timePoint'],
-                          'text': text })
+                    # NOTE: probably obsolete, at least the link above is dead
+                    tp_id = doc.anchors["representatives"][0]
+                    tp = summary.graph.get_node(tp_id)
+                    if tp is not None:
+                        self.captions.append(
+                            { 'identifier': doc.identifier,
+                              'time-point': tp.properties['timePoint'],
+                              'text': text })
                 if 'time-point' in doc.anchors:
                     # For newer SmolVLM-style captions
                     # http://apps.clams.ai/smolvlm2-captioner

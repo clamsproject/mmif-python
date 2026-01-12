@@ -22,22 +22,10 @@ def prep_argparser(**kwargs):
         formatter_class=argparse.RawDescriptionHelpFormatter,
         **kwargs)
     parser.add_argument("-i", metavar='MMIF_FILE', help='input MMIF file', required=True)
-    parser.add_argument("-o", metavar='JSON_FILE', help='output JSON summary file', required=True)
-    parser.add_argument("--full", action="store_true", help="print full report")
-    parser.add_argument('--transcript', action='store_true', help='include transcript')
-    parser.add_argument('--captions', action='store_true', help='include Llava captions')
-    parser.add_argument('--timeframes', action='store_true', help='include all time frames')
-    parser.add_argument('--entities', action='store_true', help='include entities from transcript')
+    parser.add_argument("-o", metavar='OUTPUT_FILE', help='output JSON summary file', required=True)
     return parser
 
 
 def main(args):
-    #print('>>>', args)
     mmif_summary = Summary(args.i)
-    #print('>>>', mmif_summary)
-    mmif_summary.report(
-        outfile=args.o, full=args.full,
-        #timeframes=args.timeframes, transcript=args.transcript,
-        #captions=args.captions, entities=args.entities
-        )
-
+    mmif_summary.report(outfile=args.o)

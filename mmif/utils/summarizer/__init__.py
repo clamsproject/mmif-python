@@ -8,11 +8,6 @@ def argparser():
     parser = argparse.ArgumentParser(description='Create a JSON Summary for a MMIF file')
     parser.add_argument('-i', metavar='MMIF_FILE', help='input MMIF file', required=True)
     parser.add_argument('-o', metavar='JSON_FILE', help='output JSON summary file', required=True)
-    parser.add_argument('--full', action='store_true', help='create full report')
-    parser.add_argument('--transcript', action='store_true', help='include transcript')
-    parser.add_argument('--captions', action='store_true', help='include Llava captions')
-    parser.add_argument('--timeframes', action='store_true', help='include all time frames')
-    parser.add_argument('--entities', action='store_true', help='include entities from transcript')
     return parser
 
 
@@ -26,14 +21,10 @@ def main():
     args = parser.parse_args()
     #pp_args(args)
     mmif_summary = Summary(args.i)
-    mmif_summary.report(
-        outfile=args.o, full=args.full,
-        timeframes=args.timeframes, transcript=args.transcript,
-        captions=args.captions, entities=args.entities)
+    mmif_summary.report(outfile=args.o)
 
 
 """
-
 There used to be an option to process a whole directory, but I never used it and decided
 that if needed it would better be done by an extra script or a separate function.
 
@@ -45,8 +36,5 @@ if args.d:
             print(mmif_file)
             json_file = str(mmif_file)[:-4] + 'json'
             mmif_summary = Summary(mmif_file.read_text())
-            mmif_summary.report(
-                outfile=json_file, full=args.full,
-                timeframes=args.timeframes, transcript=args.transcript,
-                captions=args.captions, entities=args.entities)
+            mmif_summary.report(outfile=json_file)
 """
