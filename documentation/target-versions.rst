@@ -3,7 +3,7 @@
 Target MMIF Versions
 ====================
 
-This article provides targeting MMIF specification versions of different versions of ``mmif-python`` SDK. 
+This page lists targeting MMIF specification versions for different versions of the ``mmif-python`` SDK. 
 
 .. csv-table:: Target Specification Versions
    :file: target-versions.csv
