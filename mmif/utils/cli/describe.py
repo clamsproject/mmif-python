@@ -32,9 +32,17 @@ def describe_argparser():
     `clams <subcmd> --help`, respectively.
     """
     oneliner = (
-        'provides CLI to describe the workflow specification from a MMIF '
+        'Describe the workflow specification from a MMIF '
         'file or a collection of MMIF files.'
     )
+    return oneliner, oneliner
+
+
+def describe_rst():
+    """
+    Returns a restructured text string meant to be used in some sphinxs-generated
+    documention.
+    """
 
     # get and clean docstrings
     single_doc = describe_single_mmif.__doc__.split(':param')[0]
@@ -56,7 +64,7 @@ def describe_argparser():
     ===============================
     {collection_doc}
     """)
-    return oneliner, oneliner + '\n\n' + additional.strip()
+    return additional.strip()
 
 
 def prep_argparser(**kwargs):
