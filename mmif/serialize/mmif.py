@@ -15,7 +15,7 @@ import math
 import warnings
 from collections import defaultdict
 from datetime import datetime
-from typing import List, Union, Optional, Dict, cast, Iterator
+from typing import Any, List, Union, Optional, Dict, cast, Iterator
 
 import jsonschema.validators
 
@@ -487,11 +487,11 @@ class Mmif(MmifObject):
         else:
             return []
 
-    def get_documents_by_type(self, doc_type: Union[str, DocumentTypes]) -> List[Document]:
+    def get_documents_by_type(self, doc_type: Any) -> List[Document]:
         """
         Method to get all documents where the type matches a particular document type, which should be one of the CLAMS document types.
 
-        :param doc_type: the type of documents to search for, must be one of ``Document`` type defined in the CLAMS vocabulary.
+        :param doc_type: the type of documents to search for, must be one of ``Document`` types defined in the CLAMS vocabulary.
         :return: a list of documents matching the requested type, or an empty list if none found.
         """
         docs = []

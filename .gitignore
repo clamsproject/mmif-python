@@ -75,9 +75,14 @@ mmif/ver
 mmif/res
 mmif/vocabulary
 ./VERSION*
+VERSION
 .hypothesis
 
 # Documentation build artifacts
 documentation/cli_help.rst
 documentation/whatsnew.rst
 docs-test
+
+# environments
+.venv*
+venv*
