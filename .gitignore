@@ -80,7 +80,7 @@ VERSION
 
 # Documentation build artifacts
 documentation/cli_help.rst
-documentation/whatsnew.rst
+documentation/whatsnew.md
 docs-test
 
 # environments

@@ -1,3 +1,33 @@
+"""
+
+MMIF consumer that creates a JSON summary from a MMIF file.
+
+Makes some simplifying assumptions, including:
+
+- There is one video in the MMIF documents list. All start and end properties
+  are pointing to that video.
+- The time unit is assumed to be milliseconds.
+
+USAGE:
+
+    $ mmif summarize -i INFILE -o OUTFILE 
+
+    Run the summarizer over a MMIF file and write the JSON summary to OUTFILE.
+
+In all cases, the summarizer summarizes the information that is there, it does
+not fix any mistakes and in general it does not add any information that is not
+explicitly or implicitly in the MMIF file. In rare cases some information is
+added, for example if an ASR tool does not group tokens in sentence-like objects
+then the summarizer will do that, but then only by creating token groups of the 
+same length.
+
+The summary includes the MMIF version, the list of documents, a summary of the
+metadata of all views (identifier, CLAMS app, timestamp, total number of
+annotations and number of annotations per type, it does not show parameters and
+application configuration), time frames, transcript, captions and entities.
+
+"""
+
 
 import argparse
 
@@ -22,19 +52,3 @@ def main():
     #pp_args(args)
     mmif_summary = Summary(args.i)
     mmif_summary.report(outfile=args.o)
-
-
-"""
-There used to be an option to process a whole directory, but I never used it and decided
-that if needed it would better be done by an extra script or a separate function.
-
-The code for when there was a -d option is here just in case.
-
-if args.d:
-    for mmif_file in pathlib.Path(args.d).iterdir():
-        if mmif_file.is_file() and mmif_file.name.endswith('.mmif'):
-            print(mmif_file)
-            json_file = str(mmif_file)[:-4] + 'json'
-            mmif_summary = Summary(mmif_file.read_text())
-            mmif_summary.report(outfile=json_file)
-"""

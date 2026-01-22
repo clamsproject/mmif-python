@@ -99,9 +99,9 @@ def main(args):
     Main entry point for the describe CLI command.
 
     Reads a MMIF file and outputs a JSON summary containing:
+    
     - workflow_id: unique identifier for the source and app sequence
-    - stats: view counts, annotation counts (total/per-view/per-type),
-      and lists of error/warning/empty view IDs
+    - stats: view counts, annotation counts (total/per-view/per-type), and lists of error/warning/empty view IDs
     - views: map of view IDs to app configurations and profiling data
 
     :param args: Parsed command-line arguments

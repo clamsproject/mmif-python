@@ -42,6 +42,8 @@ html_show_sourcelink = True  # Furo handles this well, no need to hide
 
 by setting the variable to False might work, but that was a wild guess and it did not work.
 
+On second thought, this is probably because the source links go to pages that do not exist yet.
+
 --
 
 When reading the changes for a version frm the changelog file some of the typesetting does not translate well, for example in version 1.2.1 we get the raw text for the note:
