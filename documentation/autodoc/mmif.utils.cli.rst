@@ -30,3 +30,11 @@ Submodules
    :undoc-members:
    :show-inheritance:
 
+``summarize`` module
+--------------------
+
+.. automodule:: mmif.utils.cli.summarize
+   :members:
+   :undoc-members:
+   :show-inheritance:
+

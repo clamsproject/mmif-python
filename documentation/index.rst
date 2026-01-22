@@ -15,6 +15,7 @@ Contents
 
   introduction
   cli
+  summarizer
   plugins
   target-versions
 

@@ -12,7 +12,6 @@ mmif package
    autodoc/mmif.utils.cli
    autodoc/mmif.utils.summarizer
 
-
 mmif_docloc_http package
 ========================
 

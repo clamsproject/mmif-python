@@ -14,13 +14,22 @@ from mmif.utils.summarizer.nodes import Node, Nodes, EntityNode, TimeFrameNode
 
 class Graph(object):
 
-    """Graph implementation for a MMIF document. Each node contains an annotation
+    """
+    Graph implementation for a MMIF document. Each node contains an annotation
     or document. Alignments are stored separately. Edges between nodes are created
     from the alignments and added to the Node.targets property. The first edge added
     to Node.targets is the document that the Node points to (if there is one).
 
     The goal for the graph is to store all useful annotation and to have simple ways
-    to trace nodes all the way up to the primary data."""
+    to trace nodes all the way up to the primary data.
+
+    :var mmif:        the MMIF document that we are creating a graph for
+    :var documents:   list of the top-level documents
+    :var nodes:       dictionary of nodes, indexed on node identifier
+    :var alignments:  list of <View, Annotation> pairs
+    :var token_idx:   an instance of TokenIndex
+
+    """
 
     def __init__(self, mmif: Any):
         # TODO: the type hint should really be "MMif | str", but pytype did not
@@ -89,7 +98,8 @@ class Graph(object):
             source.add_anchors_from_alignment(target)
             target.add_anchors_from_alignment(source)
 
-    def get_node(self, node_id) -> Node | None:
+    def get_node(self, node_id: str) -> Node | None:
+        """Return the Node instance from the node index."""
         return self.nodes.get(node_id)
 
     # def get_nodes(self, short_at_type: str, view_id : str = None):
@@ -101,17 +111,25 @@ class Graph(object):
                 if (node.at_type.shortname == short_at_type
                     and (view_id is None or node.view.id == view_id))]
 
-    def statistics(self):
+    def statistics(self) -> defaultdict:
+        """
+        Collect counts for node types in each view.
+        """
         stats = defaultdict(int)
         for node in self.nodes.values():
             stats[f'{str(node.view_id):4} {node.at_type.shortname}'] += 1
         return stats
 
     def trim(self, start: int, end: int):
-        """Trim the graph and keep only those nodes that are included in the graph
+        """
+        :meta private:
+
+        Trim the graph and keep only those nodes that are included in the graph
         between two timepoints (both in milliseconds). This assumes that all nodes
         are anchored on the time in the audio or video stream. At the moment it 
-        keeps all nodes that are not explicitly anchored."""
+        keeps all nodes that are not explicitly anchored. Private for now because
+        it is still useless.
+        """
         remove = set()
         for node_id, node in self.nodes.items():
             if 'time-point' in node.anchors:
@@ -125,6 +143,9 @@ class Graph(object):
         self.nodes = { node.identifier: node for node in new_nodes }
 
     def pp(self, fname=None, skip_timepoints=False):
+        """
+        :meta private:
+        """
         fh = sys.stdout if fname is None else open(fname, 'w')
         fh.write("%s\n" % self)
         for view in self.mmif.views:
@@ -137,6 +158,9 @@ class Graph(object):
             fh.write(' -->  [%s]\n' % ' '.join(targets))
 
     def pp_statistics(self):
+        """
+        :meta private:
+        """
         stats = self.statistics()
         for at_type in sorted(stats):
             print(f'{at_type:20} {stats[at_type]:>5}')
@@ -148,11 +172,14 @@ class TokenIndex(object):
     The tokens are indexed on the identifier on the TextDocument that they occur
     in and for each text document we have a list of <offsets, Node> pairs
 
-    {'v_4:td1': [
-        ((0, 5), <summarizer.graph.Node object at 0x1039996d0>),
-        ((5, 6), <summarizer.graph.Node object at 0x103999850>),
-        ...
-    }
+    .. code-block:: python
+
+        {'v_4:td1': [
+            ((0, 5), <summarizer.graph.Node object at 0x1039996d0>),
+            ((5, 6), <summarizer.graph.Node object at 0x103999850>),
+            ...
+        }
+
     """
 
     # TODO: 
