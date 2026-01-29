@@ -24,7 +24,7 @@ from mmif import ThingTypesBase
 from mmif.serialize.annotation import Annotation, Document
 from mmif.serialize.model import MmifObject, DataList
 from mmif.serialize.view import View
-from mmif.vocabulary import AnnotationTypes, DocumentTypes, DocumentTypesBase
+from mmif.vocabulary import AnnotationTypes, DocumentTypesBase
 
 __all__ = ['Mmif']
 
