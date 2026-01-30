@@ -12,12 +12,12 @@ makes some simplifying assumptions, including:
 - The time unit is assumed to be milliseconds.
 
 
-The summarizer is accessable via the ``mmif`` command line script. To run the
+The summarizer is accessible via the ``mmif`` command line script. To run the
 summarizer over a MMIF file and write the JSON summary to OUTFILE:
 
 .. code-block:: bash
 
-	mmif summarize -i INFILE -o OUTFILE
+    mmif summarize -i INFILE -o OUTFILE
 
 In all cases, the summarizer summarizes only the information that is there, it
 does not fix any mistakes and in general it does not add any information that is

@@ -10,8 +10,7 @@
 1. serialization and de-serialization of MMIF internal data structures to/from JSON
 2. validation of MMIF JSON
 3. handling of CLAMS vocabulary types
-4. navigation of MMIF objects via various "search" methods (e.g. `mmif.get_all_views_contain(vocab_type))`)
-
+4. navigation of MMIF objects via various "search" methods (e.g. `mmif.get_all_views_contain(vocab_type)`)
 
 ## For more ...
 
