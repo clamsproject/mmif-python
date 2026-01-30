@@ -52,7 +52,24 @@ make doc
 python3 build-tools/docs.py
 ```
 
-The output will be in `docs-test` For more options, run `python build-tools/docs.py --help`.
+The output will be in `docs-test`. For more options, run `python build-tools/docs.py --help`.
+
+### API Documentation (autodoc)
+
+As of 2026 (since the next version of 1.2.1), API documentation is **automatically generated** using `sphinx-apidoc`. When you run the documentation build:
+
+1. The `run_apidoc()` function in `documentation/conf.py` runs automatically
+2. It scans packages listed in `apidoc_package_names` (currently `mmif` and `mmif_docloc_http`)
+3. RST files are generated in `documentation/autodoc/`
+4. These files are **not tracked in git** - they're regenerated on each build
+
+**When you add a new module or subpackage**, it will be automatically documented on the next build. No manual updates required.
+
+**To add a new top-level package** (like `mmif_docloc_http`), add it to `apidoc_package_names` in `documentation/conf.py`.
+
+**To exclude a subpackage** from documentation (like `mmif.res` or `mmif.ver`), add it to `apidoc_exclude_paths`.
+
+**Module docstrings** in `__init__.py` files are used as package descriptions in the documentation. Keep them concise and informative.
 
 ### Building Documentation for Old Versions
 

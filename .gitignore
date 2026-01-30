@@ -80,6 +80,7 @@ mmif/vocabulary
 # Documentation build artifacts
 documentation/cli_help.rst
 documentation/whatsnew.md
+documentation/autodoc
 docs-test
 
 # environments

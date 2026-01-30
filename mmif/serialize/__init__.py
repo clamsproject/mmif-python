@@ -1,3 +1,7 @@
+"""
+Core package to provide serialization and deserialization of MMIF format.
+"""
+
 from .annotation import *
 from .annotation import __all__ as anno_all
 from .mmif import *

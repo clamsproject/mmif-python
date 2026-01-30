@@ -21,6 +21,20 @@ sys.path.insert(0, str(proj_root_dir.absolute()))
 # At this point, `pip install -e .` should have been run, so mmif is importable
 import mmif
 
+# apidoc settings
+apidoc_package_names = ['mmif', 'mmif_docloc_http']
+apidoc_exclude_paths = [
+    proj_root_dir / 'mmif' / 'res',
+    proj_root_dir / 'mmif' / 'ver',
+]
+# this is used by sphinx.ext.autodoc
+autodoc_default_options = {
+    'members': True,
+    'undoc-members': True,
+    'show-inheritance': True,
+}
+
+
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
@@ -220,8 +234,42 @@ def generate_whatsnew_rst(app):
             f.writelines(content)
 
 
+def run_apidoc(app):
+    """
+    Run sphinx-apidoc to auto-generate RST files for all modules.
+    This ensures new modules are automatically documented without manual updates.
+    """
+    from sphinx.ext.apidoc import main as apidoc_main
+
+    docs_dir = Path(__file__).parent
+    output_dir = docs_dir / 'autodoc'
+
+    exclude_paths = map(str, apidoc_exclude_paths)
+
+    # Run sphinx-apidoc for each package specified in package_names
+    # apidoc_main() accepts argv-style arguments (without the program name)
+    for package_name in apidoc_package_names:
+        package_dir = proj_root_dir / package_name
+        if not package_dir.exists():
+            logger.warning(f"Package directory {package_dir} does not exist. "
+                           f"Skipping apidoc for {package_name}.")
+            continue
+
+        args = [
+            '-o', str(output_dir),
+            str(package_dir),
+            *exclude_paths,
+            '--force',          # Overwrite existing files
+            '--module-first',   # Put module docs before submodule docs
+            '--no-toc',         # Don't create modules.rst (we maintain our own)
+        ]
+        logger.info(f"Running sphinx-apidoc with args: {args}")
+        apidoc_main(args)
+
+
 def setup(app):
     try:
+        app.connect('builder-inited', run_apidoc)
         app.connect('builder-inited', update_target_versions)
         app.connect('builder-inited', generate_cli_rst)
         app.connect('builder-inited', generate_whatsnew_rst)

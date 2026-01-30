@@ -21,7 +21,6 @@ Contents
 
 .. toctree::
   :maxdepth: 2
-  :caption: API documentation:
 
   modules
 
