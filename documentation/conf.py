@@ -9,6 +9,9 @@ import os
 import re
 import sys
 from pathlib import Path
+from sphinx.util import logging
+
+logger = logging.getLogger(__name__)
 
 # -- Path setup --------------------------------------------------------------
 # Add project root to sys.path so that autodoc can find the mmif package.
@@ -23,14 +26,13 @@ import mmif
 
 project = 'mmif-python'
 blob_base_url = f'https://github.com/clamsproject/{project}/blob'
-copyright = f'{datetime.date.today().year}, Brandeis LLC'
 author = 'Brandeis LLC'
+copyright = f'{datetime.date.today().year}, {author}'
 try:
     version = open(proj_root_dir / 'VERSION').read().strip()
 except FileNotFoundError:
-    print("WARNING: VERSION file not found, using 'dev' as version.")
+    logger.warning("VERSION file not found, using 'dev' as version.")
     version = 'dev'
-release = version
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
@@ -142,7 +144,7 @@ def update_target_versions(app):
         return
 
     # Insert new version
-    print(f"Updating target-versions.csv: {current_ver} -> {spec_ver}")
+    logger.info(f"Updating target-versions.csv: {current_ver} -> {spec_ver}")
     lines.insert(1, f'{current_ver},"{spec_ver}"\n')
 
     with open(csv_path, 'w') as f:
@@ -187,7 +189,7 @@ def generate_whatsnew_rst(app):
     changelog_path = proj_root_dir / 'CHANGELOG.md'
     output_path = proj_root_dir / 'documentation' / 'whatsnew.md'
     if not changelog_path.exists():
-        print(f"WARNING: CHANGELOG.md not found at {changelog_path}")
+        logger.warning(f"CHANGELOG.md not found at {changelog_path}")
         with open(output_path, 'w') as f:
             f.write("")
         return
@@ -196,7 +198,7 @@ def generate_whatsnew_rst(app):
     found_version = False
     version_header_re = re.compile(r'^## releasing\s+([^\s]+)\s*(\(.*\))?')
 
-    print(f"DEBUG: Looking for version '{version}' in CHANGELOG.md")
+    logger.debug(f"Looking for version '{version}' in CHANGELOG.md")
 
     with open(changelog_path, 'r') as f:
         lines = f.readlines()
@@ -216,7 +218,7 @@ def generate_whatsnew_rst(app):
             content.append(line)
 
     if not found_version:
-        print(f"NOTE: No changelog entry found for version {version}")
+        logger.info(f"No changelog entry found for version {version}")
         with open(output_path, 'w') as f:
             f.write("")
     else:
@@ -232,4 +234,4 @@ def setup(app):
         app.connect('builder-inited', generate_cli_rst)
         app.connect('builder-inited', generate_whatsnew_rst)
     except ImportError:
-        print("WARNING: 'mmif' package not found. Skipping dynamic generation of parts of documentation.")
+        logger.warning("'mmif' package not found. Skipping dynamic generation of parts of documentation.")
