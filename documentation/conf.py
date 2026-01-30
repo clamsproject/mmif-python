@@ -152,29 +152,21 @@ def update_target_versions(app):
 
 
 def generate_cli_rst(app):
+    from mmif import prep_argparser_and_subcmds
+
+    # Generate main help
+    os.environ['COLUMNS'] = '100'
+    parser, _, _ = prep_argparser_and_subcmds()
+    help_text = parser.format_help()
 
     content = []
 
-    # Generate main help
-    # os.environ['COLUMNS'] = '100'
-    # parser = mmif.prep_argparser_for_documentation()
-    # help_text = parser.format_help()
-    # content.append('Main Command\n')
-    # content.append('------------\n\n')
-    # content.append('.. code-block:: text\n\n')
-    # content.append(textwrap.indent(help_text, '    '))
-    # content.append('\n\n')
-    
-    # Generate subcommand help
-    for cli_module in mmif.find_all_modules('mmif.utils.cli'):
-        cli_module_name = cli_module.__name__.rsplit('.')[-1]
-        subparser = cli_module.prep_argparser(prog=f'mmif {cli_module_name}')
-        sub_help = subparser.format_help()
-        content.append(f'{cli_module_name}\n')
-        content.append('-' * len(cli_module_name) + '\n\n')
-        content.append('.. code-block:: text\n\n')
-        content.append(textwrap.indent(sub_help, '    '))
-        content.append('\n\n')
+    content.append('.. code-block:: text\n\n')
+    content.append('    $ mmif --help\n')
+    content.append(textwrap.indent(help_text, '    '))
+    content.append('\n\n')
+
+    # No longer generate subcommand help
 
     with open(proj_root_dir / 'documentation' / 'cli_help.rst', 'w') as f:
         f.write(''.join(content))
