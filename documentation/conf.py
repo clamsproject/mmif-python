@@ -198,9 +198,10 @@ def generate_whatsnew_rst(app):
 
     print(f"DEBUG: Looking for version '{version}' in CHANGELOG.md")
 
-    with changelog_path.open() as f:
+    with open(changelog_path, 'r') as f:
         lines = f.readlines()
-    for n, line in enumerate(lines):
+
+    for line in lines:
         match = version_header_re.match(line)
         if match:
             header_version = match.group(1)
@@ -210,23 +211,18 @@ def generate_whatsnew_rst(app):
                 continue
             elif found_version:
                 break
+
         if found_version:
-            # Make the headers from the changelog mesh in properly with the headers
-            # in the documentation.
-            if line.startswith('###'):
-                line = '#' + line
             content.append(line)
 
-    with open(output_path, 'w') as f:
-        f.write(f"### What's New in {version}\n\n")
-        f.write(
-            "The full changelog is available in [CHANGELOG.md]"
-            f"({blob_base_url}/main/CHANGELOG.md).\n\n")
-        if not found_version:
-            print(f"NOTE: No changelog entry found for this version\n\n")
-            f.write("There are no changelog entries for this version\n\n")
-        else:
-            # Dump matched markdown content directly to whatsnew.md
+    if not found_version:
+        print(f"NOTE: No changelog entry found for version {version}")
+        with open(output_path, 'w') as f:
+            f.write("")
+    else:
+        # Dump matched markdown content directly to whatsnew.md
+        with open(output_path, 'w') as f:
+            f.write(f"## What's New in {version}\n\n(Full changelog available in the [CHANGELOG.md]({blob_base_url}/main/CHANGELOG.md))\n")
             f.writelines(content)
 
 

@@ -7,7 +7,7 @@ This is the documentation for the mmif-python package, a Python implementation f
 
 
 Contents
-^^^^^^^^
+--------
 
 .. toctree::
   :maxdepth: 2
@@ -27,7 +27,7 @@ Contents
 
 
 Indices
-^^^^^^^
+-------
 
 * :ref:`genindex`
 * :ref:`modindex`
