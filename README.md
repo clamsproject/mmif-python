@@ -17,8 +17,4 @@
 * [Version history and patch notes](https://github.com/clamsproject/mmif-python/blob/main/CHANGELOG.md)
 * [MMIF Python API documentation](https://clamsproject.github.io/mmif-python/latest)
 * [MMIF JSON specification and schema](https://clamsproject.github.io/mmif)
-
-
-## For devs ...
-
-* To build the documentation: `python build-tools/docs.py --help`
+* [Contributing guide](CONTRIBUTING.md)
