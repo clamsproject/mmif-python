@@ -75,7 +75,6 @@ mmif/ver
 mmif/res
 mmif/vocabulary
 ./VERSION*
-VERSION
 .hypothesis
 
 # Documentation build artifacts
