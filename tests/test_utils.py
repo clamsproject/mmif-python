@@ -276,9 +276,9 @@ class TestWorkflowHelper(unittest.TestCase):
         try:
             workflow_id = workflow_helper.generate_workflow_identifier(tmp_file)
             segments = workflow_id.split('/')
-            self.assertEqual(len(segments), 7)
-            self.assertIn('app1', segments[1])
-            self.assertIn('app2', segments[4])
+            self.assertEqual(len(segments), 6)
+            self.assertIn('app1', segments[0])
+            self.assertIn('app2', segments[3])
         finally:
             os.unlink(tmp_file)
 

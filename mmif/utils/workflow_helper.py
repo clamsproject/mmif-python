@@ -93,7 +93,9 @@ def _read_mmif_from_path(mmif_input: Union[str, Path, Mmif]) -> Mmif:
         )
 
 
-def generate_workflow_identifier(mmif_input: Union[str, Path, Mmif], return_param_dicts=False) -> Union[str, Tuple[str, List[dict]]]:
+def generate_workflow_identifier(mmif_input: Union[str, Path, Mmif],
+                                 return_param_dicts=False) \
+        -> Union[str, Tuple[str, List[dict]]]:
     """
     Generate a workflow identifier string from a MMIF file or object.
 
@@ -110,10 +112,6 @@ def generate_workflow_identifier(mmif_input: Union[str, Path, Mmif], return_para
     """
     data = _read_mmif_from_path(mmif_input)
     segments = []
-
-    # First prefix is source information, sorted by document type
-    sources = Counter(doc.at_type.shortname for doc in data.documents)
-    segments.append('-'.join([f'{k}-{sources[k]}' for k in sorted(sources.keys())]))
 
     # Group views into runs
     grouped_apps = group_views_by_app(data.views)
