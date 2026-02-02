@@ -374,7 +374,7 @@ class Document(Annotation):
 
         With the former method, the SDK will record the added property as a
         `Annotation` annotation object, separate from the original `Document`
-        object. See :meth:`.Mmif.generate_capital_annotations()` for more.
+        object. See :meth:`mmif.serialize.Mmif.generate_capital_annotations()` for more.
 
         A few notes to keep in mind:
 

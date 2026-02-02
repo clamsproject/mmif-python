@@ -276,9 +276,72 @@ class TestWorkflowHelper(unittest.TestCase):
         try:
             workflow_id = workflow_helper.generate_workflow_identifier(tmp_file)
             segments = workflow_id.split('/')
-            self.assertEqual(len(segments), 7)
-            self.assertIn('app1', segments[1])
-            self.assertIn('app2', segments[4])
+            self.assertEqual(len(segments), 6)
+            self.assertIn('app1', segments[0])
+            self.assertIn('app2', segments[3])
+        finally:
+            os.unlink(tmp_file)
+
+    def test_generate_workflow_identifier_with_mmif_object(self):
+        """Test that generate_workflow_identifier accepts Mmif objects directly."""
+        from mmif.utils import workflow_helper
+        import os
+
+        # Test with Mmif object directly
+        workflow_id_from_obj = workflow_helper.generate_workflow_identifier(self.basic_mmif)
+
+        # Test with file path - should produce the same result
+        tmp_file = self.create_temp_mmif_file(self.basic_mmif)
+        try:
+            workflow_id_from_file = workflow_helper.generate_workflow_identifier(tmp_file)
+            self.assertEqual(workflow_id_from_obj, workflow_id_from_file)
+        finally:
+            os.unlink(tmp_file)
+
+    def test_read_mmif_from_path(self):
+        """Test the _read_mmif_from_path helper function."""
+        from mmif.utils.workflow_helper import _read_mmif_from_path
+        from pathlib import Path
+        import os
+
+        # Test with Mmif object - should return as-is
+        result = _read_mmif_from_path(self.basic_mmif)
+        self.assertIs(result, self.basic_mmif)
+
+        # Test with file path string
+        tmp_file = self.create_temp_mmif_file(self.basic_mmif)
+        try:
+            result_from_str = _read_mmif_from_path(tmp_file)
+            self.assertIsInstance(result_from_str, Mmif)
+            self.assertEqual(result_from_str.serialize(pretty=False), self.basic_mmif.serialize(pretty=False))
+
+            # Test with Path object
+            result_from_path = _read_mmif_from_path(Path(tmp_file))
+            self.assertIsInstance(result_from_path, Mmif)
+            self.assertEqual(result_from_path.serialize(pretty=False), self.basic_mmif.serialize(pretty=False))
+        finally:
+            os.unlink(tmp_file)
+
+        # Test with invalid input
+        with pytest.raises(ValueError):
+            _read_mmif_from_path(12345)
+
+    def test_describe_single_mmif_with_mmif_object(self):
+        """Test that describe_single_mmif accepts Mmif objects directly."""
+        from mmif.utils.workflow_helper import describe_single_mmif
+        import os
+
+        # Test with Mmif object directly
+        result_from_obj = describe_single_mmif(self.basic_mmif)
+
+        # Test with file path - should produce the same result
+        tmp_file = self.create_temp_mmif_file(self.basic_mmif)
+        try:
+            result_from_file = describe_single_mmif(tmp_file)
+            self.assertEqual(result_from_obj, result_from_file)
+            self.assertIn('workflowId', result_from_obj)
+            self.assertIn('stats', result_from_obj)
+            self.assertIn('apps', result_from_obj)
         finally:
             os.unlink(tmp_file)
 
