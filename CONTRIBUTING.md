@@ -1,5 +1,22 @@
 # Contributing to mmif-python
 
+## Git Workflow
+
+We follow a Gitflow-inspired branching model to maintain a stable `main` branch and a dynamic `develop` branch.
+
+1. **Branch Roles**:
+    - `main`: Reserved for stable, production-ready releases.
+    - `develop`: The primary branch for ongoing development, feature integration, and bug fixes. This serves as the "staging" area for the next release.
+2. **Issue Tracking**: Every contribution (bug fix or feature) must first be reported as a [GitHub Issue](https://github.com/clamsproject/mmif-python/issues). Issues should clearly define goals and, preferably, include an implementation plan.
+3. **Branch Naming**: Create a dedicated working branch for each issue. Branches must be named using the format `NUM-short-description`, where `NUM` is the issue number (e.g., `113-fix-file-loading`).
+4. **Pull Requests (PRs)**:
+    - Once work is complete, open a PR targeting the `develop` branch.
+    - **Communication**: High-level discussion and planning should occur in the issue thread. The PR conversation is strictly for code review and implementation-specific feedback.
+5. **Releases**:
+    - When `develop` is ready for a new release, open a PR from `develop` to `main` using the "release" PR template.
+    - After merging the release candidate into `main`, manually tag the commit with the version number. This tag triggers the automated CI/CD pipeline for publishing.
+6. **Branch Protection**: Both `main` and `develop` are protected branches. Direct pushes are disabled; all changes must be introduced via Pull Requests.
+
 ## CLI Scripts
 
 The `mmif` command-line interface supports subcommands (e.g., `mmif source`, `mmif describe`). These are implemented as Python modules in `mmif/utils/cli/`.
