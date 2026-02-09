@@ -36,17 +36,12 @@ publish: distclean version package test
 $(generatedcode): dist/$(sdistname)*.tar.gz
 
 docs:
-	@echo "WARNING: The 'docs' target is deprecated and will be removed."
-	@echo "The 'docs' directory is no longer used. Documentation is now hosted in the central CLAMS documentation hub."
-	@echo "Use 'make doc' for local builds or 'make doc-version' for specific versions."
-	@echo "Nothing is done."
+	@echo "The 'docs' target is deprecated and will be removed."
+	@echo "Documentation is now managed by 'build-tools/docs.py'."
+	@echo "Please run 'python3 build-tools/docs.py --help' for usage."
 
-doc: # for single version sphinx - builds current source
-	python3 build-tools/docs.py
-
-doc-version: # interactive build for specific version
-	@read -p "Enter version/tag to build (e.g., v1.0.0): " ver; \
-	[ -n "$$ver" ] && python3 build-tools/docs.py --build-ver $$ver
+doc: docs
+doc-version: docs
 
 package: VERSION dist/$(sdistname)*.tar.gz
 
