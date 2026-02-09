@@ -25,7 +25,7 @@ The `mmif` command-line interface supports subcommands (e.g., `mmif source`, `mm
 
 To add a new CLI subcommand, create a Python module in `mmif/utils/cli/` with these three required functions:
 
-1. **`prep_argparser(**kwargs)`** - Define and return an `argparse.ArgumentParser` instance for your subcommand.
+1. **`prep_argparser(**kwargs)`** - Define and return an `argparse.ArgumentParser` instance for your subcommand. When called during discovery, the main CLI will pass `add_help=False` to this function to avoid duplicate help flags.
 
 2. **`describe_argparser()`** - Return a tuple of two strings:
    - A one-line description (shown in `mmif --help`)
@@ -33,11 +33,12 @@ To add a new CLI subcommand, create a Python module in `mmif/utils/cli/` with th
 
 3. **`main(args)`** - Execute the subcommand logic with the parsed arguments.
 
-See existing modules like `summarize.py` or `describe.py` for examples.
+[!NOTE]
+> CLI modules should typically act as thin wrappers. It is recommended to implement the core utility logic in other packages (e.g., `mmif.utils`) and import it into the CLI module. See existing modules like `summarize.py` (which imports from `mmif.utils.summarizer`) or `describe.py` for examples.
 
 ### How CLI Discovery Works
 
-The CLI system automatically discovers subcommands at runtime. The entry point is configured in `setup.py`:
+The CLI system automatically discovers subcommands at runtime. The entry point is configured in the build script (currently `setup.py`) as follows:
 
 ```python
 entry_points={
@@ -47,13 +48,12 @@ entry_points={
 },
 ```
 
-The `cli()` function in `mmif/__init__.py` delegates to `prep_argparser_and_subcmds()`, which uses `find_all_modules('mmif.utils.cli')` to locate all modules in the CLI package. For each module found, it:
+The `cli()` function in `mmif/__init__.py` handles discovery and delegation. It uses `pkgutil.walk_packages` to find all modules within the top-level of the `mmif.utils.cli` package. For the discovery logic to work, a "cli module" should implement the requirements outlined above. 
 
-1. Calls `prep_argparser()` to get the argument parser
-2. Calls `describe_argparser()` for help text
-3. Registers the module name as a subcommand
+This means adding a properly structured module within the CLI package is all that's needed—the module name will automatically be registered as a subcommand. No modifications to `setup.py` or other configuration files are required.
 
-This means adding a properly structured module is all that's needed - no modifications to `setup.py` or other configuration files are required.
+> [!NOTE]
+> Any "client" code (not shell CLI) wants to use a module in `cli` package should be able to directrly `from mmif.utils.cli import a_module`. However, for historical reasons, some CLI modules are manually imported in `mmif/__init__.py` (e.g., `source.py`) for backward compatibility for clients predateing the discovery system. 
 
 ## Documentation
 
