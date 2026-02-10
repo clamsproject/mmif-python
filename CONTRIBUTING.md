@@ -64,8 +64,6 @@ The documentation for `mmif-python` is built using Sphinx and published to the [
 To build the documentation for the current checkout:
 
 ```bash
-make doc
-# OR
 python3 build-tools/docs.py
 ```
 
