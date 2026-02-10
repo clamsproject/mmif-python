@@ -3,7 +3,6 @@
 Developing plugins for the MMIF Python SDK
 ==========================================
 
-
 Overview 
 --------
 
@@ -80,10 +79,41 @@ And the plugin code.
    def help():
        return "location format: `<DOCUMENT_ID>.video`"
 
-
-
-Bulit-in Document Location Scheme Plugins
+Built-in Document Location Scheme Plugins
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-At the moment, the ``mmif-python`` PyPI distribution ships a built-in *docloc* plugin that supports both ``http`` and ``https`` schemes.
+At the moment, the ``mmif-python`` PyPI distribution ships a built-in *docloc* plugin that support both ``http`` and ``https`` schemes. This plugin implements caching as described above, so repeated access to the same URL will not trigger multiple downloads.
 Take a look at the :mod:`mmif_docloc_http` module for details. 
+
+Caching for Remote File Access
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+When developing plugins that resolve remote document locations (e.g., ``http``, ``s3``, or custom schemes), it is highly recommended to implement caching to avoid repeated network requests or file downloads. Since ``mmif-python`` may call the ``resolve`` function multiple times for the same document location during processing, caching can significantly improve performance.
+
+A simple and effective approach is to use a module-level dictionary as a cache. Because Python modules are singletons (loaded once and cached in ``sys.modules``), this cache persists for the entire lifetime of the Python process, across multiple MMIF files and Document objects.
+
+Here's an example of how to implement caching in a plugin:
+
+.. code-block:: python
+
+   # mmif_docloc_myscheme/__init__.py
+
+   _cache = {}
+
+   def resolve(docloc):
+       if docloc in _cache:
+           return _cache[docloc]
+
+       # ... your resolution logic here ...
+       resolved_path = do_actual_resolution(docloc)
+
+       _cache[docloc] = resolved_path
+       return resolved_path
+
+This pattern ensures that:
+
+* The first call to ``resolve`` performs the actual resolution (download, API call, etc.)
+* Subsequent calls for the same location return the cached result immediately
+* The cache is shared across all MMIF objects processed within the same Python process
+
+See :mod:`mmif_docloc_http` for a concrete example of this caching strategy in action.

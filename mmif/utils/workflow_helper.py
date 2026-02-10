@@ -73,9 +73,31 @@ def generate_param_hash(params: dict) -> str:
     return hashlib.md5(param_string.encode('utf-8')).hexdigest()
 
 
-def generate_workflow_identifier(mmif_file: Union[str, Path]) -> str:
+def _read_mmif_from_path(mmif_input: Union[str, Path, Mmif]) -> Mmif:
     """
-    Generate a workflow identifier string from a MMIF file.
+    Helper function to get a Mmif object from various input types.
+
+    :param mmif_input: Either a file path (str or Path) or an existing Mmif object
+    :return: Mmif object
+    :raises ValueError: If input is not a valid type
+    """
+    if isinstance(mmif_input, Mmif):
+        return mmif_input
+    elif isinstance(mmif_input, (str, Path)):
+        with open(mmif_input, "r") as f:
+            mmif_str = f.read()
+        return Mmif(mmif_str)
+    else:
+        raise ValueError(
+            "MMIF input must be a string path, a Path object, or a Mmif object."
+        )
+
+
+def generate_workflow_identifier(mmif_input: Union[str, Path, Mmif],
+                                 return_param_dicts=False) \
+        -> Union[str, Tuple[str, List[dict]]]:
+    """
+    Generate a workflow identifier string from a MMIF file or object.
 
     The identifier follows the storage directory structure format:
     app_name/version/param_hash/app_name2/version2/param_hash2/...
@@ -83,25 +105,18 @@ def generate_workflow_identifier(mmif_file: Union[str, Path]) -> str:
     Uses view.metadata.parameters (raw user-passed values) for hashing
     to ensure reproducibility. Views with errors or warnings are excluded
     from the identifier; empty views are included.
+
+    :param mmif_input: Path to MMIF file (str or Path) or a Mmif object
+    :param return_param_dicts: If True, also return the parameter dictionaries
+    :return: Workflow identifier string, or tuple of (identifier, param_dicts) if return_param_dicts=True
     """
-    if not isinstance(mmif_file, (str, Path)):
-        raise ValueError(
-            "MMIF file path must be a string or a Path object."
-        )
-
-    with open(mmif_file, "r") as f:
-        mmif_str = f.read()
-
-    data = Mmif(mmif_str)
+    data = _read_mmif_from_path(mmif_input)
     segments = []
-
-    # First prefix is source information, sorted by document type
-    sources = Counter(doc.at_type.shortname for doc in data.documents)
-    segments.append('-'.join([f'{k}-{sources[k]}' for k in sorted(sources.keys())]))
 
     # Group views into runs
     grouped_apps = group_views_by_app(data.views)
 
+    param_dicts = []
     for app_execution in grouped_apps:
         # Use the first view in the run as representative for metadata
         first_view = app_execution[0]
@@ -120,6 +135,7 @@ def generate_workflow_identifier(mmif_file: Union[str, Path]) -> str:
             param_dict = first_view.metadata.parameters
         except (KeyError, AttributeError):
             param_dict = {}
+        param_dicts.append(param_dict)
 
         param_hash = generate_param_hash(param_dict)
 
@@ -128,6 +144,8 @@ def generate_workflow_identifier(mmif_file: Union[str, Path]) -> str:
         version_str = app_version if app_version else "unversioned"
         segments.append(f"{name_str}/{version_str}/{param_hash}")
 
+    if return_param_dicts:
+        return '/'.join(segments), param_dicts
     return '/'.join(segments)
 
 
@@ -159,9 +177,9 @@ def _get_profile_data(view) -> dict:
     return {"runningTimeMS": milliseconds}
 
 
-def describe_single_mmif(mmif_file: Union[str, Path]) -> dict:
+def describe_single_mmif(mmif_input: Union[str, Path, Mmif]) -> dict:
     """
-    Reads a MMIF file and extracts the workflow specification from it.
+    Reads a MMIF file or object and extracts the workflow specification from it.
 
     This function provides an app-centric summarization of the workflow. The
     conceptual hierarchy is that a **workflow** is a sequence of **apps**,
@@ -212,19 +230,11 @@ def describe_single_mmif(mmif_file: Union[str, Path]) -> dict:
     The docstring above is used to generate help messages for the CLI command.
     Do not remove the triple-dashed lines.
 
-    :param mmif_file: Path to the MMIF file
+    :param mmif_input: Path to MMIF file (str or Path) or a Mmif object
     :return: A dictionary containing the workflow specification.
     """
-    if not isinstance(mmif_file, (str, Path)):
-        raise ValueError(
-            "MMIF file path must be a string or a Path object."
-        )
-
-    workflow_id = generate_workflow_identifier(mmif_file)
-    with open(mmif_file, "r") as f:
-        mmif_str = f.read()
-
-    mmif = Mmif(mmif_str)
+    mmif = _read_mmif_from_path(mmif_input)
+    workflow_id = generate_workflow_identifier(mmif)
 
     error_view_ids = []
     warning_view_ids = []
