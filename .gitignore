@@ -75,12 +75,12 @@ mmif/ver
 mmif/res
 mmif/vocabulary
 ./VERSION*
-VERSION
 .hypothesis
 
 # Documentation build artifacts
 documentation/cli_help.rst
 documentation/whatsnew.md
+documentation/autodoc
 docs-test
 
 # environments

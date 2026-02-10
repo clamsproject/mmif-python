@@ -1,3 +1,11 @@
+"""
+MMIF document location helper module for ``http`` and ``https`` schemes.
+
+If you want to write your own docloc scheme handler, please use the source
+code of this module as a reference. See the :ref:`plug-in section <docloc_plugin>`
+for more information.
+"""
+
 import urllib.request
 import urllib.error
 

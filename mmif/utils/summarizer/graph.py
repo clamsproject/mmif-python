@@ -177,7 +177,7 @@ class TokenIndex(object):
         {'v_4:td1': [
             ((0, 5), <summarizer.graph.Node object at 0x1039996d0>),
             ((5, 6), <summarizer.graph.Node object at 0x103999850>),
-            ...
+            ...]
         }
 
     """

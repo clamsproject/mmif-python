@@ -40,12 +40,37 @@ class Venv:
         return run_command([self.sphinx_build, *args], cwd=cwd, check=check)
 
 
+def get_dummy_version():
+    """Returns a dummy version based on current git branch and dirty status.
+    Falls back to 'unknown' if not in a git repository."""
+    try:
+        branch = subprocess.check_output(["git", "rev-parse", "--abbrev-ref", "HEAD"], 
+                                        stderr=subprocess.DEVNULL, text=True).strip()
+        dirty = subprocess.run(["git", "diff", "--quiet"], 
+                              stderr=subprocess.DEVNULL, check=False).returncode != 0
+        return f"{branch}{'+dirty' if dirty else ''}"
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        return "unknown"
+
+
 def build_docs_local(source_dir: Path, output_dir: Path):
     """
     Builds documentation for the provided source directory.
     Assumes it's running in an environment with necessary tools.
     """
     print("--- Running in Local Build Mode ---")
+
+    # Warning for user as VERSION file is critical
+    if sys.stdin.isatty():
+        import select
+        print("\nWARNING: The 'VERSION' file will be overwritten with a dummy version for this local build.")
+        print("Pausing for 3 seconds (press Enter to continue immediately)...")
+        select.select([sys.stdin], [], [], 3)
+
+    # Overwrite VERSION file with dummy version for local builds
+    version = get_dummy_version()
+    print(f"Generating dummy VERSION for local build: {version}")
+    (source_dir / "VERSION").write_text(version)
 
     # 1. Generate source code and install in editable mode.
     print("\n--- Step 1: Generating source code and installing in editable mode ---")

@@ -7,10 +7,10 @@ The ``mmif`` shell command
 
 The CLI scripts are installed as subcommands of the ``mmif`` shell command. Run the following to see the available commands or the MMIF version:
 
-.. code-block:: bash
-
-    mmif (--help | --version)
-
-The following documentation is automatically generated from the CLI help messages.
-
 .. include:: cli_help.rst
+
+Please take a look at the individual command documentation for more details on each command:
+
+.. code-block:: text
+
+    $ mmif <SUBCOMMAND> --help

@@ -37,7 +37,7 @@ The MMIF format and specification is evolving over time, and ``mmif-python`` pac
 MMIF Serialization
 ---------------------------
 
-:class:`mmif.serialize.mmif.Mmif` represents the top-level MMIF object. Subcomponents of the MMIF object (views, annotation objects and metadata for each object)and the MMIF object itself are all subclasses of :class:`mmif.serialize.model.MmifObject`. To start with an existing MMIF :class:`str`, simply initiate a new ``Mmif`` object with that string. 
+:class:`mmif.serialize.mmif.Mmif` represents the top-level MMIF object. Subcomponents of the MMIF object (views, annotation objects and metadata for each object) and the MMIF object itself are all subclasses of :class:`mmif.serialize.model.MmifObject`. To start with an existing MMIF :class:`str`, simply initiate a new ``Mmif`` object with that string.
 
 .. code-block:: python 
 

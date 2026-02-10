@@ -85,5 +85,5 @@ And the plugin code.
 Bulit-in Document Location Scheme Plugins
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-At the moment, the ``mmif-python`` PyPI distribution ships a built-in *docloc* plugin that support both ``http`` and ``https`` schemes.
+At the moment, the ``mmif-python`` PyPI distribution ships a built-in *docloc* plugin that supports both ``http`` and ``https`` schemes.
 Take a look at the :mod:`mmif_docloc_http` module for details. 
