@@ -24,7 +24,7 @@ from mmif import ThingTypesBase
 from mmif.serialize.annotation import Annotation, Document
 from mmif.serialize.model import MmifObject, DataList
 from mmif.serialize.view import View
-from mmif.vocabulary import AnnotationTypes, DocumentTypes
+from mmif.vocabulary import AnnotationTypes, DocumentTypesBase
 
 __all__ = ['Mmif']
 
@@ -487,7 +487,7 @@ class Mmif(MmifObject):
         else:
             return []
 
-    def get_documents_by_type(self, doc_type: Any) -> List[Document]:
+    def get_documents_by_type(self, doc_type: DocumentTypesBase) -> List[Document]:
         """
         Method to get all documents where the type matches a particular document type, which should be one of the CLAMS document types.
 
@@ -530,7 +530,7 @@ class Mmif(MmifObject):
         docs.extend([document for document in self.documents if document[prop_key] == prop_value])
         return docs
 
-    def get_documents_locations(self, m_type: Union[DocumentTypes, str], path_only=False) -> List[Union[str, None]]:
+    def get_documents_locations(self, m_type: Union[DocumentTypesBase, str], path_only=False) -> List[Union[str, None]]:
         """
         This method returns the file paths of documents of given type.
         Only top-level documents have locations, so we only check them.
@@ -545,7 +545,7 @@ class Mmif(MmifObject):
         else:
             return [doc.location for doc in docs]
 
-    def get_document_location(self, m_type: Union[DocumentTypes, str], path_only=False) -> Optional[str]:
+    def get_document_location(self, m_type: Union[DocumentTypesBase, str], path_only=False) -> Optional[str]:
         """
         Method to get the location of *first* document of given type.
 
