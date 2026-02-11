@@ -9,9 +9,13 @@ import mmif
 from mmif.utils.cli import rewind
 from mmif.utils.cli import source
 from mmif.utils.cli import describe
+from mmif.utils.cli import summarize
 
 from mmif.serialize import Mmif
 from mmif.vocabulary import DocumentTypes, AnnotationTypes
+
+
+BASIC_MMIF_STRING = '{"metadata": {"mmif": "http://mmif.clams.ai/1.0.0"}, "documents": [{"@type": "http://mmif.clams.ai/vocabulary/VideoDocument/v1", "properties": {"id": "d1", "mime": "video/mp4", "location": "file:///test/video.mp4"}}], "views": []}'
 
 
 class TestCli(unittest.TestCase):
@@ -121,23 +125,11 @@ class TestSource(unittest.TestCase):
 class TestRewind(unittest.TestCase):
     def setUp(self):
         # mmif we add views to
-        self.mmif_one = Mmif(
-            {
-                "metadata": {"mmif": "http://mmif.clams.ai/1.0.0"},
-                "documents": [],
-                "views": [],
-            }
-        )
+        self.mmif_one = Mmif(BASIC_MMIF_STRING)
 
         # baseline empty mmif for comparison
-        self.empty_mmif = Mmif(
-            {
-                "metadata": {"mmif": "http://mmif.clams.ai/1.0.0"},
-                "documents": [],
-                "views": [],
-            }
-        )
-    
+        self.empty_mmif = Mmif(BASIC_MMIF_STRING)
+
     @staticmethod
     def add_dummy_view(mmif: Mmif, appname: str, timestamp: str = None):
         v = mmif.new_view()
@@ -192,9 +184,7 @@ class TestDescribe(unittest.TestCase):
         """Create test MMIF structures."""
         self.parser = describe.prep_argparser()
         self.maxDiff = None
-        self.basic_mmif = Mmif(
-            '{"metadata": {"mmif": "http://mmif.clams.ai/1.0.0"}, "documents": [{"@type": "http://mmif.clams.ai/vocabulary/VideoDocument/v1", "properties": {"id": "d1", "mime": "video/mp4", "location": "file:///test/video.mp4"}}], "views": []}'
-        )
+        self.basic_mmif = Mmif(BASIC_MMIF_STRING)
 
     def create_temp_mmif_file(self, mmif_obj):
         """Helper to create a temporary MMIF file."""
@@ -300,6 +290,82 @@ class TestDescribe(unittest.TestCase):
             self.assertEqual(output, expected)
         finally:
             os.rmdir(dummy_dir)
+
+
+class TestSummarize(unittest.TestCase):
+    """Test suite for the summarize CLI module."""
+
+    def setUp(self):
+        """Create test MMIF structures."""
+        self.parser = summarize.prep_argparser()
+        self.basic_mmif = Mmif(BASIC_MMIF_STRING)
+
+    def create_temp_mmif_file(self, mmif_obj):
+        """Helper to create a temporary MMIF file."""
+        tmp = tempfile.NamedTemporaryFile(mode='w', suffix='.mmif', delete=False)
+        tmp.write(mmif_obj.serialize(pretty=False))
+        tmp.close()
+        return tmp.name
+
+    def test_summarize_positional_input(self):
+        tmp_file = self.create_temp_mmif_file(self.basic_mmif)
+        stdout = io.StringIO()
+        try:
+            args = self.parser.parse_args([tmp_file])
+            args.output = stdout
+            summarize.main(args)
+            output = json.loads(stdout.getvalue())
+            self.assertIn('mmif_version', output)
+            self.assertEqual(output['mmif_version'], "http://mmif.clams.ai/1.0.0")
+        finally:
+            os.unlink(tmp_file)
+
+    def test_summarize_output_file(self):
+        tmp_input = self.create_temp_mmif_file(self.basic_mmif)
+        tmp_output = tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False)
+        tmp_output.close()
+        try:
+            args = self.parser.parse_args([tmp_input, "-o", tmp_output.name])
+            summarize.main(args)
+            args.output.close()
+            with open(tmp_output.name, 'r') as f:
+                output = json.load(f)
+            self.assertIn('mmif_version', output)
+        finally:
+            os.unlink(tmp_input)
+            os.unlink(tmp_output.name)
+
+    def test_summarize_pretty_print(self):
+        tmp_file = self.create_temp_mmif_file(self.basic_mmif)
+        stdout_pretty = io.StringIO()
+        stdout_compact = io.StringIO()
+        try:
+            # Pretty
+            args_pretty = self.parser.parse_args([tmp_file, "--pretty"])
+            args_pretty.output = stdout_pretty
+            summarize.main(args_pretty)
+
+            # Compact
+            args_compact = self.parser.parse_args([tmp_file])
+            args_compact.output = stdout_compact
+            summarize.main(args_compact)
+
+            self.assertNotEqual(stdout_pretty.getvalue(), stdout_compact.getvalue())
+            self.assertIn('\n  ', stdout_pretty.getvalue()) # Check for indentation
+        finally:
+            os.unlink(tmp_file)
+
+    def test_summarize_stdin(self):
+        mmif_str = self.basic_mmif.serialize()
+        import argparse
+        stdout = io.StringIO()
+        stdin = io.StringIO(mmif_str)
+
+        args = argparse.Namespace(MMIF_FILE=stdin, output=stdout, pretty=False)
+        summarize.main(args)
+
+        output = json.loads(stdout.getvalue())
+        self.assertEqual(output['mmif_version'], "http://mmif.clams.ai/1.0.0")
 
 
 if __name__ == '__main__':

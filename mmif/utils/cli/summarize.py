@@ -8,10 +8,6 @@ from mmif.utils.summarizer.summary import Summary
 
 
 def describe_argparser() -> tuple:
-    """
-    returns two strings: one-line description of the argparser, and addition material, 
-    which will be shown in `clams --help` and `clams <subcmd> --help`, respectively.
-    """
     oneliner = 'Create a JSON Summary for a MMIF file.'
     additional = 'The output is serialized as JSON and includes various statistics and summaries of the MMIF content.'
     return oneliner, oneliner + '\n\n' + additional
@@ -41,8 +37,8 @@ def main(args: argparse.Namespace):
     The main summarizer command.
     """
     if args.MMIF_FILE is None:
-        raise ValueError("No input MMIF provided.")
-        
+        print("error: No input MMIF provided.", file=sys.stderr)
+        sys.exit(2)
     mmif_content = args.MMIF_FILE.read()
 
     tmp_path = None

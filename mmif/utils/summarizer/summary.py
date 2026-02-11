@@ -102,6 +102,9 @@ class Summary(object):
         report = json.dumps(json_obj, indent=2)
         if outfile is None:
             return report
+        # Support both file-like objects and path-like values for outfile.
+        if hasattr(outfile, "write"):
+            outfile.write(report)
         else:
             with open(outfile, 'w') as fh:
                 fh.write(report)
