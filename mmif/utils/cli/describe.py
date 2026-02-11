@@ -26,11 +26,6 @@ def generate_pipeline_identifier(mmif_file: Union[str, Path]) -> str:
 
 
 def describe_argparser():
-    """
-    Returns two strings: one-line description of the argparser, and
-    additional material, which will be shown in `clams --help` and
-    `clams <subcmd> --help`, respectively.
-    """
     oneliner = (
         'Describe the workflow specification from a MMIF file or a '
         'collection of MMIF files.'

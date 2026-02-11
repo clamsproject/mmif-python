@@ -55,10 +55,6 @@ def rewind_mmif(mmif_obj: mmif.Mmif, choice: int, choice_is_viewnum: bool = True
 
 
 def describe_argparser():
-    """
-    returns two strings: one-line description of the argparser, and addition material, 
-    which will be shown in `clams --help` and `clams <subcmd> --help`, respectively.
-    """
     oneliner = 'provides CLI to rewind a MMIF from a CLAMS workflow.'
     additional = textwrap.dedent("""
     MMIF rewinder rewinds a MMIF by deleting the last N views.

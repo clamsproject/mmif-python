@@ -83,8 +83,8 @@ class Summary(object):
     def video_documents(self):
         return self.mmif.get_documents_by_type(DocumentTypes.VideoDocument)
 
-    def report(self, outfile=None):
-        json_obj = {
+    def to_dict(self):
+        return {
             'mmif_version': self.mmif.metadata.mmif,
             'document': self.document.data,
             'documents': self.documents.data,
@@ -96,6 +96,9 @@ class Summary(object):
             'timeframe_stats': self.timeframe_stats.data,
             'entities': self.entities.as_json()
         }
+
+    def report(self, outfile=None):
+        json_obj = self.to_dict()
         report = json.dumps(json_obj, indent=2)
         if outfile is None:
             return report

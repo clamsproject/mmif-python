@@ -214,10 +214,6 @@ def generate_source_mmif_from_file(documents, prefix=None, scheme='file', **igno
 
 
 def describe_argparser():
-    """
-    returns two strings: one-line description of the argparser, and addition material, 
-    which will be shown in `clams --help` and `clams <subcmd> --help`, respectively.
-    """
     oneliner = 'provides CLI to create a "source" MMIF json.'
     additional = textwrap.dedent("""
     A source MMIF is a MMIF with a list of source documents but empty views. 
