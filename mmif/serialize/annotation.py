@@ -374,7 +374,7 @@ class Document(Annotation):
 
         With the former method, the SDK will record the added property as a
         `Annotation` annotation object, separate from the original `Document`
-        object. See :meth:`mmif.serialize.Mmif.generate_capital_annotations()` for more.
+        object. See :meth:`mmif.serialize.mmif.Mmif.generate_capital_annotations` for more.
 
         A few notes to keep in mind:
 
@@ -442,7 +442,7 @@ class Document(Annotation):
         See Also
         --------
         add_property : Add a new property to the document
-        Mmif.generate_capital_annotations : How pending properties are serialized
+        mmif.serialize.mmif.Mmif.generate_capital_annotations : How pending properties are serialized
         """
         if prop_name == 'id':
             # because all three dicts have `id` key as required field, we need

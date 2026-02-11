@@ -1,21 +1,10 @@
 .. _apidoc:
 
-mmif package
-============
+API Documentation
+=================
 
 .. toctree::
    :maxdepth: 4
 
-   autodoc/mmif.serialize
-   autodoc/mmif.vocabulary
-   autodoc/mmif.utils
-   autodoc/mmif.utils.summarizer
-
-mmif_docloc_http package
-========================
-
-.. toctree::
-   :maxdepth: 2
-
+   autodoc/mmif
    autodoc/mmif_docloc_http
-

@@ -1,73 +1,6 @@
-"""MMIF Summarizer
+"""
 
-MMIF consumer that creates a JSON summary from a MMIF file.
-
-Makes some simplifying assumptions, including:
-
-- There is one video in the MMIF documents list. All start and end properties
-  are pointing to that video.
-- The time unit is assumed to be milliseconds. 
-
-Other assumptions are listed with the options below.
-
-
-USAGE:
-
-    $ python summary.py [OPTIONS] 
-
-    Reads the MMIF file and creates a JSON summary file with the document list
-    and any requested extra information.
-
-Example:
-
-    $ python summary -i input.mmif -o output.json --transcript
-
-    Reads input.mmif and creates output.json with just transcript
-    information added to the documents list and the views.
-
-In all cases, the summarizer will summarize what is there and use the information
-that is there, if the output of CLAMS is bad, then the results of the summarizer
-will be bad (although it may hide a lot of the badness). In some rare cases some
-information is added. For example if the ASR tool does not group tokens then the
-summarizer will do that, but then only by simply grouping in equal chunks and not
-trying to infer sentence-like groupings.
-
-The summary always includes the MMIF version, the list of documents and a summary
-of the metadata of all views (identifier, CLAMS app, timestamp, total number of
-annotations and number of annotations per type, it does not show parameters and
-application configuration).
-
-
-OPTIONS:
-
--i INFILE -o OUTFILE
-
-Run the summarizer over a single MMIF file and write the JSON summary to OUTFILE.
-
--- timeframes
-
-Shows basic information of all timeframes. This groups the timeframes according to
-the apps it was found in.
-
---transcript
-
-Shows the text from the transcript in pseudo sentences.
-
-The transcript is taken from the last non-warning ASR view, so only the last added
-transcript will be summarized. It is assumed that Tokens in the view are ordered on
-text occurrence.
-
---captions
-
-Shows captions from the Llava captioner app.
-
---entities
-
-Include entities from spaCy or other NER.
-
---full
-
-Include all the above.
+Main classes for the summarizer.
 
 """
 
@@ -107,15 +40,15 @@ class Summary(object):
 
     """Implements the summary of a MMIF file.
 
-    fname           -  name of the input mmif file
-    mmif            -  instance of mmif.serialize.Mmif
-    graph           -  instance of graph.Graph
-    documents       -  instance of Documents
-    views           -  instance of Views
-    transcript      -  instance of Transcript
-    timeframes      -  instance of TimeFrames
-    entities        -  instance of Entities
-    captions        -  instance of get_captions_view
+    :var fname:      name of the input mmif file
+    :var mmif:       instance of mmif.serialize.Mmif
+    :var graph:      instance of graph.Graph
+    :var documents:  instance of Documents
+    :var views:      instance of Views
+    :var transcript: instance of Transcript
+    :var timeframes: instance of TimeFrames
+    :var entities:   instance of Entities
+    :var captions:   instance of Captions
 
     """
 
@@ -393,17 +326,16 @@ class TranscriptElement:
 
 class Nodes(object):
 
-    """Abstract class to store instances of subclasses of graph.Node. The
+    """
+    Abstract class to store instances of subclasses of graph.Node. The
     initialization methods of subclasses of Nodes can guard what nodes will
     be allowed in, for example, as of July 2022 the TimeFrames class only
     allowed time frames that had a frame type (thereby blocking the many
     timeframes from Kaldi).
 
-    Instance variables:
-
-    summary    -  an instance of Summary
-    graph      -  an instance of graph.Graph, taken from the summary
-    nodes      -  list of instances of subclasses of graph.Node
+    :var summary:  an instance of Summary
+    :var graph:  an instance of graph.Graph, taken from the summary
+    :var nodes:  list of instances of subclasses of graph.Node
 
     """
 
@@ -533,11 +465,11 @@ class TimeFrameStats(object):
 
 class Entities(Nodes):
 
-    """Collecting instances of graph.EntityNode.
+    """
+    This class collects instances of graph.EntityNode.
 
-    nodes_idx  -  lists of instances of graph.EntityNode, indexed on entity text
-                  { entity-string ==> list of graph.EntityNode }
-    bins       -  an instance of Bins
+    :var nodes_idx: maps entity texts to lists of instances of graph.EntityNode
+    :var bins: an instance of Bins
 
     """
 

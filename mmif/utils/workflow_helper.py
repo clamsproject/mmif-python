@@ -208,15 +208,15 @@ def describe_single_mmif(mmif_input: Union[str, Path, Mmif]) -> dict:
     * ``stats``
         A dictionary with the following keys:
 
-        ``appCount``
+      * ``appCount``
             Total number of identified app executions.
-        ``errorViews``
+      * ``errorViews``
             A list of view IDs that reported errors.
-        ``warningViews``
+      * ``warningViews``
             A list of view IDs that reported warnings.
-        ``emptyViews``
+      * ``emptyViews``
             A list of view IDs that contain no annotations.
-        ``annotationCountByType``
+      * ``annotationCountByType``
             A dictionary mapping each annotation type to its count, plus a
             ``total`` key for the sum of all annotations across all app
             executions.

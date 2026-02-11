@@ -32,31 +32,36 @@ def describe_argparser():
     `clams <subcmd> --help`, respectively.
     """
     oneliner = (
-        'provides CLI to describe the workflow specification from a MMIF '
-        'file or a collection of MMIF files.'
+        'Describe the workflow specification from a MMIF file or a '
+        'collection of MMIF files.'
     )
 
     # get and clean docstrings
-    single_doc = describe_single_mmif.__doc__.split(':param')[0]
-    single_doc = textwrap.dedent(single_doc).strip()
-    collection_doc = describe_mmif_collection.__doc__.split(':param')[0]
-    collection_doc = textwrap.dedent(collection_doc).strip()
+    def _extract_describe_docstring(func):
+        doc = func.__doc__.split(':param')[0]
+        # then cut off all lines after `---`
+        doc = doc.split('---')[0]
+        return textwrap.dedent(doc).strip()
+
+    single_doc = _extract_describe_docstring(describe_single_mmif)
+    collection_doc = _extract_describe_docstring(describe_mmif_collection)
 
     additional = textwrap.dedent(f"""
     This command extracts workflow information from a single MMIF file or 
-    summarizes a directory of MMIF files.
+    summarizes a directory of MMIF files. The output is serialized as JSON and 
+    includes:
     
-    ==========================
-    For a single MMIF file
-    ==========================
-    {single_doc}
+    =========================
+    Single MMIF file as input
+    =========================
+{single_doc}
 
-    ===============================
-    For a directory of MMIF files
-    ===============================
-    {collection_doc}
+    ==================================
+    A directory of MMIF files as input
+    ==================================
+{collection_doc}
     """)
-    return oneliner, oneliner + '\n\n' + additional.strip()
+    return oneliner, additional
 
 
 def prep_argparser(**kwargs):
@@ -91,9 +96,9 @@ def main(args):
     Main entry point for the describe CLI command.
 
     Reads a MMIF file and outputs a JSON summary containing:
+    
     - workflow_id: unique identifier for the source and app sequence
-    - stats: view counts, annotation counts (total/per-view/per-type),
-      and lists of error/warning/empty view IDs
+    - stats: view counts, annotation counts (total/per-view/per-type), and lists of error/warning/empty view IDs
     - views: map of view IDs to app configurations and profiling data
 
     :param args: Parsed command-line arguments

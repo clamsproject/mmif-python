@@ -17,6 +17,9 @@ def describe_argparser() -> tuple:
 
 
 def prep_argparser(**kwargs):
+    """
+    Create the ArgumentParser instance for the summarizer.
+    """
     parser = argparse.ArgumentParser(
         description=describe_argparser()[1],
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -26,6 +29,9 @@ def prep_argparser(**kwargs):
     return parser
 
 
-def main(args):
+def main(args: argparse.Namespace):
+    """
+    The main summarizer command.
+    """
     mmif_summary = Summary(args.i)
     mmif_summary.report(outfile=args.o)

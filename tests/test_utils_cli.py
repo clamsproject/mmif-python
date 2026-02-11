@@ -16,7 +16,7 @@ from mmif.vocabulary import DocumentTypes, AnnotationTypes
 
 class TestCli(unittest.TestCase):
     def setUp(self) -> None:
-        self.parser, _ = mmif.prep_argparser_and_subcmds()
+        self.parser, _, _ = mmif.prep_argparser_and_subcmds()
 
     def test_primary_cli(self):
         stdout = io.StringIO()

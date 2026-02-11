@@ -34,28 +34,28 @@ def find_all_modules(pkgname):
 
 
 def prep_argparser_and_subcmds():
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(prog='mmif')
     parser.add_argument(
         '-v', '--version',
         action='version',
         version=version_template.format(__version__, __specver__)
     )
     subparsers = parser.add_subparsers(title='sub-command', dest='subcmd')
-    return parser, subparsers
-
-
-def cli():
-    parser, subparsers = prep_argparser_and_subcmds()
-    cli_modules = {}
+    subcmds = {}
     for cli_module in find_all_modules('mmif.utils.cli'):
         cli_module_name = cli_module.__name__.rsplit('.')[-1]
-        cli_modules[cli_module_name] = cli_module
+        subcmds[cli_module_name] = cli_module
         subcmd_parser = cli_module.prep_argparser(add_help=False)
         subparsers.add_parser(cli_module_name, parents=[subcmd_parser],
                               help=cli_module.describe_argparser()[0],
                               description=cli_module.describe_argparser()[1],
                               formatter_class=argparse.RawDescriptionHelpFormatter,
                               )
+    return parser, subparsers, subcmds
+
+
+def cli():
+    parser, subparsers, cli_modules = prep_argparser_and_subcmds()
     if len(sys.argv) == 1:
         parser.print_help(sys.stderr)
         sys.exit(1)
