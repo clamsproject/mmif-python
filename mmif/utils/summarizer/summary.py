@@ -8,28 +8,22 @@ Main classes for the summarizer.
 # - For the time unit we should really update get_start(), get_end() and other methods.
 
 
-import os, sys, io, json, argparse, pathlib
+import json
+import logging
+import os
+import pathlib
 from collections import defaultdict
 
 from mmif.serialize import Mmif
+from mmif.utils.summarizer import config
+from mmif.utils.summarizer.graph import Graph
+from mmif.utils.summarizer.utils import CharacterList
+from mmif.utils.summarizer.utils import get_transcript_view, get_captions_view
+from mmif.utils.summarizer.utils import timestamp
 from mmif.vocabulary import DocumentTypes
 
-from mmif.utils.summarizer import config
-from mmif.utils.summarizer.utils import CharacterList
-from mmif.utils.summarizer.utils import get_aligned_tokens, timestamp
-from mmif.utils.summarizer.utils import get_transcript_view, get_last_segmenter_view, get_captions_view
-from mmif.utils.summarizer.graph import Graph
-
-
-VERSION = '0.2.0'
-
-
-DEBUG = False
-
-def debug(*texts):
-    if DEBUG:
-        for text in texts:
-            sys.stderr.write(f'{text}\n')
+VERSION = '0.2.0'  # why there's a version inside a subpackage???
+logger = logging.getLogger(__name__)
 
 
 class SummaryException(Exception):
@@ -56,7 +50,7 @@ class Summary(object):
         self.fname = mmif_file
         #self.mmif = mmif if type(mmif) is Mmif else Mmif(mmif)
         self.mmif = Mmif(pathlib.Path(mmif_file).read_text())
-        self.warnings = []
+        self.warnings: list[str] = []
         self.graph = Graph(self.mmif)
         self.mmif_version = self.mmif.metadata['mmif']
         self.documents = Documents(self)
@@ -111,7 +105,7 @@ class Summary(object):
 
     def print_warnings(self):
         for warning in self.warnings:
-            print(f'WARNING: {warning}')
+            logger.warning(warning)
 
     def pp(self):
         self.documents.pp()
@@ -560,11 +554,10 @@ class Captions(Nodes):
         if view is not None:
             for doc in self.graph.get_nodes(config.TEXT_DOCUMENT, view_id=view.id):
                 text = doc.properties['text']['@value'].split('[/INST]')[-1]
-                debug(
-                    f'>>> DOC      {doc}',
-                    f'>>> PROPS    {list(doc.properties.keys())}',
-                    f'>>> TEXT     ' + text.replace("\n", "")[:100],
-                    f'>>> ANCHORS  {doc.anchors}')
+                logger.debug('>>> DOC      %s', doc)
+                logger.debug('>>> PROPS    %s', list(doc.properties.keys()))
+                logger.debug('>>> TEXT     %s', text.replace("\n", "")[:100])
+                logger.debug('>>> ANCHORS  %s', doc.anchors)
                 if 'time-offsets' in doc.anchors and 'representatives' in doc.anchors:
                     # For older LLava-style captions
                     # http://apps.clams.ai/llava-captioner/v1.2-6-gc824c97

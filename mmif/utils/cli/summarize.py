@@ -1,7 +1,6 @@
 import argparse
 import json
 import pathlib
-import sys
 import tempfile
 
 from mmif.utils.cli import open_cli_io_arg
