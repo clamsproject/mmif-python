@@ -80,15 +80,15 @@ version: VERSION; cat VERSION
 # since the GH api will return tags in chronological order, we can just grab the last one without sorting
 AUTH_ARG := $(if $(GITHUB_TOKEN),-H "Authorization: token $(GITHUB_TOKEN)")
 
-VERSION.dev: devver := $(shell curl --silent $(AUTH_ARG) "https://api.github.com/repos/clamsproject/mmif-python/git/refs/tags" | grep '"ref":' | sed -E 's/.+refs\/tags\/([0-9.]+)",/\1/g' | tail -n 1)
-VERSION.dev: specver := $(shell curl --silent $(AUTH_ARG) "https://api.github.com/repos/clamsproject/mmif/git/refs/tags" | grep '"ref":' | grep -v 'py-' | sed -E 's/.+refs\/tags\/(spec-)?([0-9.]+)",/\2/g' | tail -n 1)
+VERSION.dev: devver := $(shell curl --silent $(AUTH_ARG) "https://api.github.com/repos/clamsproject/mmif-python/git/refs/tags" | grep '"ref":' | sed -E 's/.+refs\/tags\/([0-9.]+)",/\1/g' | sort -V | tail -n 1)
+VERSION.dev: specver := $(shell curl --silent $(AUTH_ARG) "https://api.github.com/repos/clamsproject/mmif/git/refs/tags" | grep '"ref":' | grep -v 'py-' | sed -E 's/.+refs\/tags\/(spec-)?([0-9.]+)",/\2/g' | sort -V | tail -n 1)
 VERSION.dev:
 	@echo DEVVER: $(devver)
 	@echo SPECVER: $(specver)
 	@if [ $(call macro,$(devver)) = $(call macro,$(specver)) ] && [ $(call micro,$(devver)) = $(call micro,$(specver)) ] ; \
 	then \
 	if [[ $(devver) == *.dev* ]]; then echo $(call increase_dev,$(devver)) ; else echo $(call add_dev,$(call increase_patch, $(devver))); fi \
-	else echo $(call add_dev,$(specver)) ; fi \
+	else if [[ $(devver) == *.dev* ]]; then echo $(call increase_dev,$(devver)) ; else echo $(call add_dev,$(call increase_patch, $(devver))); fi ; fi \
 	> VERSION.dev
 
 VERSION: version := $(shell git tag | sort -t. -k 1,1nr -k 2,2nr -k 3,3nr -k 4,4nr | head -n 1)
