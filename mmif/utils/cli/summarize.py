@@ -4,6 +4,7 @@ import pathlib
 import sys
 import tempfile
 
+from mmif.utils.cli import open_cli_io_arg
 from mmif.utils.summarizer.summary import Summary
 
 
@@ -20,12 +21,10 @@ def prep_argparser(**kwargs):
     parser = argparse.ArgumentParser(description=describe_argparser()[1],
                                      formatter_class=argparse.RawDescriptionHelpFormatter, **kwargs)
     parser.add_argument("MMIF_FILE",
-                        nargs="?", type=argparse.FileType("r"),
-                        default=None if sys.stdin.isatty() else sys.stdin,
+                        nargs="?", type=str, default=None,
                         help='input MMIF file path, or STDIN if `-` or not provided.')
     parser.add_argument("-o", "--output",
-                        type=argparse.FileType("w"),
-                        default=sys.stdout,
+                        type=str, default=None,
                         help='output file path, or STDOUT if not provided.')
     parser.add_argument("-p", "--pretty", action="store_true",
                         help="Pretty-print JSON output")
@@ -36,10 +35,10 @@ def main(args: argparse.Namespace):
     """
     The main summarizer command.
     """
-    if args.MMIF_FILE is None:
-        print("error: No input MMIF provided.", file=sys.stderr)
-        sys.exit(2)
-    mmif_content = args.MMIF_FILE.read()
+    # Check if stdin is available when no file is provided
+
+    with open_cli_io_arg(args.MMIF_FILE, 'r', default_stdin=True) as input_file:
+        mmif_content = input_file.read()
 
     tmp_path = None
     try:
@@ -54,7 +53,8 @@ def main(args: argparse.Namespace):
         if tmp_path and tmp_path.exists():
             tmp_path.unlink()
 
-    json.dump(output, args.output, indent=2 if args.pretty else None)
+    with open_cli_io_arg(args.output, 'w', default_stdin=True) as output_file:
+        json.dump(output, output_file, indent=2 if args.pretty else None)
 
 
 if __name__ == "__main__":

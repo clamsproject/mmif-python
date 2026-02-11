@@ -327,7 +327,7 @@ class TestSummarize(unittest.TestCase):
         try:
             args = self.parser.parse_args([tmp_input, "-o", tmp_output.name])
             summarize.main(args)
-            args.output.close()
+            # args.output is a path string now; no file handle to close.
             with open(tmp_output.name, 'r') as f:
                 output = json.load(f)
             self.assertIn('mmif_version', output)

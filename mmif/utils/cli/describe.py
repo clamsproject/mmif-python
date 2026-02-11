@@ -1,10 +1,12 @@
 import argparse
 import json
+import os
 import sys
 import textwrap
 from pathlib import Path
 from typing import Union, cast
 
+from mmif.utils.cli import open_cli_io_arg
 from mmif.utils.workflow_helper import generate_workflow_identifier, describe_single_mmif, \
     describe_mmif_collection
 # gen_param_hash is imported for backward compatibility
@@ -74,8 +76,7 @@ def prep_argparser(**kwargs):
     )
     parser.add_argument(
         "-o", "--output",
-        type=argparse.FileType("w"),
-        default=sys.stdout,
+        type=str, default=None,
         help='output file path, or STDOUT if not provided.'
     )
     parser.add_argument(
@@ -100,16 +101,13 @@ def main(args):
     """
     output = {}
     # if input is a directory
-    if isinstance(args.MMIF_FILE, str) and Path(args.MMIF_FILE).is_dir():
+    if isinstance(args.MMIF_FILE, (str, os.PathLike)) and Path(args.MMIF_FILE).is_dir():
         output = describe_mmif_collection(args.MMIF_FILE)
     # if input is a file or stdin
     else:
         # Read MMIF content
-        if hasattr(args.MMIF_FILE, 'read'):
-            mmif_content = args.MMIF_FILE.read()
-        else:
-            with open(args.MMIF_FILE, 'r') as f:
-                mmif_content = f.read()
+        with open_cli_io_arg(args.MMIF_FILE, 'r', default_stdin=True) as input_file:
+            mmif_content = input_file.read()
 
         # For file input, we need to handle the path
         # If input is from stdin, create a temp file
@@ -127,11 +125,9 @@ def main(args):
                 tmp_path.unlink()
 
     if output:
-        if args.pretty:
-            json.dump(output, args.output, indent=2)
-        else:
-            json.dump(output, args.output)
-        args.output.write('\n')
+        with open_cli_io_arg(args.output, 'w', default_stdin=True) as output_file:
+            json.dump(output, output_file, indent=2 if args.pretty else None)
+            output_file.write('\n')
 
 
 if __name__ == "__main__":
