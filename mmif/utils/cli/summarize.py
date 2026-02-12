@@ -34,23 +34,26 @@ def main(args: argparse.Namespace):
     """
     The main summarizer command.
     """
-    # Check if stdin is available when no file is provided
-
-    with open_cli_io_arg(args.MMIF_FILE, 'r', default_stdin=True) as input_file:
-        mmif_content = input_file.read()
-
-    tmp_path = None
-    try:
-        with tempfile.NamedTemporaryFile(
-                mode='w', suffix='.mmif', delete=False
-        ) as tmp:
-            tmp.write(mmif_content)
-            tmp_path = pathlib.Path(tmp.name)
-        mmif_summary = Summary(tmp_path)
+    # If a real file path is provided (not None and not '-'), pass it directly to Summary
+    if args.MMIF_FILE is not None and args.MMIF_FILE != "-":
+        mmif_summary = Summary(pathlib.Path(args.MMIF_FILE))
         output = mmif_summary.to_dict()
-    finally:
-        if tmp_path and tmp_path.exists():
-            tmp_path.unlink()
+    else:
+        # Fallback: read from stdin (or default input), write to a temporary file, and summarize that
+        with open_cli_io_arg(args.MMIF_FILE, 'r', default_stdin=True) as input_file:
+            mmif_content = input_file.read()
+        tmp_path = None
+        try:
+            with tempfile.NamedTemporaryFile(
+                    mode='w', suffix='.mmif', delete=False
+            ) as tmp:
+                tmp.write(mmif_content)
+                tmp_path = pathlib.Path(tmp.name)
+            mmif_summary = Summary(tmp_path)
+            output = mmif_summary.to_dict()
+        finally:
+            if tmp_path and tmp_path.exists():
+                tmp_path.unlink()
 
     with open_cli_io_arg(args.output, 'w', default_stdin=True) as output_file:
         json.dump(output, output_file, indent=2 if args.pretty else None)

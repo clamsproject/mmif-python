@@ -22,7 +22,6 @@ from mmif.utils.summarizer.utils import get_transcript_view, get_captions_view
 from mmif.utils.summarizer.utils import timestamp
 from mmif.vocabulary import DocumentTypes
 
-VERSION = '0.2.0'  # why there's a version inside a subpackage???
 logger = logging.getLogger(__name__)
 
 

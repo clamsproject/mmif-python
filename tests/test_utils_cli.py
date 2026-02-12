@@ -124,11 +124,14 @@ class TestSource(unittest.TestCase):
 
 class TestRewind(unittest.TestCase):
     def setUp(self):
+        empty_mmif_str = ('{"metadata": {"mmif": '
+                          '"http://mmif.clams.ai/1.0.0"}, "documents": [], '
+                          '"views": []}')
         # mmif we add views to
-        self.mmif_one = Mmif(BASIC_MMIF_STRING)
+        self.mmif_one = Mmif(empty_mmif_str)
 
         # baseline empty mmif for comparison
-        self.empty_mmif = Mmif(BASIC_MMIF_STRING)
+        self.empty_mmif = Mmif(empty_mmif_str)
 
     @staticmethod
     def add_dummy_view(mmif: Mmif, appname: str, timestamp: str = None):

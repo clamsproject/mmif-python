@@ -5,7 +5,7 @@ Package containing CLI modules.
 import os
 import sys
 from contextlib import contextmanager
-from typing import ContextManager, Optional, Union, TextIO
+from typing import ContextManager, Generator, Optional, Union, TextIO, cast
 
 
 def open_cli_io_arg(path_or_dash: Optional[Union[str, TextIO]],
@@ -50,7 +50,14 @@ def open_cli_io_arg(path_or_dash: Optional[Union[str, TextIO]],
         return any(flag in requested_mode for flag in ('w', 'a', 'x', '+'))
 
     @contextmanager
-    def _open():
+    def _open() -> Generator[TextIO, None, None]:
+        # Validate that binary modes are not used
+        if 'b' in mode:
+            raise ValueError(
+                f"Binary mode '{mode}' is not supported. "
+                "Use text modes ('r', 'w', 'a', 'x') instead."
+            )
+
         # Determine if we should use stdin/stdout
         use_std = path_or_dash == '-' or (path_or_dash is None and default_stdin)
         needs_read = _requires_read(mode)
@@ -79,7 +86,7 @@ def open_cli_io_arg(path_or_dash: Optional[Union[str, TextIO]],
                     f"Mode '{mode}' not supported with stdin/stdout "
                     "(use 'r' or 'w')"
                 )
-        elif hasattr(path_or_dash, 'read') or hasattr(path_or_dash, 'write'):
+        elif isinstance(path_or_dash, TextIO):
             if needs_read and not hasattr(path_or_dash, 'read'):
                 raise ValueError(
                     f"Mode '{mode}' requires a readable file-like object"
@@ -89,27 +96,28 @@ def open_cli_io_arg(path_or_dash: Optional[Union[str, TextIO]],
                     f"Mode '{mode}' requires a writable file-like object"
                 )
             yield path_or_dash
-        else:
+        elif isinstance(path_or_dash, str):
             # Open actual file with proper cleanup
-            if path_or_dash is None:
-                raise ValueError(
-                    "File path cannot be None when not using stdin/stdout"
-                )
             if needs_read and not os.path.exists(path_or_dash):
                 raise FileNotFoundError(
                     f"Input path does not exist: {path_or_dash}"
                 )
-            f = open(path_or_dash, mode, encoding=encoding, errors=errors)
+            f = cast(TextIO, open(path_or_dash, mode, encoding=encoding, errors=errors))
             try:
                 yield f
             finally:
                 f.close()
+        else:
+            # there should be no other valid types at this point
+            raise ValueError(
+                f"Invalid type for path_or_dash: {type(path_or_dash)}. "
+                "Expected str of file path or text-based IO stream (TextIO)."
+            )
 
     return _open()
 
 
-# keep CLI modules here to avoid circular imports
-from mmif.utils.cli import describe
+# keep imports of CLI modules for historical reasons
+# keep them here in the bottom to avoid circular imports
 from mmif.utils.cli import rewind
 from mmif.utils.cli import source
-from mmif.utils.cli import summarize
