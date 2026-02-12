@@ -47,8 +47,8 @@ def main(args: argparse.Namespace):
             with tempfile.NamedTemporaryFile(
                     mode='w', suffix='.mmif', delete=False
             ) as tmp:
-                tmp.write(mmif_content)
                 tmp_path = pathlib.Path(tmp.name)
+                tmp.write(mmif_content)
             mmif_summary = Summary(tmp_path)
             output = mmif_summary.to_dict()
         finally:

@@ -71,7 +71,7 @@ def prep_argparser(**kwargs):
         "MMIF_FILE",
         nargs="?",
         type=str,
-        default=None if sys.stdin.isatty() else sys.stdin,
+        default=None,
         help='input MMIF file, a directory of MMIF files, or STDIN if `-` or not provided.'
     )
     parser.add_argument(

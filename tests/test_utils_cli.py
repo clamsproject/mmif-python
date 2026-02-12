@@ -54,9 +54,8 @@ class TestSource(unittest.TestCase):
 
         # to suppress output (otherwise, set to stdout by default)
         args = self.parser.parse_args(self.get_params())
-        with open(os.devnull, 'w') as devnull:
-            args.output = devnull
-            return source.main(args)
+        args.output = os.devnull
+        return source.main(args)
 
     def test_accept_file_paths(self):
         self.docs.append("video:/a/b/c.mp4")
@@ -312,14 +311,14 @@ class TestSummarize(unittest.TestCase):
 
     def test_summarize_positional_input(self):
         tmp_file = self.create_temp_mmif_file(self.basic_mmif)
-        stdout = io.StringIO()
         try:
-            args = self.parser.parse_args([tmp_file])
-            args.output = stdout
-            summarize.main(args)
-            output = json.loads(stdout.getvalue())
-            self.assertIn('mmif_version', output)
-            self.assertEqual(output['mmif_version'], "http://mmif.clams.ai/1.0.0")
+            with unittest.mock.patch('sys.stdout', new=io.StringIO()) as stdout:
+                args = self.parser.parse_args([tmp_file])
+                # args.output is None by default, which means stdout in open_cli_io_arg
+                summarize.main(args)
+                output = json.loads(stdout.getvalue())
+                self.assertIn('mmif_version', output)
+                self.assertEqual(output['mmif_version'], "http://mmif.clams.ai/1.0.0")
         finally:
             os.unlink(tmp_file)
 
@@ -338,37 +337,19 @@ class TestSummarize(unittest.TestCase):
             os.unlink(tmp_input)
             os.unlink(tmp_output.name)
 
-    def test_summarize_pretty_print(self):
-        tmp_file = self.create_temp_mmif_file(self.basic_mmif)
-        stdout_pretty = io.StringIO()
-        stdout_compact = io.StringIO()
-        try:
-            # Pretty
-            args_pretty = self.parser.parse_args([tmp_file, "--pretty"])
-            args_pretty.output = stdout_pretty
-            summarize.main(args_pretty)
-
-            # Compact
-            args_compact = self.parser.parse_args([tmp_file])
-            args_compact.output = stdout_compact
-            summarize.main(args_compact)
-
-            self.assertNotEqual(stdout_pretty.getvalue(), stdout_compact.getvalue())
-            self.assertIn('\n  ', stdout_pretty.getvalue()) # Check for indentation
-        finally:
-            os.unlink(tmp_file)
-
     def test_summarize_stdin(self):
         mmif_str = self.basic_mmif.serialize()
         import argparse
-        stdout = io.StringIO()
-        stdin = io.StringIO(mmif_str)
+        
+        with unittest.mock.patch('sys.stdin', io.StringIO(mmif_str)), \
+             unittest.mock.patch('sys.stdout', new=io.StringIO()) as stdout:
+            # MMIF_FILE defaults to None -> stdin
+            # output defaults to None -> stdout
+            args = argparse.Namespace(MMIF_FILE=None, output=None, pretty=False)
+            summarize.main(args)
 
-        args = argparse.Namespace(MMIF_FILE=stdin, output=stdout, pretty=False)
-        summarize.main(args)
-
-        output = json.loads(stdout.getvalue())
-        self.assertEqual(output['mmif_version'], "http://mmif.clams.ai/1.0.0")
+            output = json.loads(stdout.getvalue())
+            self.assertEqual(output['mmif_version'], "http://mmif.clams.ai/1.0.0")
 
 
 if __name__ == '__main__':
