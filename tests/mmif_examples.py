@@ -55,7 +55,7 @@ everything_file_url = f"https://raw.githubusercontent.com/clamsproject/mmif/{__s
 old_mmif_w_short_id_url = f"https://raw.githubusercontent.com/clamsproject/mmif/1.0.5/specifications/samples/everything/raw.json"
 EVERYTHING_JSON = _load_from_url_or_git(everything_file_url)
 OLD_SHORTID_JSON = _load_from_url_or_git(old_mmif_w_short_id_url)
-SWT_1_0_JSON = open('tests/samples/1.0/swt.mmif').read()
+SWT_1_0_JSON = (Path(__file__).resolve().parent / 'samples' / '1.0' / 'swt.mmif').read_text()
 
 # for keys and values in chain all typevers in mmif.vocabulary.*_types modules
 # merge into a single dict 

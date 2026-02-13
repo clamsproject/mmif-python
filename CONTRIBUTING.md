@@ -33,6 +33,18 @@ To add a new CLI subcommand, create a Python module in `mmif/utils/cli/` with th
 
 3. **`main(args)`** - Execute the subcommand logic with the parsed arguments.
 
+### Standard I/O Argument Pattern
+
+To ensure a consistent user experience and avoid resource leaks, all CLI subcommands should adhere to the following I/O argument patterns using the `mmif.utils.cli.open_cli_io_arg` context manager (which replaces the deprecated `argparse.FileType`):
+
+1. **Input**: Use a positional argument (usually named `MMIF_FILE`) that supports both file paths and STDIN. 
+   - In `prep_argparser`, use `nargs='?'`, `type=str`, and `default=None`.
+   - In `main`, use `with open_cli_io_arg(args.MMIF_FILE, 'r', default_stdin=True) as input_file:`.
+2. **Output**: Use the `-o`/`--output` flag for the output destination.
+   - In `prep_argparser`, use `type=str` and `default=None`.
+   - In `main`, use `with open_cli_io_arg(args.output, 'w', default_stdin=True) as output_file:`.
+3. **Formatting**: Use the `-p`/`--pretty` flag as a boolean switch (`action='store_true'`) to toggle between compact and pretty-printed JSON/MMIF output.
+
 [!NOTE]
 > CLI modules should typically act as thin wrappers. It is recommended to implement the core utility logic in other packages (e.g., `mmif.utils`) and import it into the CLI module. See existing modules like `summarize.py` (which imports from `mmif.utils.summarizer`) or `describe.py` for examples.
 
