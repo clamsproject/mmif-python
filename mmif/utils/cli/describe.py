@@ -1,17 +1,29 @@
 import argparse
 import json
-import os
 import sys
 import textwrap
 from pathlib import Path
-from typing import Union, cast
+from typing import Dict, Type, Union, cast
+
+from pydantic import BaseModel
 
 from mmif.utils.cli import open_cli_io_arg
-from mmif.utils.workflow_helper import generate_workflow_identifier, describe_single_mmif, \
-    describe_mmif_collection
-# gen_param_hash is imported for backward compatibility
-from mmif.utils.workflow_helper import generate_param_hash
 
+# gen_param_hash is imported for backward compatibility
+from mmif.utils.workflow_helper import (
+    CollectionMmifDesc,
+    SingleMmifDesc,
+    describe_mmif_collection,
+    describe_single_mmif,
+    generate_workflow_identifier,
+)
+
+models_to_help = [SingleMmifDesc, CollectionMmifDesc]
+model_modules = set(model.__module__ for model in models_to_help)
+def get_all_models() -> Dict[str, Type[BaseModel]]:
+    return {
+        name: cls for name, cls in models_to_help
+    }
 
 def get_pipeline_specs(mmif_file: Union[str, Path]):
     import warnings
@@ -33,30 +45,11 @@ def describe_argparser():
         'collection of MMIF files.'
     )
 
-    # get and clean docstrings
-    def _extract_describe_docstring(func):
-        doc = func.__doc__.split(':param')[0]
-        # then cut off all lines after `---`
-        doc = doc.split('---')[0]
-        return textwrap.dedent(doc).strip()
-
-    single_doc = _extract_describe_docstring(describe_single_mmif)
-    collection_doc = _extract_describe_docstring(describe_mmif_collection)
-
     additional = textwrap.dedent(f"""
     This command extracts workflow information from a single MMIF file or 
-    summarizes a directory of MMIF files. The output is serialized as JSON and 
-    includes:
+    a directory of MMIF files. The output is serialized as JSON.
     
-    =========================
-    Single MMIF file as input
-    =========================
-{single_doc}
-
-    ==================================
-    A directory of MMIF files as input
-    ==================================
-{collection_doc}
+    Use `--help-schemas` to inspect the structure of the JSON output.
     """)
     return oneliner, additional
 
@@ -67,6 +60,7 @@ def prep_argparser(**kwargs):
         formatter_class=argparse.RawDescriptionHelpFormatter,
         **kwargs
     )
+    
     parser.add_argument(
         "MMIF_FILE",
         nargs="?",
@@ -84,24 +78,43 @@ def prep_argparser(**kwargs):
         action="store_true",
         help="Pretty-print JSON output"
     )
+    parser.add_argument(
+        "--help-schemas",
+        nargs="*",
+        choices=["all"] + [m.__name__ for m in models_to_help],
+        metavar="SCHEMA_NAME",
+        help=f"Print the JSON schema for the output. For human-readable documentation, "
+             f"visit https://clams.ai/mmif-python and see the following modules: "
+             f"{', '.join(model_modules)}.\nOptions: all, {', '.join([m.__name__ for m in models_to_help])}."
+    )
     return parser
 
 
 def main(args):
     """
-    Main entry point for the describe CLI command.
-
-    Reads a MMIF file and outputs a JSON summary containing:
-    
-    - workflow_id: unique identifier for the source and app sequence
-    - stats: view counts, annotation counts (total/per-view/per-type), and lists of error/warning/empty view IDs
-    - views: map of view IDs to app configurations and profiling data
-
-    :param args: Parsed command-line arguments
+    Main block for the describe CLI command.
+    This function basically works as a wrapper around
+    :func:`describe_single_mmif` (for single file input) or 
+    :func:`describe_mmif_collection` (for directory input).
     """
+    if hasattr(args, 'help_schemas') and args.help_schemas is not None:
+        models_map = {m.__name__: m for m in models_to_help}
+        to_show = []
+        if len(args.help_schemas) == 0 or 'all' in args.help_schemas:
+            to_show = models_to_help
+        else:
+            to_show = args.help_schemas
+        
+        for name in to_show:
+            model_cls = models_map[name]
+            schema = model_cls.model_json_schema()
+            print(json.dumps(schema, indent=2))
+            print()
+        sys.exit(0)
+
     output = {}
     # if input is a directory
-    if isinstance(args.MMIF_FILE, (str, os.PathLike)) and Path(args.MMIF_FILE).is_dir():
+    if Path(str(args.MMIF_FILE)).is_dir():
         output = describe_mmif_collection(args.MMIF_FILE)
     # if input is a file or stdin
     else:
@@ -125,6 +138,7 @@ def main(args):
                 tmp_path.unlink()
 
     if output:
+        # Convert Pydantic models to dicts
         with open_cli_io_arg(args.output, 'w', default_stdin=True) as output_file:
             json.dump(output, output_file, indent=2 if args.pretty else None)
             output_file.write('\n')

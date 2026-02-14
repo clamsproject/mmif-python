@@ -28,6 +28,7 @@ def open_cli_io_arg(path_or_dash: Optional[str],
     manager.
 
     Handles the common CLI pattern where:
+
     - '-' means stdin (read mode) or stdout (write mode)
     - None means "argument not provided"; when default_stdin=True, it falls back
       to stdin/stdout
@@ -117,7 +118,8 @@ def open_cli_io_arg(path_or_dash: Optional[str],
                 "Expected str or None."
             )
 
-        yield file_handle
+        if file_handle is not None:
+            yield file_handle
 
     finally:
         if should_close and file_handle is not None:

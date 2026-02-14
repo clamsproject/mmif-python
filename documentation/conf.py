@@ -33,6 +33,7 @@ autodoc_default_options = {
     'undoc-members': True,
     'show-inheritance': True,
 }
+autodoc_member_order = 'bysource'
 
 
 # -- Project information -----------------------------------------------------
@@ -55,7 +56,15 @@ extensions = [
     'sphinx.ext.autodoc',
     'sphinx.ext.linkcode',
     'm2r2',
+    'sphinxcontrib.autodoc_pydantic',
 ]
+
+autodoc_pydantic_model_show_json = True
+autodoc_pydantic_model_show_field_summary = True
+autodoc_pydantic_model_show_config_summary = False
+autodoc_pydantic_model_show_validator_members = False
+autodoc_pydantic_model_show_validator_summary = False
+autodoc_pydantic_field_list_validators = False
 
 templates_path = ['_templates']
 exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
