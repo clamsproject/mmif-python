@@ -1,17 +1,25 @@
-import pathlib
-import unittest
-import tempfile
 import json
+import os
+import pathlib
+import tempfile
+import unittest
+from pathlib import Path
 
 import pytest
+from hypothesis import given
+from hypothesis import strategies as st
 
-from mmif import Mmif, Document, AnnotationTypes
+from mmif import (
+    AnnotationTypes, 
+    Document, 
+    Mmif
+)
 from mmif.utils import sequence_helper as sqh
 from mmif.utils import text_document_helper as tdh
 from mmif.utils import timeunit_helper as tuh
 from mmif.utils import video_document_helper as vdh
-from tests.mmif_examples import *
-from hypothesis import given, strategies as st
+from mmif.utils import workflow_helper as wfh
+from tests import mmif_examples 
 
 
 class TestTimeunitHelper(unittest.TestCase):
@@ -205,7 +213,7 @@ class TestSequenceHelper(unittest.TestCase):
 
 
 class TestTextDocHelper(unittest.TestCase):
-    mmif_obj = Mmif(MMIF_EXAMPLES['everything'])
+    mmif_obj = Mmif(mmif_examples.MMIF_EXAMPLES['everything'])
 
     @pytest.mark.skip("The only valid test cases come from kaldi app which annotates wrong property")
     def test_slice_text(self):
@@ -232,8 +240,6 @@ class TestWorkflowHelper(unittest.TestCase):
 
     def create_temp_mmif_file(self, mmif_obj):
         """Helper to create a temporary MMIF file."""
-        import tempfile
-        import json
         tmp = tempfile.NamedTemporaryFile(mode='w', suffix='.mmif', delete=False)
         if isinstance(mmif_obj, Mmif):
             content_to_write = mmif_obj.serialize(pretty=False)
@@ -244,24 +250,20 @@ class TestWorkflowHelper(unittest.TestCase):
         return tmp.name
 
     def test_split_appname_appversion(self):
-        from mmif.utils.workflow_helper import _split_appname_appversion
-        app_name, app_version = _split_appname_appversion("http://apps.clams.ai/test-app/v1.0.0")
+        app_name, app_version = wfh._split_appname_appversion("http://apps.clams.ai/test-app/v1.0.0")
         self.assertEqual(app_name, "test-app")
         self.assertEqual(app_version, "v1.0.0")
 
     def test_generate_param_hash(self):
-        from mmif.utils.workflow_helper import generate_param_hash
         params = {"param1": "value1", "param2": 42}
-        hash1 = generate_param_hash(params)
-        hash2 = generate_param_hash(params)
+        hash1 = wfh.generate_param_hash(params)
+        hash2 = wfh.generate_param_hash(params)
         self.assertEqual(hash1, hash2)
         params_reversed = {"param2": 42, "param1": "value1"}
-        hash3 = generate_param_hash(params_reversed)
+        hash3 = wfh.generate_param_hash(params_reversed)
         self.assertEqual(hash1, hash3)
 
     def test_generate_workflow_identifier_grouped(self):
-        from mmif.vocabulary import AnnotationTypes
-        from mmif.utils import workflow_helper
         view1 = self.basic_mmif.new_view()
         view1.metadata.app = "http://apps.clams.ai/app1/v1.0.0"
         view1.metadata.timestamp = "2024-01-01T12:00:00Z"
@@ -274,7 +276,7 @@ class TestWorkflowHelper(unittest.TestCase):
         tmp_file = self.create_temp_mmif_file(self.basic_mmif)
         import os
         try:
-            workflow_id = workflow_helper.generate_workflow_identifier(tmp_file)
+            workflow_id = wfh.generate_workflow_identifier(tmp_file)
             segments = workflow_id.split('/')
             self.assertEqual(len(segments), 6)
             self.assertIn('app1', segments[0])
@@ -284,39 +286,35 @@ class TestWorkflowHelper(unittest.TestCase):
 
     def test_generate_workflow_identifier_with_mmif_object(self):
         """Test that generate_workflow_identifier accepts Mmif objects directly."""
-        from mmif.utils import workflow_helper
         import os
 
         # Test with Mmif object directly
-        workflow_id_from_obj = workflow_helper.generate_workflow_identifier(self.basic_mmif)
+        workflow_id_from_obj = wfh.generate_workflow_identifier(self.basic_mmif)
 
         # Test with file path - should produce the same result
         tmp_file = self.create_temp_mmif_file(self.basic_mmif)
         try:
-            workflow_id_from_file = workflow_helper.generate_workflow_identifier(tmp_file)
+            workflow_id_from_file = wfh.generate_workflow_identifier(tmp_file)
             self.assertEqual(workflow_id_from_obj, workflow_id_from_file)
         finally:
             os.unlink(tmp_file)
 
     def test_read_mmif_from_path(self):
         """Test the _read_mmif_from_path helper function."""
-        from mmif.utils.workflow_helper import _read_mmif_from_path
-        from pathlib import Path
-        import os
 
         # Test with Mmif object - should return as-is
-        result = _read_mmif_from_path(self.basic_mmif)
+        result = wfh._read_mmif_from_path(self.basic_mmif)
         self.assertIs(result, self.basic_mmif)
 
         # Test with file path string
         tmp_file = self.create_temp_mmif_file(self.basic_mmif)
         try:
-            result_from_str = _read_mmif_from_path(tmp_file)
+            result_from_str = wfh._read_mmif_from_path(tmp_file)
             self.assertIsInstance(result_from_str, Mmif)
             self.assertEqual(result_from_str.serialize(pretty=False), self.basic_mmif.serialize(pretty=False))
 
             # Test with Path object
-            result_from_path = _read_mmif_from_path(Path(tmp_file))
+            result_from_path = wfh._read_mmif_from_path(Path(tmp_file))
             self.assertIsInstance(result_from_path, Mmif)
             self.assertEqual(result_from_path.serialize(pretty=False), self.basic_mmif.serialize(pretty=False))
         finally:
@@ -324,26 +322,163 @@ class TestWorkflowHelper(unittest.TestCase):
 
         # Test with invalid input
         with pytest.raises(ValueError):
-            _read_mmif_from_path(12345)
+            wfh._read_mmif_from_path(12345)
 
     def test_describe_single_mmif_with_mmif_object(self):
         """Test that describe_single_mmif accepts Mmif objects directly."""
-        from mmif.utils.workflow_helper import describe_single_mmif
         import os
 
         # Test with Mmif object directly
-        result_from_obj = describe_single_mmif(self.basic_mmif)
+        result_from_obj = wfh.describe_single_mmif(self.basic_mmif)
 
         # Test with file path - should produce the same result
         tmp_file = self.create_temp_mmif_file(self.basic_mmif)
         try:
-            result_from_file = describe_single_mmif(tmp_file)
+            result_from_file = wfh.describe_single_mmif(tmp_file)
             self.assertEqual(result_from_obj, result_from_file)
-            self.assertIn('workflowId', result_from_obj)
-            self.assertIn('stats', result_from_obj)
-            self.assertIn('apps', result_from_obj)
+            
+            # Validate that the output conforms to the SingleMmifDesc Pydantic model
+            # If validation succeeds, all required fields with correct aliases are present
+            validated = wfh.SingleMmifDesc.model_validate(result_from_obj)
+            # Can assert on the validated object's attributes if needed
+            self.assertIsNotNone(validated.workflow_id)
+            self.assertIsNotNone(validated.stats)
+            self.assertIsNotNone(validated.apps)
         finally:
             os.unlink(tmp_file)
+
+    def test_describe_single_mmif_empty(self):
+        """Test describe_single_mmif with an empty MMIF (no views)."""
+        tmp_file = self.create_temp_mmif_file(self.basic_mmif)
+        try:
+            result = wfh.describe_single_mmif(tmp_file)
+            # Validate against Pydantic model
+            validated = wfh.SingleMmifDesc.model_validate(result)
+            self.assertEqual(validated.stats.app_count, 0)
+            self.assertEqual(len(validated.apps), 0)
+            self.assertEqual(validated.stats.annotation_count_by_type, {})
+        finally:
+            os.unlink(tmp_file)
+
+    def test_describe_single_mmif_one_app(self):
+        """Test describe_single_mmif with a single app execution."""
+        view = self.basic_mmif.new_view()
+        view.metadata.app = "http://apps.clams.ai/test-app/v1.0.0"
+        view.metadata.timestamp = "2024-01-01T12:00:00Z"
+        view.metadata.appProfiling = {"runningTime": "0:00:01.234"}
+        view.new_annotation(AnnotationTypes.TimeFrame)
+        tmp_file = self.create_temp_mmif_file(self.basic_mmif)
+        try:
+            result = wfh.describe_single_mmif(tmp_file)
+            # Validate against Pydantic model
+            validated = wfh.SingleMmifDesc.model_validate(result)
+            self.assertEqual(validated.stats.app_count, 1)
+            self.assertEqual(len(validated.apps), 1)
+            app_exec = validated.apps[0]
+            self.assertEqual(app_exec.app, view.metadata.app)
+            self.assertEqual(app_exec.view_ids, [view.id])
+            self.assertEqual(app_exec.app_profiling.running_time_ms, 1234)
+        finally:
+            os.unlink(tmp_file)
+
+    def test_describe_single_mmif_one_app_two_views(self):
+        """Test describe_single_mmif with one app execution producing two views."""
+        view1 = self.basic_mmif.new_view()
+        view1.metadata.app = "http://apps.clams.ai/test-app/v1.0.0"
+        view1.metadata.timestamp = "2024-01-01T12:00:00Z"
+        view1.new_annotation(AnnotationTypes.TimeFrame)
+        view2 = self.basic_mmif.new_view()
+        view2.metadata.app = "http://apps.clams.ai/test-app/v1.0.0"
+        view2.metadata.timestamp = "2024-01-01T12:00:00Z"
+        view2.new_annotation(AnnotationTypes.TimeFrame)
+        tmp_file = self.create_temp_mmif_file(self.basic_mmif)
+        try:
+            result = wfh.describe_single_mmif(tmp_file)
+            # Validate against Pydantic model
+            validated = wfh.SingleMmifDesc.model_validate(result)
+            self.assertEqual(validated.stats.app_count, 1)
+            self.assertEqual(len(validated.apps), 1)
+            app_exec = validated.apps[0]
+            self.assertEqual(app_exec.view_ids, [view1.id, view2.id])
+        finally:
+            os.unlink(tmp_file)
+
+    def test_describe_single_mmif_error_view(self):
+        """Test describe_single_mmif with a view containing an error."""
+        view = self.basic_mmif.new_view()
+        view.metadata.app = "http://apps.clams.ai/test-app/v1.0.0"
+        view.metadata.timestamp = "2024-01-01T12:00:00Z"
+        view.metadata.error = {"message": "Something went wrong"}
+        tmp_file = self.create_temp_mmif_file(self.basic_mmif)
+        try:
+            result = wfh.describe_single_mmif(tmp_file)
+            # Validate against Pydantic model
+            validated = wfh.SingleMmifDesc.model_validate(result)
+            self.assertEqual(validated.stats.app_count, 0)
+            self.assertEqual(len(validated.apps), 0)
+            self.assertEqual(len(validated.stats.error_views), 1)
+        finally:
+            os.unlink(tmp_file)
+
+    def test_describe_single_mmif_with_unassigned_views(self):
+        """Test describe_single_mmif with views that cannot be grouped."""
+        import unittest.mock
+        raw_mmif = json.loads(self.basic_mmif.serialize())
+        raw_mmif['views'].append({'id': 'v1', 'metadata': {'app': 'http://apps.clams.ai/app1/v1.0.0', 'timestamp': '2024-01-01T12:00:00Z'}, 'annotations': []})
+        raw_mmif['views'].append({'id': 'v2', 'metadata': {'app': 'http://apps.clams.ai/app2/v2.0.0'}, 'annotations': []})
+        raw_mmif['views'].append({'id': 'v3', 'metadata': {'timestamp': '2024-01-01T12:01:00Z', 'app': ''}, 'annotations': []})
+        tmp_file = self.create_temp_mmif_file(raw_mmif)
+        try:
+            with unittest.mock.patch('jsonschema.validators.validate'):
+                result = wfh.describe_single_mmif(tmp_file)
+            # Validate against Pydantic model
+            validated = wfh.SingleMmifDesc.model_validate(result)
+            self.assertEqual(validated.stats.app_count, 1)
+            self.assertEqual(len(validated.apps), 2)
+            special_entry = validated.apps[-1]
+            self.assertEqual(special_entry.app, 'http://apps.clams.ai/non-existing-app/v1')
+            self.assertEqual(len(special_entry.view_ids), 2)
+            self.assertIn('v2', special_entry.view_ids)
+            self.assertIn('v3', special_entry.view_ids)
+        finally:
+            os.unlink(tmp_file)
+
+    def test_describe_collection_empty(self):
+        """Test describe_mmif_collection with an empty directory."""
+        dummy_dir = 'dummy_mmif_collection'
+        os.makedirs(dummy_dir, exist_ok=True)
+        try:
+            output = wfh.describe_mmif_collection(dummy_dir)
+            # Validate using Pydantic model
+            validated = wfh.CollectionMmifDesc.model_validate(output)
+            self.assertEqual(validated.mmif_count_by_status.total, 0)
+            self.assertEqual(len(validated.workflows), 0)
+        finally:
+            os.rmdir(dummy_dir)
+
+    def test_describe_collection_with_files(self):
+        """Test describe_mmif_collection with MMIF files."""
+        dummy_dir = 'dummy_mmif_collection_with_files'
+        os.makedirs(dummy_dir, exist_ok=True)
+        try:
+            # Create two MMIF files in the directory
+            for i in range(2):
+                tmp_file = os.path.join(dummy_dir, f'{i}.mmif')
+                with open(tmp_file, 'w') as f:
+                    f.write(self.basic_mmif.serialize())
+            
+            output = wfh.describe_mmif_collection(dummy_dir)
+            
+            # Validate structure using Pydantic model
+            # If validation succeeds, all required fields with correct aliases are present
+            validated = wfh.CollectionMmifDesc.model_validate(output)
+            
+            # Verify counts using validated object attributes
+            self.assertEqual(validated.mmif_count_by_status.total, 2)
+            self.assertIsInstance(validated.workflows, list)
+        finally:
+            import shutil
+            shutil.rmtree(dummy_dir)
 
 
 if __name__ == '__main__':

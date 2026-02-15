@@ -1,3 +1,4 @@
+import argparse
 import contextlib
 import io
 import json
@@ -6,16 +7,119 @@ import tempfile
 import unittest.mock
 
 import mmif
-from mmif.utils.cli import rewind
-from mmif.utils.cli import source
-from mmif.utils.cli import describe
-from mmif.utils.cli import summarize
-
 from mmif.serialize import Mmif
-from mmif.vocabulary import DocumentTypes, AnnotationTypes
-
+from mmif.utils.cli import describe, rewind, source, summarize
+from mmif.vocabulary import AnnotationTypes
 
 BASIC_MMIF_STRING = '{"metadata": {"mmif": "http://mmif.clams.ai/1.0.0"}, "documents": [{"@type": "http://mmif.clams.ai/vocabulary/VideoDocument/v1", "properties": {"id": "d1", "mime": "video/mp4", "location": "file:///test/video.mp4"}}], "views": []}'
+
+
+class BaseCliTestCase(unittest.TestCase):
+    """Base class for CLI module tests with common utilities."""
+    
+    cli_module = None  # Override in subclass
+    
+    def setUp(self):
+        """Set up common test fixtures."""
+        if self.cli_module:
+            self.parser = self.cli_module.prep_argparser()
+        self.basic_mmif = Mmif(BASIC_MMIF_STRING)
+        self.maxDiff = None
+    
+    @staticmethod
+    def create_temp_mmif_file(mmif_obj):
+        """Create a temporary MMIF file for testing.
+        
+        Args:
+            mmif_obj: Either a Mmif object or a dict/string to serialize
+            
+        Returns:
+            str: Path to the temporary file (caller must unlink)
+        """
+        tmp = tempfile.NamedTemporaryFile(mode='w', suffix='.mmif', delete=False)
+        if isinstance(mmif_obj, Mmif):
+            content = mmif_obj.serialize(pretty=False)
+        else:
+            content = json.dumps(mmif_obj) if isinstance(mmif_obj, dict) else mmif_obj
+        tmp.write(content)
+        tmp.close()
+        return tmp.name
+    
+    def run_cli_capture_stdout(self, args_namespace):
+        """Run CLI module and capture stdout as parsed JSON.
+        
+        Args:
+            args_namespace: Namespace object with CLI arguments
+            
+        Returns:
+            dict: Parsed JSON output from stdout
+        """
+        with unittest.mock.patch('sys.stdout', new=io.StringIO()) as stdout:
+            self.cli_module.main(args_namespace)
+            return json.loads(stdout.getvalue())
+
+
+class IOTestMixin:
+    """Mixin providing common I/O tests for CLI modules.
+    
+    Requires the test class to have:
+    - cli_module attribute
+    - basic_mmif attribute
+    - create_temp_mmif_file method
+    - run_cli_capture_stdout method
+    - expected_output_keys attribute (list of keys to check in output)
+    """
+    
+    def test_file_input_stdout_output(self):
+        """Test reading from file and outputting to stdout."""
+        tmp_file = self.create_temp_mmif_file(self.basic_mmif)
+        try:
+            args = argparse.Namespace(
+                MMIF_FILE=tmp_file,
+                output=None,
+                pretty=False,
+                help_schemas=None  # For describe module
+            )
+            output = self.run_cli_capture_stdout(args)
+            self.assertIsInstance(output, dict)
+            for key in self.expected_output_keys:
+                self.assertIn(key, output)
+        finally:
+            os.unlink(tmp_file)
+    
+    def test_file_input_file_output(self):
+        """Test reading from file and outputting to file."""
+        tmp_input = self.create_temp_mmif_file(self.basic_mmif)
+        tmp_output = tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False)
+        tmp_output.close()
+        try:
+            args = self.parser.parse_args([tmp_input, '-o', tmp_output.name])
+            self.cli_module.main(args)
+            with open(tmp_output.name, 'r') as f:
+                output = json.load(f)
+            self.assertIsInstance(output, dict)
+            for key in self.expected_output_keys:
+                self.assertIn(key, output)
+        finally:
+            os.unlink(tmp_input)
+            os.unlink(tmp_output.name)
+    
+    def test_stdin_input_stdout_output(self):
+        """Test reading from stdin and outputting to stdout."""
+        mmif_str = self.basic_mmif.serialize()
+        with unittest.mock.patch('sys.stdin', io.StringIO(mmif_str)), \
+             unittest.mock.patch('sys.stdout', new=io.StringIO()) as stdout:
+            args = argparse.Namespace(
+                MMIF_FILE=None,
+                output=None,
+                pretty=False,
+                help_schemas=None  # For describe module
+            )
+            self.cli_module.main(args)
+            output = json.loads(stdout.getvalue())
+            self.assertIsInstance(output, dict)
+            for key in self.expected_output_keys:
+                self.assertIn(key, output)
 
 
 class TestCli(unittest.TestCase):
@@ -179,177 +283,71 @@ class TestRewind(unittest.TestCase):
         self.assertIn('dummy_app_two', remaining_apps)
 
 
-class TestDescribe(unittest.TestCase):
+class TestDescribe(BaseCliTestCase, IOTestMixin):
     """Test suite for the describe CLI module."""
+    
+    cli_module = describe
+    expected_output_keys = ['workflowId', 'stats', 'apps']
 
-    def setUp(self):
-        """Create test MMIF structures."""
-        self.parser = describe.prep_argparser()
-        self.maxDiff = None
-        self.basic_mmif = Mmif(BASIC_MMIF_STRING)
+    def test_help_schemas_all(self):
+        """Test --help-schemas all"""
+        from mmif.utils.cli.describe import models_to_help
+        with unittest.mock.patch('sys.stdout', new=io.StringIO()) as stdout:
+            args = argparse.Namespace(help_schemas=['all'], MMIF_FILE=None, output=None, pretty=False)
+            with self.assertRaises(SystemExit) as cm:
+                describe.main(args)
+            self.assertEqual(cm.exception.code, 0)
+            output = stdout.getvalue()
+            for m in models_to_help:
+                self.assertIn(m.__name__, output)
+            self.assertIn("$defs", output)
 
-    def create_temp_mmif_file(self, mmif_obj):
-        """Helper to create a temporary MMIF file."""
-        tmp = tempfile.NamedTemporaryFile(mode='w', suffix='.mmif', delete=False)
-        if isinstance(mmif_obj, Mmif):
-            content_to_write = mmif_obj.serialize(pretty=False)
-        else:
-            content_to_write = json.dumps(mmif_obj)
-        tmp.write(content_to_write)
-        tmp.close()
-        return tmp.name
-
-    def test_describe_single_mmif_empty(self):
-        tmp_file = self.create_temp_mmif_file(self.basic_mmif)
-        try:
-            result = mmif.utils.workflow_helper.describe_single_mmif(tmp_file)
-            self.assertEqual(result["stats"]["appCount"], 0)
-            self.assertEqual(len(result["apps"]), 0)
-            self.assertEqual(result["stats"]["annotationCountByType"], {})
-        finally:
-            os.unlink(tmp_file)
-
-    def test_describe_single_mmif_one_app(self):
-        view = self.basic_mmif.new_view()
-        view.metadata.app = "http://apps.clams.ai/test-app/v1.0.0"
-        view.metadata.timestamp = "2024-01-01T12:00:00Z"
-        view.metadata.appProfiling = {"runningTime": "0:00:01.234"}
-        view.new_annotation(AnnotationTypes.TimeFrame)
-        tmp_file = self.create_temp_mmif_file(self.basic_mmif)
-        try:
-            result = mmif.utils.workflow_helper.describe_single_mmif(tmp_file)
-            self.assertEqual(result["stats"]["appCount"], 1)
-            self.assertEqual(len(result["apps"]), 1)
-            app_exec = result["apps"][0]
-            self.assertEqual(app_exec["app"], view.metadata.app)
-            self.assertEqual(app_exec["viewIds"], [view.id])
-            self.assertEqual(app_exec["appProfiling"]["runningTimeMS"], 1234)
-        finally:
-            os.unlink(tmp_file)
-
-    def test_describe_single_mmif_one_app_two_views(self):
-        view1 = self.basic_mmif.new_view()
-        view1.metadata.app = "http://apps.clams.ai/test-app/v1.0.0"
-        view1.metadata.timestamp = "2024-01-01T12:00:00Z"
-        view1.new_annotation(AnnotationTypes.TimeFrame)
-        view2 = self.basic_mmif.new_view()
-        view2.metadata.app = "http://apps.clams.ai/test-app/v1.0.0"
-        view2.metadata.timestamp = "2024-01-01T12:00:00Z"
-        view2.new_annotation(AnnotationTypes.TimeFrame)
-        tmp_file = self.create_temp_mmif_file(self.basic_mmif)
-        try:
-            result = mmif.utils.workflow_helper.describe_single_mmif(tmp_file)
-            self.assertEqual(result["stats"]["appCount"], 1)
-            self.assertEqual(len(result["apps"]), 1)
-            app_exec = result["apps"][0]
-            self.assertEqual(app_exec["viewIds"], [view1.id, view2.id])
-        finally:
-            os.unlink(tmp_file)
-
-    def test_describe_single_mmif_error_view(self):
-        view = self.basic_mmif.new_view()
-        view.metadata.app = "http://apps.clams.ai/test-app/v1.0.0"
-        view.metadata.timestamp = "2024-01-01T12:00:00Z"
-        view.metadata.error = {"message": "Something went wrong"}
-        tmp_file = self.create_temp_mmif_file(self.basic_mmif)
-        try:
-            result = mmif.utils.workflow_helper.describe_single_mmif(tmp_file)
-            self.assertEqual(result["stats"]["appCount"], 0)
-            self.assertEqual(len(result["apps"]), 0)
-            self.assertEqual(len(result["stats"]["errorViews"]), 1)
-        finally:
-            os.unlink(tmp_file)
-
-    @unittest.mock.patch('jsonschema.validators.validate')
-    def test_describe_single_mmif_with_unassigned_views(self, mock_validate):
-        raw_mmif = json.loads(self.basic_mmif.serialize())
-        raw_mmif['views'].append({'id': 'v1', 'metadata': {'app': 'http://apps.clams.ai/app1/v1.0.0', 'timestamp': '2024-01-01T12:00:00Z'}, 'annotations': []})
-        raw_mmif['views'].append({'id': 'v2', 'metadata': {'app': 'http://apps.clams.ai/app2/v2.0.0'}, 'annotations': []})
-        raw_mmif['views'].append({'id': 'v3', 'metadata': {'timestamp': '2024-01-01T12:01:00Z', 'app': ''}, 'annotations': []})
-        tmp_file = self.create_temp_mmif_file(raw_mmif)
-        try:
-            result = mmif.utils.workflow_helper.describe_single_mmif(tmp_file)
-            self.assertEqual(result['stats']['appCount'], 1)
-            self.assertEqual(len(result['apps']), 2)
-            special_entry = result['apps'][-1]
-            self.assertEqual(special_entry['app'], 'http://apps.clams.ai/non-existing-app/v1')
-            self.assertEqual(len(special_entry['viewIds']), 2)
-            self.assertIn('v2', special_entry['viewIds'])
-            self.assertIn('v3', special_entry['viewIds'])
-        finally:
-            os.unlink(tmp_file)
-
-    def test_describe_collection_empty(self):
-        dummy_dir = 'dummy_mmif_collection'
-        os.makedirs(dummy_dir, exist_ok=True)
-        try:
-            output = mmif.utils.workflow_helper.describe_mmif_collection(dummy_dir)
-            expected = {
-                'mmifCountByStatus': {'total': 0, 'successful': 0, 'withErrors': 0, 'withWarnings': 0, 'invalid': 0},
-                'workflows': [],
-                'annotationCountByType': {}
-            }
-            self.assertEqual(output, expected)
-        finally:
-            os.rmdir(dummy_dir)
-
-
-class TestSummarize(unittest.TestCase):
-    """Test suite for the summarize CLI module."""
-
-    def setUp(self):
-        """Create test MMIF structures."""
-        self.parser = summarize.prep_argparser()
-        self.basic_mmif = Mmif(BASIC_MMIF_STRING)
-
-    def create_temp_mmif_file(self, mmif_obj):
-        """Helper to create a temporary MMIF file."""
-        tmp = tempfile.NamedTemporaryFile(mode='w', suffix='.mmif', delete=False)
-        tmp.write(mmif_obj.serialize(pretty=False))
-        tmp.close()
-        return tmp.name
-
-    def test_summarize_positional_input(self):
-        tmp_file = self.create_temp_mmif_file(self.basic_mmif)
-        try:
+    def test_describe_main_directory(self):
+        """Test describe.main with a directory input"""
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            # Create two mmif files
+            with open(os.path.join(tmp_dir, '1.mmif'), 'w') as f:
+                f.write(self.basic_mmif.serialize())
+            with open(os.path.join(tmp_dir, '2.mmif'), 'w') as f:
+                f.write(self.basic_mmif.serialize())
+            
             with unittest.mock.patch('sys.stdout', new=io.StringIO()) as stdout:
-                args = self.parser.parse_args([tmp_file])
-                # args.output is None by default, which means stdout in open_cli_io_arg
-                summarize.main(args)
-                output = json.loads(stdout.getvalue())
-                self.assertIn('mmif_version', output)
-                self.assertEqual(output['mmif_version'], "http://mmif.clams.ai/1.0.0")
+                # MMIF_FILE argument expects a string path
+                args = argparse.Namespace(MMIF_FILE=tmp_dir, output=None, pretty=False, help_schemas=None)
+                describe.main(args)
+                output_json = json.loads(stdout.getvalue())
+                # Just verify valid JSON output was produced
+                self.assertIsInstance(output_json, dict)
+                self.assertTrue(len(output_json) > 0)
+
+    def test_deprecated_functions(self):
+        """Test backward compatibility wrapper functions"""
+        tmp_file = self.create_temp_mmif_file(self.basic_mmif)
+        try:
+            with self.assertWarns(DeprecationWarning):
+                describe.get_pipeline_specs(tmp_file)
+            with self.assertWarns(DeprecationWarning):
+                describe.generate_pipeline_identifier(tmp_file)
         finally:
             os.unlink(tmp_file)
 
-    def test_summarize_output_file(self):
-        tmp_input = self.create_temp_mmif_file(self.basic_mmif)
-        tmp_output = tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False)
-        tmp_output.close()
+
+class TestSummarize(BaseCliTestCase, IOTestMixin):
+    """Test suite for the summarize CLI module."""
+    
+    cli_module = summarize
+    expected_output_keys = ['mmif_version', 'documents', 'views']
+
+    def test_summarize_validates_content(self):
+        """Test that summarize produces expected content."""
+        tmp_file = self.create_temp_mmif_file(self.basic_mmif)
         try:
-            args = self.parser.parse_args([tmp_input, "-o", tmp_output.name])
-            summarize.main(args)
-            # args.output is a path string now; no file handle to close.
-            with open(tmp_output.name, 'r') as f:
-                output = json.load(f)
-            self.assertIn('mmif_version', output)
-        finally:
-            os.unlink(tmp_input)
-            os.unlink(tmp_output.name)
-
-    def test_summarize_stdin(self):
-        mmif_str = self.basic_mmif.serialize()
-        import argparse
-        
-        with unittest.mock.patch('sys.stdin', io.StringIO(mmif_str)), \
-             unittest.mock.patch('sys.stdout', new=io.StringIO()) as stdout:
-            # MMIF_FILE defaults to None -> stdin
-            # output defaults to None -> stdout
-            args = argparse.Namespace(MMIF_FILE=None, output=None, pretty=False)
-            summarize.main(args)
-
-            output = json.loads(stdout.getvalue())
+            output = self.run_cli_capture_stdout(
+                argparse.Namespace(MMIF_FILE=tmp_file, output=None, pretty=False)
+            )
             self.assertEqual(output['mmif_version'], "http://mmif.clams.ai/1.0.0")
+        finally:
+            os.unlink(tmp_file)
 
 
 if __name__ == '__main__':

@@ -101,7 +101,7 @@ def main(args):
         models_map = {m.__name__: m for m in models_to_help}
         to_show = []
         if len(args.help_schemas) == 0 or 'all' in args.help_schemas:
-            to_show = models_to_help
+            to_show = [m.__name__ for m in models_to_help]
         else:
             to_show = args.help_schemas
         
