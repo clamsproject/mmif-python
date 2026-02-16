@@ -3,11 +3,9 @@ import json
 import sys
 import textwrap
 from pathlib import Path
-from typing import Dict, Type, Union, cast
+from typing import Union, cast
 
-from pydantic import BaseModel
-
-from mmif.utils.cli import open_cli_io_arg
+from mmif.utils.cli import open_cli_io_arg, generate_model_summary
 
 # gen_param_hash is imported for backward compatibility
 from mmif.utils.workflow_helper import (
@@ -18,12 +16,6 @@ from mmif.utils.workflow_helper import (
     generate_workflow_identifier,
 )
 
-models_to_help = [SingleMmifDesc, CollectionMmifDesc]
-model_modules = set(model.__module__ for model in models_to_help)
-def get_all_models() -> Dict[str, Type[BaseModel]]:
-    return {
-        name: cls for name, cls in models_to_help
-    }
 
 def get_pipeline_specs(mmif_file: Union[str, Path]):
     import warnings
@@ -49,7 +41,15 @@ def describe_argparser():
     This command extracts workflow information from a single MMIF file or 
     a directory of MMIF files. The output is serialized as JSON.
     
-    Use `--help-schemas` to inspect the structure of the JSON output.
+    Output Schemas:
+    
+    1. Single MMIF File (mmif-file):
+{generate_model_summary(SingleMmifDesc, indent=4)}
+    
+    2. MMIF Collection (mmif-dir):
+{generate_model_summary(CollectionMmifDesc, indent=4)}
+    
+    Use `--help-schema` to inspect the full JSON schema for a specific output type.
     """)
     return oneliner, additional
 
@@ -79,13 +79,11 @@ def prep_argparser(**kwargs):
         help="Pretty-print JSON output"
     )
     parser.add_argument(
-        "--help-schemas",
-        nargs="*",
-        choices=["all"] + [m.__name__ for m in models_to_help],
+        "--help-schema",
+        nargs=1,
+        choices=["mmif-file", "mmif-dir"],
         metavar="SCHEMA_NAME",
-        help=f"Print the JSON schema for the output. For human-readable documentation, "
-             f"visit https://clams.ai/mmif-python and see the following modules: "
-             f"{', '.join(model_modules)}.\nOptions: all, {', '.join([m.__name__ for m in models_to_help])}."
+        help="Print the JSON schema for the output. Options: mmif-file, mmif-dir."
     )
     return parser
 
@@ -97,19 +95,15 @@ def main(args):
     :func:`describe_single_mmif` (for single file input) or 
     :func:`describe_mmif_collection` (for directory input).
     """
-    if hasattr(args, 'help_schemas') and args.help_schemas is not None:
-        models_map = {m.__name__: m for m in models_to_help}
-        to_show = []
-        if len(args.help_schemas) == 0 or 'all' in args.help_schemas:
-            to_show = [m.__name__ for m in models_to_help]
-        else:
-            to_show = args.help_schemas
+    if hasattr(args, 'help_schema') and args.help_schema is not None:
+        schema_name = args.help_schema[0]
+        if schema_name == 'mmif-file':
+            model_cls = SingleMmifDesc
+        elif schema_name == 'mmif-dir':
+            model_cls = CollectionMmifDesc
         
-        for name in to_show:
-            model_cls = models_map[name]
-            schema = model_cls.model_json_schema()
-            print(json.dumps(schema, indent=2))
-            print()
+        schema = model_cls.model_json_schema()
+        print(json.dumps(schema, indent=2))
         sys.exit(0)
 
     output = {}

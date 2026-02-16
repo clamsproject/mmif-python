@@ -78,7 +78,7 @@ class IOTestMixin:
                 MMIF_FILE=tmp_file,
                 output=None,
                 pretty=False,
-                help_schemas=None  # For describe module
+                help_schema=None  # For describe module
             )
             output = self.run_cli_capture_stdout(args)
             self.assertIsInstance(output, dict)
@@ -113,7 +113,7 @@ class IOTestMixin:
                 MMIF_FILE=None,
                 output=None,
                 pretty=False,
-                help_schemas=None  # For describe module
+                help_schema=None  # For describe module
             )
             self.cli_module.main(args)
             output = json.loads(stdout.getvalue())
@@ -289,18 +289,32 @@ class TestDescribe(BaseCliTestCase, IOTestMixin):
     cli_module = describe
     expected_output_keys = ['workflowId', 'stats', 'apps']
 
-    def test_help_schemas_all(self):
-        """Test --help-schemas all"""
-        from mmif.utils.cli.describe import models_to_help
+    def test_help_schema(self):
+        """Test --help-schema with different options"""
+        from mmif.utils.workflow_helper import SingleMmifDesc, CollectionMmifDesc
+        
+        # Test mmif-file
         with unittest.mock.patch('sys.stdout', new=io.StringIO()) as stdout:
-            args = argparse.Namespace(help_schemas=['all'], MMIF_FILE=None, output=None, pretty=False)
+            args = argparse.Namespace(help_schema=['mmif-file'], MMIF_FILE=None, output=None, pretty=False)
             with self.assertRaises(SystemExit) as cm:
                 describe.main(args)
             self.assertEqual(cm.exception.code, 0)
             output = stdout.getvalue()
-            for m in models_to_help:
-                self.assertIn(m.__name__, output)
-            self.assertIn("$defs", output)
+            # Verify SingleMmifDesc schema keys are present
+            self.assertIn("workflowId", output)
+            self.assertIn("stats", output)
+            self.assertIn("apps", output)
+
+        # Test mmif-dir
+        with unittest.mock.patch('sys.stdout', new=io.StringIO()) as stdout:
+            args = argparse.Namespace(help_schema=['mmif-dir'], MMIF_FILE=None, output=None, pretty=False)
+            with self.assertRaises(SystemExit) as cm:
+                describe.main(args)
+            self.assertEqual(cm.exception.code, 0)
+            output = stdout.getvalue()
+            # Verify CollectionMmifDesc schema keys are present
+            self.assertIn("mmifCountByStatus", output)
+            self.assertIn("workflows", output)
 
     def test_describe_main_directory(self):
         """Test describe.main with a directory input"""
@@ -313,7 +327,7 @@ class TestDescribe(BaseCliTestCase, IOTestMixin):
             
             with unittest.mock.patch('sys.stdout', new=io.StringIO()) as stdout:
                 # MMIF_FILE argument expects a string path
-                args = argparse.Namespace(MMIF_FILE=tmp_dir, output=None, pretty=False, help_schemas=None)
+                args = argparse.Namespace(MMIF_FILE=tmp_dir, output=None, pretty=False, help_schema=None)
                 describe.main(args)
                 output_json = json.loads(stdout.getvalue())
                 # Just verify valid JSON output was produced
