@@ -23,7 +23,7 @@ This module defines two main collection types:
 
 import json
 import warnings
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Union, Any, Dict, Optional, TypeVar, Generic, Generator, Iterator, Type, Set, ClassVar, List
 
 T = TypeVar('T')
@@ -404,7 +404,10 @@ class MmifObjectEncoder(json.JSONEncoder):
         elif hasattr(obj, 'isoformat'):         # for datetime objects
             iso_str = obj.isoformat()
             # Use 'Z' suffix for UTC timestamps instead of '+00:00'
-            return iso_str.replace('+00:00', 'Z')
+            # Only replace if the datetime is explicitly in UTC timezone
+            if hasattr(obj, 'tzinfo') and obj.tzinfo == timezone.utc:
+                return iso_str.replace('+00:00', 'Z')
+            return iso_str
         elif hasattr(obj, '__str__'):
             return str(obj)
         else:
