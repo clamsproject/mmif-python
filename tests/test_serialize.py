@@ -608,6 +608,33 @@ class TestMmif(unittest.TestCase):
             a = v.new_annotation(AnnotationTypes.BoundingBox)
             _ = a._get_label()
 
+    def test_timestamp_uses_utc_with_z_suffix(self):
+        """Test that timestamps are in UTC with 'Z' suffix to avoid ambiguity"""
+        from datetime import timezone
+        mmif_str = '''
+        {
+          "metadata": {"mmif": "http://mmif.clams.ai/1.0.0"},
+          "documents": [],
+          "views": []
+        }'''
+        mmif_obj = Mmif(mmif_str)
+        
+        # Create a new view using new_view() - should set UTC timestamp
+        new_view = mmif_obj.new_view()
+        new_view.metadata.app = "http://test.app"
+        
+        # Verify the timestamp is timezone-aware and uses UTC
+        self.assertIsNotNone(new_view.metadata.timestamp)
+        self.assertIsNotNone(new_view.metadata.timestamp.tzinfo)
+        self.assertEqual(new_view.metadata.timestamp.tzinfo, timezone.utc)
+        
+        # Verify serialization uses 'Z' suffix instead of '+00:00'
+        serialized = mmif_obj.serialize()
+        self.assertIn('"timestamp":', serialized)
+        # The timestamp should end with Z (not +00:00)
+        self.assertIn('Z"', serialized)
+        self.assertNotIn('+00:00', serialized)
+
     def test_get_anchor_point(self):
         mmif = Mmif(validate=False)
         v1 = mmif.new_view()
