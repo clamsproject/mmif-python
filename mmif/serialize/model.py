@@ -402,7 +402,9 @@ class MmifObjectEncoder(json.JSONEncoder):
         if hasattr(obj, '_serialize'):
             return obj._serialize()
         elif hasattr(obj, 'isoformat'):         # for datetime objects
-            return obj.isoformat()
+            iso_str = obj.isoformat()
+            # Use 'Z' suffix for UTC timestamps instead of '+00:00'
+            return iso_str.replace('+00:00', 'Z')
         elif hasattr(obj, '__str__'):
             return str(obj)
         else:
