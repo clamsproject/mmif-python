@@ -69,6 +69,17 @@ python3 build-tools/docs.py
 
 The output will be in `docs-test`. For more options, run `python build-tools/docs.py --help`.
 
+> [!NOTE]
+> Since the documentation build process is relying on the working `mmif` package, one must "build" the package first before building the documentation. This can be done by running
+> ```bash
+> rm VERSION*                     # remove existing VERSION file if exists
+> make devversion                 # creates a dummy VERSION file
+> pip install -r requirements.dev # install dev dependencies
+> python setup.py sdist           # build the package (will download auto-generate subpackges like `mmif.res` and `mmif.ver`)
+
+> [!NOTE]
+> running `build-tools/docs.py` in "local testing" mode will overwrite any existing VERSION file with a dummy version.
+
 ### API Documentation (autodoc)
 
 As of 2026 (since the next version of 1.2.1), API documentation is **automatically generated** using `sphinx-apidoc`. When you run the documentation build:
