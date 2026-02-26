@@ -85,6 +85,8 @@ def extract_frames_as_images(video_document: Document, framenums: Iterable[int],
     :return: frames as a list of :py:class:`~numpy.ndarray` or :py:class:`~PIL.Image.Image`
     """
     import cv2
+    # sort frame numbers
+    framenums = sorted(framenums)
     if as_PIL:
         from PIL import Image
     frames = []
