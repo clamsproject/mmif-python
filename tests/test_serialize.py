@@ -608,6 +608,25 @@ class TestMmif(unittest.TestCase):
             a = v.new_annotation(AnnotationTypes.BoundingBox)
             _ = a._get_label()
 
+    def test_timestamp_uses_utc_with_z_suffix(self):
+        """Test that timestamps are in UTC with 'Z' suffix to avoid ambiguity"""
+        from datetime import timezone
+        mmif_obj = Mmif(validate=False)
+
+        new_view = mmif_obj.new_view()
+        new_view.metadata.app = "http://test.app"
+
+        # Verify the timestamp is timezone-aware and uses UTC
+        self.assertIsNotNone(new_view.metadata.timestamp)
+        self.assertIsNotNone(new_view.metadata.timestamp.tzinfo)
+        self.assertEqual(new_view.metadata.timestamp.tzinfo, timezone.utc)
+
+        # Verify serialization uses 'Z' suffix instead of '+00:00'
+        serialized = json.loads(mmif_obj.serialize())
+        ts = serialized['views'][0]['metadata']['timestamp']
+        self.assertTrue(ts.endswith('Z'))
+        self.assertNotIn('+00:00', ts)
+
     def test_get_anchor_point(self):
         mmif = Mmif(validate=False)
         v1 = mmif.new_view()

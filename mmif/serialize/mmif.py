@@ -14,7 +14,7 @@ import json
 import math
 import warnings
 from collections import defaultdict
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, List, Union, Optional, Dict, cast, Iterator
 
 import jsonschema.validators
@@ -433,7 +433,7 @@ class Mmif(MmifObject):
         """
         new_view = View()
         new_view.id = self.new_view_id()
-        new_view.metadata.timestamp = datetime.now()
+        new_view.metadata.timestamp = datetime.now(timezone.utc)
         self.add_view(new_view)
         return new_view
 
