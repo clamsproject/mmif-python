@@ -235,7 +235,7 @@ def generate_whatsnew_rst(app):
     if not found_version:
         logger.info(f"No changelog entry found for version {version}")
         with open(output_path, 'w') as f:
-            f.write("")
+            f.write(f"### nothing new in {version}\nDid you locally build for testing?")
     else:
         # Dump matched markdown content directly to whatsnew.md
         with open(output_path, 'w') as f:
@@ -270,7 +270,7 @@ def run_apidoc(app):
             *exclude_paths,
             '--force',          # Overwrite existing files
             '--module-first',   # Put module docs before submodule docs
-            '--no-toc',         # Don't create modules.rst (we maintain our own)
+            '--no-toc',         # Don't create modules.rst, will be overwriting each other's
         ]
         logger.info(f"Running sphinx-apidoc with args: {args}")
         apidoc_main(args)

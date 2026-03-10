@@ -88,7 +88,7 @@ To get subcomponents, you can use various getters implemented in subclasses. For
           # do something with the video file
 
 
-For a full list of available helper methods, please refer to :ref:`the API documentation <apidoc>`. 
+For a full list of available helper methods, please refer to the API documentation pages (See left sidebar).
 
 
 MMIF usage in CLAMS Workflows
