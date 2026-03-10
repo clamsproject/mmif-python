@@ -9,6 +9,7 @@ from urllib.parse import urlparse
 
 from mmif import Mmif, Document, DocumentTypes, __specver__
 from mmif.serialize.mmif import MmifMetadata
+from mmif.utils.cli import open_cli_io_arg
 
 __all__ = ['WorkflowSource']
 
@@ -214,10 +215,6 @@ def generate_source_mmif_from_file(documents, prefix=None, scheme='file', **igno
 
 
 def describe_argparser():
-    """
-    returns two strings: one-line description of the argparser, and addition material, 
-    which will be shown in `clams --help` and `clams <subcmd> --help`, respectively.
-    """
     oneliner = 'provides CLI to create a "source" MMIF json.'
     additional = textwrap.dedent("""
     A source MMIF is a MMIF with a list of source documents but empty views. 
@@ -258,8 +255,7 @@ def prep_argparser(**kwargs):
     )
     parser.add_argument(
         '-o', '--output',
-        type=argparse.FileType('w'),
-        default=sys.stdout,
+        type=str, default=None,
         help='output file path, or STDOUT if not provided.'
     )
     scheme_help = 'A scheme to associate with the document location URI. When not given, the default scheme is `file://`.'
@@ -279,7 +275,8 @@ def prep_argparser(**kwargs):
 
 def main(args):
     mmif = generate_source_mmif_from_file(windows_path=False, **vars(args))
-    args.output.write(mmif)
+    with open_cli_io_arg(args.output, 'w', default_stdin=True) as output_file:
+        output_file.write(mmif)
     return mmif
 
 if __name__ == '__main__':

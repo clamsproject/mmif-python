@@ -3,12 +3,18 @@ import json
 import sys
 import textwrap
 from pathlib import Path
-from typing import Union
+from typing import Union, cast
 
-from mmif.utils.workflow_helper import generate_workflow_identifier, describe_single_mmif, \
-    describe_mmif_collection
+from mmif.utils.cli import open_cli_io_arg, generate_model_summary
+
 # gen_param_hash is imported for backward compatibility
-from mmif.utils.workflow_helper import generate_param_hash
+from mmif.utils.workflow_helper import (
+    CollectionMmifDesc,
+    SingleMmifDesc,
+    describe_mmif_collection,
+    describe_single_mmif,
+    generate_workflow_identifier,
+)
 
 
 def get_pipeline_specs(mmif_file: Union[str, Path]):
@@ -22,41 +28,30 @@ def generate_pipeline_identifier(mmif_file: Union[str, Path]) -> str:
     import warnings
     warnings.warn("generate_pipeline_identifier is deprecated, use generate_workflow_identifier instead",
                   DeprecationWarning)
-    return generate_workflow_identifier(mmif_file)
+    return cast(str, generate_workflow_identifier(mmif_file))
 
 
 def describe_argparser():
-    """
-    Returns two strings: one-line description of the argparser, and
-    additional material, which will be shown in `clams --help` and
-    `clams <subcmd> --help`, respectively.
-    """
     oneliner = (
-        'provides CLI to describe the workflow specification from a MMIF '
-        'file or a collection of MMIF files.'
+        'Describe the workflow specification from a MMIF file or a '
+        'collection of MMIF files.'
     )
-
-    # get and clean docstrings
-    single_doc = describe_single_mmif.__doc__.split(':param')[0]
-    single_doc = textwrap.dedent(single_doc).strip()
-    collection_doc = describe_mmif_collection.__doc__.split(':param')[0]
-    collection_doc = textwrap.dedent(collection_doc).strip()
 
     additional = textwrap.dedent(f"""
     This command extracts workflow information from a single MMIF file or 
-    summarizes a directory of MMIF files.
+    a directory of MMIF files. The output is serialized as JSON.
     
-    ==========================
-    For a single MMIF file
-    ==========================
-    {single_doc}
-
-    ===============================
-    For a directory of MMIF files
-    ===============================
-    {collection_doc}
+    Output Schemas:
+    
+    1. Single MMIF File (mmif-file):
+{generate_model_summary(SingleMmifDesc, indent=4)}
+    
+    2. MMIF Collection (mmif-dir):
+{generate_model_summary(CollectionMmifDesc, indent=4)}
+    
+    Use `--help-schema` to inspect the full JSON schema for a specific output type.
     """)
-    return oneliner, oneliner + '\n\n' + additional.strip()
+    return oneliner, additional
 
 
 def prep_argparser(**kwargs):
@@ -65,17 +60,17 @@ def prep_argparser(**kwargs):
         formatter_class=argparse.RawDescriptionHelpFormatter,
         **kwargs
     )
+    
     parser.add_argument(
         "MMIF_FILE",
         nargs="?",
         type=str,
-        default=None if sys.stdin.isatty() else sys.stdin,
+        default=None,
         help='input MMIF file, a directory of MMIF files, or STDIN if `-` or not provided.'
     )
     parser.add_argument(
         "-o", "--output",
-        type=argparse.FileType("w"),
-        default=sys.stdout,
+        type=str, default=None,
         help='output file path, or STDOUT if not provided.'
     )
     parser.add_argument(
@@ -83,33 +78,43 @@ def prep_argparser(**kwargs):
         action="store_true",
         help="Pretty-print JSON output"
     )
+    parser.add_argument(
+        "--help-schema",
+        nargs=1,
+        choices=["mmif-file", "mmif-dir"],
+        metavar="SCHEMA_NAME",
+        help="Print the JSON schema for the output. Options: mmif-file, mmif-dir."
+    )
     return parser
 
 
 def main(args):
     """
-    Main entry point for the describe CLI command.
-
-    Reads a MMIF file and outputs a JSON summary containing:
-    - workflow_id: unique identifier for the source and app sequence
-    - stats: view counts, annotation counts (total/per-view/per-type),
-      and lists of error/warning/empty view IDs
-    - views: map of view IDs to app configurations and profiling data
-
-    :param args: Parsed command-line arguments
+    Main block for the describe CLI command.
+    This function basically works as a wrapper around
+    :func:`describe_single_mmif` (for single file input) or 
+    :func:`describe_mmif_collection` (for directory input).
     """
+    if hasattr(args, 'help_schema') and args.help_schema is not None:
+        schema_name = args.help_schema[0]
+        if schema_name == 'mmif-file':
+            model_cls = SingleMmifDesc
+        elif schema_name == 'mmif-dir':
+            model_cls = CollectionMmifDesc
+        
+        schema = model_cls.model_json_schema()
+        print(json.dumps(schema, indent=2))
+        sys.exit(0)
+
     output = {}
     # if input is a directory
-    if isinstance(args.MMIF_FILE, str) and Path(args.MMIF_FILE).is_dir():
+    if Path(str(args.MMIF_FILE)).is_dir():
         output = describe_mmif_collection(args.MMIF_FILE)
     # if input is a file or stdin
     else:
         # Read MMIF content
-        if hasattr(args.MMIF_FILE, 'read'):
-            mmif_content = args.MMIF_FILE.read()
-        else:
-            with open(args.MMIF_FILE, 'r') as f:
-                mmif_content = f.read()
+        with open_cli_io_arg(args.MMIF_FILE, 'r', default_stdin=True) as input_file:
+            mmif_content = input_file.read()
 
         # For file input, we need to handle the path
         # If input is from stdin, create a temp file
@@ -127,11 +132,10 @@ def main(args):
                 tmp_path.unlink()
 
     if output:
-        if args.pretty:
-            json.dump(output, args.output, indent=2)
-        else:
-            json.dump(output, args.output)
-        args.output.write('\n')
+        # Convert Pydantic models to dicts
+        with open_cli_io_arg(args.output, 'w', default_stdin=True) as output_file:
+            json.dump(output, output_file, indent=2 if args.pretty else None)
+            output_file.write('\n')
 
 
 if __name__ == "__main__":

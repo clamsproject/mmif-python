@@ -14,8 +14,8 @@ import json
 import math
 import warnings
 from collections import defaultdict
-from datetime import datetime
-from typing import List, Union, Optional, Dict, cast, Iterator
+from datetime import datetime, timezone
+from typing import Any, List, Union, Optional, Dict, cast, Iterator
 
 import jsonschema.validators
 
@@ -24,7 +24,7 @@ from mmif import ThingTypesBase
 from mmif.serialize.annotation import Annotation, Document
 from mmif.serialize.model import MmifObject, DataList
 from mmif.serialize.view import View
-from mmif.vocabulary import AnnotationTypes, DocumentTypes
+from mmif.vocabulary import AnnotationTypes, DocumentTypesBase
 
 __all__ = ['Mmif']
 
@@ -433,7 +433,7 @@ class Mmif(MmifObject):
         """
         new_view = View()
         new_view.id = self.new_view_id()
-        new_view.metadata.timestamp = datetime.now()
+        new_view.metadata.timestamp = datetime.now(timezone.utc)
         self.add_view(new_view)
         return new_view
 
@@ -487,11 +487,11 @@ class Mmif(MmifObject):
         else:
             return []
 
-    def get_documents_by_type(self, doc_type: Union[str, DocumentTypes]) -> List[Document]:
+    def get_documents_by_type(self, doc_type: DocumentTypesBase) -> List[Document]:
         """
         Method to get all documents where the type matches a particular document type, which should be one of the CLAMS document types.
 
-        :param doc_type: the type of documents to search for, must be one of ``Document`` type defined in the CLAMS vocabulary.
+        :param doc_type: the type of documents to search for, must be one of ``Document`` types defined in the CLAMS vocabulary.
         :return: a list of documents matching the requested type, or an empty list if none found.
         """
         docs = []
@@ -530,7 +530,7 @@ class Mmif(MmifObject):
         docs.extend([document for document in self.documents if document[prop_key] == prop_value])
         return docs
 
-    def get_documents_locations(self, m_type: Union[DocumentTypes, str], path_only=False) -> List[Union[str, None]]:
+    def get_documents_locations(self, m_type: Union[DocumentTypesBase, str], path_only=False) -> List[Union[str, None]]:
         """
         This method returns the file paths of documents of given type.
         Only top-level documents have locations, so we only check them.
@@ -545,7 +545,7 @@ class Mmif(MmifObject):
         else:
             return [doc.location for doc in docs]
 
-    def get_document_location(self, m_type: Union[DocumentTypes, str], path_only=False) -> Optional[str]:
+    def get_document_location(self, m_type: Union[DocumentTypesBase, str], path_only=False) -> Optional[str]:
         """
         Method to get the location of *first* document of given type.
 

@@ -1,12 +1,27 @@
-name: "📦 Publish (docs, PyPI)"
+name: "📦 Publish (PyPI + docs)"
 
-on: 
-  push: 
-    tags: 
+on:
+  push:
+    tags:
       - '[0-9]+.[0-9]+.[0-9]+'
 
 jobs:
-  package-and-upload:
-    name: "🤙 Call SDK publish workflow"
+  publish-pypi:
+    name: "📦 Build and upload to PyPI"
     uses: clamsproject/.github/.github/workflows/sdk-publish.yml@main
+    secrets: inherit
+
+  publish-docs:
+    name: "📖 Build and publish docs"
+    needs: publish-pypi
+    uses: clamsproject/clamsproject.github.io/.github/workflows/sdk-docs.yml@main
+    with:
+      source_repo: clamsproject/mmif-python
+      source_ref: ${{ github.ref_name }}
+      project_name: mmif-python
+      version: ${{ github.ref_name }}
+      build_command: 'python3 build-tools/docs.py --build-ver ${{ github.ref_name }} --output-dir docs'
+      docs_output_dir: 'docs/${{ github.ref_name }}'
+      python_version: '3.11'
+      update_latest: true
     secrets: inherit

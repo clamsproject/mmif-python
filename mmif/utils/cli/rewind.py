@@ -3,6 +3,7 @@ import sys
 import textwrap
 
 import mmif
+from mmif.utils.cli import open_cli_io_arg
 from mmif.utils.workflow_helper import group_views_by_app
 
 
@@ -55,10 +56,6 @@ def rewind_mmif(mmif_obj: mmif.Mmif, choice: int, choice_is_viewnum: bool = True
 
 
 def describe_argparser():
-    """
-    returns two strings: one-line description of the argparser, and addition material, 
-    which will be shown in `clams --help` and `clams <subcmd> --help`, respectively.
-    """
     oneliner = 'provides CLI to rewind a MMIF from a CLAMS workflow.'
     additional = textwrap.dedent("""
     MMIF rewinder rewinds a MMIF by deleting the last N views.
@@ -70,12 +67,10 @@ def prep_argparser(**kwargs):
     parser = argparse.ArgumentParser(description=describe_argparser()[1], 
                                      formatter_class=argparse.RawDescriptionHelpFormatter, **kwargs)
     parser.add_argument("MMIF_FILE",
-                        nargs="?", type=argparse.FileType("r"),
-                        default=None if sys.stdin.isatty() else sys.stdin,
+                        nargs="?", type=str, default=None,
                         help='input MMIF file path, or STDIN if `-` or not provided.')
     parser.add_argument("-o", "--output",
-                        type=argparse.FileType("w"),
-                        default=sys.stdout,
+                        type=str, default=None,
                         help='output file path, or STDOUT if not provided.')
     parser.add_argument("-p", '--pretty', action='store_true', 
                         help="Pretty-print rewound MMIF")
@@ -88,7 +83,8 @@ def prep_argparser(**kwargs):
 
 
 def main(args):
-    mmif_obj = mmif.Mmif(args.MMIF_FILE.read())
+    with open_cli_io_arg(args.MMIF_FILE, 'r', default_stdin=True) as input_file:
+        mmif_obj = mmif.Mmif(input_file.read())
 
     if args.number == 0:  # If user doesn't know how many views to rewind, give them choices.
         choice = prompt_user(mmif_obj)
@@ -97,7 +93,8 @@ def main(args):
     if not isinstance(choice, int) or choice <= 0:
         raise ValueError(f"Only can rewind by a positive number of views. Got {choice}.")
 
-    args.output.write(rewind_mmif(mmif_obj, choice, args.mode == 'view').serialize(pretty=args.pretty))
+    with open_cli_io_arg(args.output, 'w', default_stdin=True) as output_file:
+        output_file.write(rewind_mmif(mmif_obj, choice, args.mode == 'view').serialize(pretty=args.pretty))
 
 
 if __name__ == "__main__":

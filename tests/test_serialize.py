@@ -269,6 +269,21 @@ class TestMmif(unittest.TestCase):
         # round_trip = Document(new_doc.serialize())
         self.assertEqual(Document(new_doc.serialize()).serialize(), new_doc.serialize())
 
+    def test_document_location_http_caching(self):
+        import mmif_docloc_http
+        mmif_docloc_http._cache.clear()
+        test_url = "https://example.com/"
+        self.assertNotIn(test_url, mmif_docloc_http._cache)
+        new_doc = Document()
+        new_doc.id = "d1"
+        new_doc.location = test_url
+        new_doc.location_path()
+        self.assertIn(test_url, mmif_docloc_http._cache)
+        # second call should use cache (same path returned)
+        cached_path = mmif_docloc_http._cache[test_url]
+        second_path = new_doc.location_path()
+        self.assertEqual(cached_path, second_path)
+
     def test_get_documents_locations(self):
         mmif_obj = Mmif(MMIF_EXAMPLES['everything'])
         self.assertEqual(1, len(mmif_obj.get_documents_locations(DocumentTypes.VideoDocument)))
@@ -592,6 +607,25 @@ class TestMmif(unittest.TestCase):
         with self.assertRaises(KeyError):
             a = v.new_annotation(AnnotationTypes.BoundingBox)
             _ = a._get_label()
+
+    def test_timestamp_uses_utc_with_z_suffix(self):
+        """Test that timestamps are in UTC with 'Z' suffix to avoid ambiguity"""
+        from datetime import timezone
+        mmif_obj = Mmif(validate=False)
+
+        new_view = mmif_obj.new_view()
+        new_view.metadata.app = "http://test.app"
+
+        # Verify the timestamp is timezone-aware and uses UTC
+        self.assertIsNotNone(new_view.metadata.timestamp)
+        self.assertIsNotNone(new_view.metadata.timestamp.tzinfo)
+        self.assertEqual(new_view.metadata.timestamp.tzinfo, timezone.utc)
+
+        # Verify serialization uses 'Z' suffix instead of '+00:00'
+        serialized = json.loads(mmif_obj.serialize())
+        ts = serialized['views'][0]['metadata']['timestamp']
+        self.assertTrue(ts.endswith('Z'))
+        self.assertNotIn('+00:00', ts)
 
     def test_get_anchor_point(self):
         mmif = Mmif(validate=False)
