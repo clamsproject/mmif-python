@@ -144,82 +144,85 @@ class TestVideoDocumentHelper(unittest.TestCase):
         self.assertEqual(4, len(frame_list))
         self.assertEqual(3, len(new_target_images))
 
-    def test_extract_target_frames(self):
-        # Create 10 timepoints
+    def test_sample_all(self):
         tps = []
         for i in range(10):
-            tp = self.a_view.new_annotation(AnnotationTypes.TimePoint, timePoint=i*100, timeUnit='frame', document=self.video_doc.id)
+            tp = self.a_view.new_annotation(
+                AnnotationTypes.TimePoint,
+                timePoint=i * 100, timeUnit='frame',
+                document=self.video_doc.id)
             tps.append(tp)
-        
-        # Create an annotation with targets
-        parent_ann = self.a_view.new_annotation(AnnotationTypes.TimeFrame, targets=[tp.id for tp in tps])
-        
-        # Test fraction=0.5 (should get 5 timepoints: indices 0, 2, 4, 6, 9)
-        # indices = [int(i * 9 / 4) for i in range(5)] = [0, 2, 4, 6, 9]
-        images, ids = vdh.extract_target_frames(self.mmif_obj, parent_ann, fraction=0.5)
-        self.assertEqual(5, len(images))
-        self.assertEqual(5, len(ids))
-        self.assertEqual(tps[0].id, ids[0])
-        self.assertEqual(tps[9].id, ids[-1])
-        
-        # Test min_timepoints=8, fraction=0.1 (should get 8)
-        images, ids = vdh.extract_target_frames(self.mmif_obj, parent_ann, min_timepoints=8, fraction=0.1)
-        self.assertEqual(8, len(images))
-        
-        # Test max_timepoints=3, fraction=1.0 (should get 3)
-        images, ids = vdh.extract_target_frames(self.mmif_obj, parent_ann, max_timepoints=3, fraction=1.0)
-        self.assertEqual(3, len(images))
-        self.assertEqual(tps[0].id, ids[0])
-        self.assertEqual(tps[4].id, ids[1]) # int(1 * 9 / 2) = 4
-        self.assertEqual(tps[9].id, ids[2])
-        
-        # Test all targets if min_timepoints > num_targets
-        images, ids = vdh.extract_target_frames(self.mmif_obj, parent_ann, min_timepoints=20)
-        self.assertEqual(10, len(images))
-        self.assertEqual([tp.id for tp in tps], ids)
+        parent_ann = self.a_view.new_annotation(
+            AnnotationTypes.TimeFrame,
+            targets=[tp.id for tp in tps])
 
-    def test_extract_target_frames_with_sample(self):
-        # Load from the sample file
-        swt_path = pathlib.Path(__file__).parent / 'samples' / '1.0' / 'swt.mmif'
-        with open(swt_path) as f:
-            mmif_obj = Mmif(f.read())
-        
-        # Find a timeframe with targets
-        tf = None
-        for view in mmif_obj.views:
-            for ann in view.annotations:
-                if ann.at_type == AnnotationTypes.TimeFrame and 'targets' in ann.properties:
-                    tf = ann
-                    break
-            if tf: break
-        
-        self.assertIsNotNone(tf, "Could not find a TimeFrame with targets in swt.mmif")
-        
-        # Update document location to avoid error, although we'll mock extraction 
-        # because we don't have the original video referenced in swt.mmif
-        video_doc = mmif_obj[tf.get_property('document')]
-        video_doc.location = f"file://{pathlib.Path(__file__).parent}/black-2997fps.mp4"
-        video_doc.add_property('fps', 29.97)
-        video_doc.add_property('frameCount', 1000)
-        
-        # Test with max_timepoints=5
-        # We mock extract_frames_as_images because we don't really need to decode 
-        # frames to test the selection logic here, and we don't want to rely on CV2/FFMPEG
-        # being fully functional for a dummy video in this test environment if possible
-        with mock.patch('mmif.utils.video_document_helper.extract_frames_as_images') as mock_extract:
-            mock_extract.return_value = [f"img_{i}" for i in range(5)]
-            images, ids = vdh.extract_target_frames(mmif_obj, tf, max_timepoints=5)
-            
-            self.assertEqual(len(images), 5)
-            self.assertEqual(len(ids), 5)
-            # Verify that IDs are from the targets list
-            targets = tf.get_property('targets')
-            for id in ids:
-                self.assertIn(id, targets)
-            
-            # Verify the first and last targets are selected (if count > 1)
-            self.assertEqual(ids[0], targets[0])
-            self.assertEqual(ids[-1], targets[-1])
+        frame_nums = vdh._sample_all(self.mmif_obj, parent_ann)
+        self.assertEqual(10, len(frame_nums))
+        self.assertEqual([i * 100 for i in range(10)], frame_nums)
+
+        # start/end fallback (no targets)
+        parent_ann2 = self.a_view.new_annotation(
+            AnnotationTypes.TimeFrame,
+            start=0, end=10, timeUnit='frame',
+            document=self.video_doc.id)
+        frame_nums2 = vdh._sample_all(self.mmif_obj, parent_ann2)
+        self.assertEqual(list(range(10)), frame_nums2)
+
+    def test_sample_representatives(self):
+        tps = []
+        for i in range(10):
+            tp = self.a_view.new_annotation(
+                AnnotationTypes.TimePoint,
+                timePoint=i * 100, timeUnit='frame',
+                document=self.video_doc.id)
+            tps.append(tp)
+        reps = [tps[2].id, tps[5].id, tps[8].id]
+        parent_ann = self.a_view.new_annotation(
+            AnnotationTypes.TimeFrame,
+            targets=[tp.id for tp in tps],
+            representatives=reps)
+
+        # should use representatives
+        frame_nums = vdh._sample_representatives(
+            self.mmif_obj, parent_ann)
+        self.assertEqual(3, len(frame_nums))
+        self.assertEqual([200, 500, 800], frame_nums)
+
+        # without representatives, should return empty (skip)
+        parent_ann2 = self.a_view.new_annotation(
+            AnnotationTypes.TimeFrame,
+            targets=[tp.id for tp in tps])
+        frame_nums2 = vdh._sample_representatives(
+            self.mmif_obj, parent_ann2)
+        self.assertEqual([], frame_nums2)
+
+    def test_sample_single(self):
+        tps = []
+        for i in range(10):
+            tp = self.a_view.new_annotation(
+                AnnotationTypes.TimePoint,
+                timePoint=i * 100, timeUnit='frame',
+                document=self.video_doc.id)
+            tps.append(tp)
+        reps = [tps[2].id, tps[5].id, tps[8].id]
+        parent_ann = self.a_view.new_annotation(
+            AnnotationTypes.TimeFrame,
+            targets=[tp.id for tp in tps],
+            representatives=reps)
+
+        # should pick middle representative (index 1 of 3 = tps[5])
+        frame_nums = vdh._sample_single(
+            self.mmif_obj, parent_ann)
+        self.assertEqual([500], frame_nums)
+
+        # start/end fallback (no representatives)
+        parent_ann2 = self.a_view.new_annotation(
+            AnnotationTypes.TimeFrame,
+            start=100, end=500, timeUnit='frame',
+            document=self.video_doc.id)
+        frame_nums2 = vdh._sample_single(
+            self.mmif_obj, parent_ann2)
+        self.assertEqual([300], frame_nums2)
 
 
 class TestSequenceHelper(unittest.TestCase):
