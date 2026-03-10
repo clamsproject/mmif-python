@@ -4,6 +4,7 @@ import pathlib
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 import pytest
 from hypothesis import given
@@ -142,6 +143,86 @@ class TestVideoDocumentHelper(unittest.TestCase):
         new_target_images = vdh.extract_frames_as_images(self.video_doc, frame_list, as_PIL=False)
         self.assertEqual(4, len(frame_list))
         self.assertEqual(3, len(new_target_images))
+
+    def test_sample_all(self):
+        tps = []
+        for i in range(10):
+            tp = self.a_view.new_annotation(
+                AnnotationTypes.TimePoint,
+                timePoint=i * 100, timeUnit='frame',
+                document=self.video_doc.id)
+            tps.append(tp)
+        parent_ann = self.a_view.new_annotation(
+            AnnotationTypes.TimeFrame,
+            targets=[tp.id for tp in tps])
+
+        frame_nums = vdh._sample_all(self.mmif_obj, parent_ann)
+        self.assertEqual(10, len(frame_nums))
+        self.assertEqual([i * 100 for i in range(10)], frame_nums)
+
+        # start/end fallback (no targets)
+        parent_ann2 = self.a_view.new_annotation(
+            AnnotationTypes.TimeFrame,
+            start=0, end=10, timeUnit='frame',
+            document=self.video_doc.id)
+        frame_nums2 = vdh._sample_all(self.mmif_obj, parent_ann2)
+        self.assertEqual(list(range(10)), frame_nums2)
+
+    def test_sample_representatives(self):
+        tps = []
+        for i in range(10):
+            tp = self.a_view.new_annotation(
+                AnnotationTypes.TimePoint,
+                timePoint=i * 100, timeUnit='frame',
+                document=self.video_doc.id)
+            tps.append(tp)
+        reps = [tps[2].id, tps[5].id, tps[8].id]
+        parent_ann = self.a_view.new_annotation(
+            AnnotationTypes.TimeFrame,
+            targets=[tp.id for tp in tps],
+            representatives=reps)
+
+        # should use representatives
+        frame_nums = vdh._sample_representatives(
+            self.mmif_obj, parent_ann)
+        self.assertEqual(3, len(frame_nums))
+        self.assertEqual([200, 500, 800], frame_nums)
+
+        # without representatives, should return empty (skip)
+        parent_ann2 = self.a_view.new_annotation(
+            AnnotationTypes.TimeFrame,
+            targets=[tp.id for tp in tps])
+        frame_nums2 = vdh._sample_representatives(
+            self.mmif_obj, parent_ann2)
+        self.assertEqual([], frame_nums2)
+
+    def test_sample_single(self):
+        tps = []
+        for i in range(10):
+            tp = self.a_view.new_annotation(
+                AnnotationTypes.TimePoint,
+                timePoint=i * 100, timeUnit='frame',
+                document=self.video_doc.id)
+            tps.append(tp)
+        reps = [tps[2].id, tps[5].id, tps[8].id]
+        parent_ann = self.a_view.new_annotation(
+            AnnotationTypes.TimeFrame,
+            targets=[tp.id for tp in tps],
+            representatives=reps)
+
+        # should pick middle representative (index 1 of 3 = tps[5])
+        frame_nums = vdh._sample_single(
+            self.mmif_obj, parent_ann)
+        self.assertEqual([500], frame_nums)
+
+        # start/end fallback (no representatives)
+        parent_ann2 = self.a_view.new_annotation(
+            AnnotationTypes.TimeFrame,
+            start=100, end=500, timeUnit='frame',
+            document=self.video_doc.id)
+        frame_nums2 = vdh._sample_single(
+            self.mmif_obj, parent_ann2)
+        self.assertEqual([300], frame_nums2)
 
 
 class TestSequenceHelper(unittest.TestCase):
