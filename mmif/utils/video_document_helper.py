@@ -25,7 +25,7 @@ _cv_import_warning = (
 def _check_cv_dep(dep):
     """Import a CV dependency, raising ImportError with a helpful message."""
     try:
-        return importlib.__import__(dep)
+        return importlib.import_module(dep)
     except ImportError as e:
         raise ImportError(
             _cv_import_warning.format(e.name, mmif.__version__)
@@ -130,7 +130,7 @@ def extract_frames_as_images(video_document: Document, framenums: Iterable[int],
     original_framenums = list(framenums)
     unique_framenums = sorted(set(original_framenums))
     if as_PIL:
-        Image = _check_cv_dep('PIL').Image
+        Image = _check_cv_dep('PIL.Image')
     unique_frames = {}
     video = capture(video_document)
     cur_f = 0
