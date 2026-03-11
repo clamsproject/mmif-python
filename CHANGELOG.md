@@ -1,4 +1,22 @@
 
+## releasing 1.3.0 (2026-03-10)
+### Overview
+Minor release adding a new `summarize` CLI, pydantic-based workflow descriptors, and various fixes for video document helpers and timestamp handling.
+
+### Additions
+* `mmif summarize` CLI command, adapted from [mmif-summarizer](https://github.com/clamsproject/mmif-summarizer) (https://github.com/clamsproject/mmif-python/pull/350)
+* Timepoint selection feature for `video_document_helper` (https://github.com/clamsproject/mmif-python/pull/373)
+
+### Changes
+* `mmif describe` output now uses pydantic models for schema validation and auto-generated documentation (https://github.com/clamsproject/mmif-python/pull/367)
+* `mmif describe` removed source counts from workflow ID (https://github.com/clamsproject/mmif-python/pull/358)
+* `summarize` CLI aligned with other subcommand conventions (positional input, optional `-o`/`--output`, defaults to STDOUT) (https://github.com/clamsproject/mmif-python/pull/360)
+* Timestamps in view metadata now use UTC (`Z` suffix) instead of local time (https://github.com/clamsproject/mmif-python/pull/372)
+* Fixed `DocumentTypes` type hint to use `DocumentTypesBase` (https://github.com/clamsproject/mmif-python/pull/353)
+* Caching for remote URI in video document helper to fix slow `get_framerate` on non-`file://` documents (https://github.com/clamsproject/mmif-python/pull/357)
+* Documentation build migrated to "build-once, stay-forever" model via documentation hub (https://github.com/clamsproject/mmif-python/pull/344)
+
+
 ## releasing 1.2.1 (2025-11-28)
 ### Overview
 Updated output formats of the experimental `mmif describe` command
