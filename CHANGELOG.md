@@ -1,4 +1,13 @@
 
+## releasing 1.3.1 (2026-03-11)
+### Overview
+
+Bug-fix release to address broken `as_PIL=True` option in `extract_frames_as_images`.
+
+### Changes
+
+* Fix `PIL.Image` import failure in `_check_cv_dep` by switching from `importlib.__import__` to `importlib.import_module` (https://github.com/clamsproject/mmif-python/pull/377)
+
 ## releasing 1.3.0 (2026-03-10)
 ### Overview
 Minor release adding a new `summarize` CLI, pydantic-based workflow descriptors, and various fixes for video document helpers and timestamp handling.
