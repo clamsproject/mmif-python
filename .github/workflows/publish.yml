@@ -49,8 +49,4 @@ jobs:
       source_ref: ${{ needs.check-pypi.outputs.version }}
       project_name: mmif-python
       version: ${{ needs.check-pypi.outputs.version }}
-      build_command: 'python3 build-tools/docs.py --build-ver ${{ needs.check-pypi.outputs.version }} --output-dir docs'
-      docs_output_dir: 'docs/${{ needs.check-pypi.outputs.version }}'
-      python_version: '3.11'
-      update_latest: true
     secrets: inherit

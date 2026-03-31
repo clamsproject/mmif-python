@@ -121,6 +121,9 @@ python3 build-tools/docs.py --build-ver v1.0.0
 
 This runs the build in a sandboxed temporary directory. The output will be in `docs-test/<version>`.
 
+> [!NOTE]
+> In CI, documentation is built and published automatically by the `publish.yml` workflow via the shared `sdk-docs.yml`. The CI calls `docs.py --build-ver <version> --output-dir _docs`. All CLAMS SDK repos use the same `docs.py` CLI interface (`--build-ver`, `--output-dir`).
+
 ### Troubleshooting Old Version Builds
 
 **Important:** The build script (`build-tools/docs.py`) uses a "Modern Environment, Legacy Source" strategy. It checks out the old source code but installs **modern** build dependencies (Sphinx 7.x, Furo) to ensure the build works on current systems (including Python 3.13).

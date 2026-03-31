@@ -4,10 +4,12 @@
 
 import datetime
 import inspect
-import textwrap
+import json
 import os
 import re
+import subprocess
 import sys
+import textwrap
 from pathlib import Path
 from sphinx.util import logging
 
@@ -151,6 +153,9 @@ def update_target_versions(app):
         return
 
     current_ver = mmif.__version__
+    # Skip dev/dummy versions to avoid dirtying the git-tracked CSV
+    if 'dev' in current_ver or not re.match(r'^\d+\.\d+\.\d+$', current_ver):
+        return
     spec_ver = mmif.__specver__
 
     csv_path = proj_root_dir / 'documentation' / 'target-versions.csv'
@@ -197,50 +202,53 @@ def generate_cli_rst(app):
 
 def generate_whatsnew_rst(app):
     """
-    Create the documentation/whatsnew.md file by pulling out the changes for the
-    current version from the changelog file.
-    """
+    Generate whatsnew.md by fetching the latest release PR body
+    from GitHub via ``gh pr list``.
 
-    changelog_path = proj_root_dir / 'CHANGELOG.md'
+    Falls back gracefully if ``gh`` is unavailable (local builds).
+    """
     output_path = proj_root_dir / 'documentation' / 'whatsnew.md'
-    if not changelog_path.exists():
-        logger.warning(f"CHANGELOG.md not found at {changelog_path}")
+    repo = f'clamsproject/{project}'
+
+    try:
+        result = subprocess.run(
+            ['gh', 'pr', 'list',
+             '-s', 'merged', '-B', 'main',
+             '-L', '100',
+             '--json', 'title,body',
+             '--repo', repo],
+            capture_output=True, text=True, timeout=15,
+        )
+        if result.returncode != 0:
+            raise RuntimeError(result.stderr)
+
+        prs = json.loads(result.stdout)
+        pr = next(
+            (p for p in prs
+             if p['title'].startswith('releasing ')),
+            None,
+        )
+        if pr is None:
+            raise RuntimeError("No release PR found")
+        title = pr['title']
+        body = pr.get('body', '')
+
+        with open(output_path, 'w') as f:
+            f.write(f"## {title}\n\n")
+            f.write(f"(Full changelog: "
+                    f"[CHANGELOG.md]"
+                    f"({blob_base_url}/main/CHANGELOG.md))\n\n")
+            if body:
+                f.write(body)
+        logger.info(f"Generated whatsnew.md from PR: {title}")
+
+    except Exception as e:
+        logger.warning(
+            f"Could not fetch release notes via gh: {e}. "
+            f"Writing empty whatsnew.md"
+        )
         with open(output_path, 'w') as f:
             f.write("")
-        return
-
-    content = []
-    found_version = False
-    version_header_re = re.compile(r'^## releasing\s+([^\s]+)\s*(\(.*\))?')
-
-    logger.debug(f"Looking for version '{version}' in CHANGELOG.md")
-
-    with open(changelog_path, 'r') as f:
-        lines = f.readlines()
-
-    for line in lines:
-        match = version_header_re.match(line)
-        if match:
-            header_version = match.group(1)
-            if header_version == version:
-                found_version = True
-                # We don't include the header line itself in the content we want to wrap
-                continue
-            elif found_version:
-                break
-
-        if found_version:
-            content.append(line)
-
-    if not found_version:
-        logger.info(f"No changelog entry found for version {version}")
-        with open(output_path, 'w') as f:
-            f.write(f"### nothing new in {version}\nDid you locally build for testing?")
-    else:
-        # Dump matched markdown content directly to whatsnew.md
-        with open(output_path, 'w') as f:
-            f.write(f"## What's New in {version}\n\n(Full changelog available in the [CHANGELOG.md]({blob_base_url}/main/CHANGELOG.md))\n")
-            f.writelines(content)
 
 
 def run_apidoc(app):
