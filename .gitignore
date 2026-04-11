@@ -73,7 +73,6 @@ tags
 # auto-generated files
 mmif/ver
 mmif/res
-mmif/vocabulary
 ./VERSION*
 .hypothesis
 

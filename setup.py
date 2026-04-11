@@ -182,33 +182,15 @@ def prep_ext_files(setuptools_cmd):
         generate_subpack(mmif_name, mmif_ver_pkg, f'__version__ = "{version}"\n__specver__ = "{spec_version}"')
 
 
-        # and write resource files
-        for res_name, res_oriname in [(mmif_schema_res_name, mmif_schema_res_oriname), (mmif_vocab_res_name, mmif_vocab_res_oriname)]:
+        # write resource files (mmif.json only; clams.vocabulary.yaml no longer needed)
+        for res_name, res_oriname in [(mmif_schema_res_name, mmif_schema_res_oriname)]:
             if LOCALMMIF:
                 res_content = open(pjoin(LOCALMMIF, res_oriname)).read()
             else:
                 res_content = get_spec_file_at_gitref(spec_file_gitref, res_oriname)
             write_res_file(res_dir, res_name, res_content)
 
-        # write vocabulary enum
-        import yaml
-        attypevers = json.load(io.BytesIO(get_spec_file_at_gitref(latest_mmif_gittag, mmif_vocab_attypevers_res_oriname)))
-        if '.dev' not in version:
-            vocab_yaml_file = io.BytesIO(get_spec_file_at_gitref(latest_mmif_gittag, mmif_vocab_res_oriname))
-            clams_types_vers = {t['name']: attypevers[t['name']] for t in list(yaml.safe_load_all(vocab_yaml_file.read()))}
-        else:
-            last_clams_types = {t['name']: t for t in yaml.safe_load_all(get_spec_file_at_gitref(latest_mmif_gittag, mmif_vocab_res_oriname))}
-            if LOCALMMIF:
-                new_clams_types = {t['name']: t for t in yaml.safe_load_all(open(pjoin(LOCALMMIF, mmif_vocab_res_oriname)))}
-            else:
-                new_clams_types = {t['name']: t for t in yaml.safe_load_all(get_spec_file_at_gitref(spec_file_gitref, mmif_vocab_res_oriname))}
-            clams_types_vers = {n: attypevers[n] for n, t in last_clams_types.items()}
-            for tname in new_clams_types:
-                if tname not in last_clams_types:
-                    clams_types_vers[tname] = 'v1'
-                elif last_clams_types[tname] != new_clams_types[tname]:
-                    clams_types_vers[tname] = f'v{int(clams_types_vers[tname][1:])+1}'
-        generate_vocabulary(spec_version, clams_types_vers)
+        # vocabulary is now provided by clams-vocabulary PyPI package
         ori_run(self)
 
     setuptools_cmd.run = mod_run
