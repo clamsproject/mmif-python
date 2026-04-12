@@ -79,9 +79,12 @@ mmif/res
 # Documentation build artifacts
 documentation/cli_help.rst
 documentation/whatsnew.md
+documentation/examples.rst
+documentation/examples/
 documentation/autodoc
 docs-test
 
 # environments
 .venv*
 venv*
+_issues
