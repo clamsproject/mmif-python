@@ -465,9 +465,11 @@ class Document(Annotation):
             return self.location
         elif prop_name in self._props_pending:
             return self._props_pending[prop_name]
-        elif prop_name in self._props_ephemeral:
-            return self._props_ephemeral[prop_name]
         else:
+            # Delegates to Annotation.__getitem__(), which checks
+            # self.properties (_props_original) before _props_ephemeral.
+            # This gives annotation-level properties precedence over
+            # view-level contains defaults (MMIF spec >= 1.1.1).
             return super().get(prop_name, default)
 
     get_property = get
