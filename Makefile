@@ -59,7 +59,7 @@ test: devversion $(generatedcode)
 	pip install -r requirements.txt
 	pip install -r requirements.cv
 	pytype $(packagename)
-	python3 -m pytest --doctest-modules --cov=$(packagename) --cov-report=xml
+	python3 -m pytest --doctest-modules --cov=$(packagename) --cov-report=xml -m "not slow"
 
 # helper functions
 e :=

@@ -1,83 +1,59 @@
 import itertools
-import os
-import subprocess
 from pathlib import Path
 from string import Template
-from urllib import request
 
 from mmif import __specver__
-from mmif.vocabulary import DocumentTypes, AnnotationTypes
+from mmif.vocabulary import AnnotationTypes, DocumentTypes
 
 __all__ = [
+    'ATTYPE_PREFIX',
     'EVERYTHING_JSON',
     'MMIF_EXAMPLES',
     'FRACTIONAL_EXAMPLES',
 ]
 
+# Canonical URI prefix for vocabulary types (e.g.,
+# ``http://clams.ai/vocabulary/type/TimeFrame/v6``). Derived from the
+# installed ``clams-vocabulary`` so it stays in sync if the prefix
+# ever changes again. Tests should build expected URIs as
+# ``f"{ATTYPE_PREFIX}/{TypeName}/{version}"`` rather than hardcoding.
+ATTYPE_PREFIX = AnnotationTypes.Annotation.base_uri
 
-def _load_from_url_or_git(url):
-    """
-    Load content from URL or local git repository.
-    If LOCALMMIF env var is set, use git show to load from local repo.
-    LOCALMMIF should be the path to the local mmif repository.
-    """
-    localmmif_str = os.environ.get('LOCALMMIF')
-    if localmmif_str:
-        localmmif = Path(localmmif_str)
-        if not localmmif.is_dir():
-            raise ValueError(f"LOCALMMIF path is not a valid directory: {localmmif}")
-        # Extract the version/branch and file path from the URL
-        # URL format: https://raw.githubusercontent.com/clamsproject/mmif/{version}/{filepath}
-        url_prefix = "https://raw.githubusercontent.com/clamsproject/mmif/"
-        if url.startswith(url_prefix):
-            remainder = url[len(url_prefix):]
-            parts = remainder.split('/', 1)
-            if len(parts) == 2:
-                version, filepath = parts
-                # Use git show to get the file from the specific version
-                git_ref = f"{version}:{filepath}"
-                try:
-                    result = subprocess.run(
-                        ['git', 'show', git_ref],
-                        cwd=str(localmmif),
-                        capture_output=True,
-                        text=True,
-                        check=True
-                    )
-                    return result.stdout
-                except subprocess.CalledProcessError as e:
-                    raise RuntimeError(f"Failed to load {git_ref} from local git repo at {localmmif}: {e.stderr}")
 
-    # Fallback to URL loading
-    return request.urlopen(url).read().decode('utf-8')
+_EXAMPLES_DIR = (
+    Path(__file__).resolve().parent / 'mmif-examples'
+)
 
-everything_file_url = f"https://raw.githubusercontent.com/clamsproject/mmif/{__specver__}/specifications/samples/everything/raw.json"
-old_mmif_w_short_id_url = f"https://raw.githubusercontent.com/clamsproject/mmif/1.0.5/specifications/samples/everything/raw.json"
-EVERYTHING_JSON = _load_from_url_or_git(everything_file_url)
-OLD_SHORTID_JSON = _load_from_url_or_git(old_mmif_w_short_id_url)
-SWT_1_0_JSON = (Path(__file__).resolve().parent / 'samples' / '1.0' / 'swt.mmif').read_text()
+EVERYTHING_JSON = (_EXAMPLES_DIR / 'everything' / 'raw.json').read_text()
+OLD_SHORTID_JSON = (_EXAMPLES_DIR / '1.0.5-old-shortid.json').read_text()
+SWT_1_0_JSON = (_EXAMPLES_DIR / 'swt-1.0.mmif').read_text()
 
-# for keys and values in chain all typevers in mmif.vocabulary.*_types modules
-# merge into a single dict 
+# Build ``{TypeName_VER: vN, VERSION: X.Y.Z}`` from the installed
+# ``clams-vocabulary`` package so templated fixtures always exercise the
+# currently installed type versions. Fixtures that need to pin a historical
+# version (e.g., ``1.0.5-old-shortid.json``) hardcode URIs inline rather
+# than using these templates.
 attypevers = {f'{k}_VER': v for k, v in itertools.chain.from_iterable(
     map(lambda x: x._typevers.items(), [AnnotationTypes, DocumentTypes]))}
 attypevers['VERSION'] = __specver__
 
 MMIF_EXAMPLES = {
-    'everything': Template(EVERYTHING_JSON),
-    'mmif_old_shortid': Template(OLD_SHORTID_JSON),
-    'mmif_swt_1_0': Template(SWT_1_0_JSON),
-}
-FRACTIONAL_EXAMPLES = {
-    'doc_only': Template("""{
-"@type": "http://mmif.clams.ai/vocabulary/TextDocument/$TextDocument_VER",
-"properties": {
-"id": "td999",
-"mime": "text/plain",
-"location": "file:///var/archive/transcript-1000.txt" 
-}
-}"""),
+    'everything': Template(EVERYTHING_JSON).safe_substitute(**attypevers),
+    # Historical fixture: 1.0.5-era types, already hardcoded inline.
+    # Do NOT run template substitution on this file.
+    'mmif_old_shortid': OLD_SHORTID_JSON,
+    'mmif_swt_1_0': SWT_1_0_JSON,
 }
 
-MMIF_EXAMPLES = dict((k, v.safe_substitute(**attypevers)) for k, v in MMIF_EXAMPLES.items())
-FRACTIONAL_EXAMPLES = dict((k, v.safe_substitute(**attypevers)) for k, v in FRACTIONAL_EXAMPLES.items())
+FRACTIONAL_EXAMPLES = {
+    'doc_only': Template(
+        '{'
+        f'"@type": "{ATTYPE_PREFIX}/TextDocument/$TextDocument_VER",'
+        '"properties": {'
+        '"id": "td999",'
+        '"mime": "text/plain",'
+        '"location": "file:///var/archive/transcript-1000.txt"'
+        '}'
+        '}'
+    ).safe_substitute(**attypevers),
+}
