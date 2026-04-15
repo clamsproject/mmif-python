@@ -1,0 +1,67 @@
+[build-system]
+requires = ["setuptools>=61.0", "setuptools-scm>=8.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools_scm]
+
+[project]
+name = "mmif-python"
+dynamic = ["version"]
+description = "Python implementation of MultiMedia Interchange Format specification. (https://mmif.clams.ai)"
+readme = "README.md"
+license = "Apache-2.0"
+requires-python = ">=3.10"
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3 :: Only",
+]
+dependencies = [
+    "clams-vocabulary>=1.2.0",
+    "orderly-set==5.3.*",
+    "jsonschema",
+    "pydantic>=2.0",
+]
+
+[project.scripts]
+mmif = "mmif:cli"
+
+[project.urls]
+homepage = "https://mmif.clams.ai"
+source = "https://github.com/clamsproject/mmif-python"
+# The MMIF spec version this SDK targets. The version number is
+# extracted from the URL path at runtime (e.g., ".../1.1.0" → "1.1.0")
+# and exposed as ``mmif.__specver__``. When the MMIF spec releases a
+# new version, update this URL AND re-fetch the schema:
+#   curl -sL https://raw.githubusercontent.com/clamsproject/mmif/main/schema/mmif.json \
+#     -o mmif/res/mmif.json
+# tests/test_specver.py will fail CI if this value is stale.
+mmif-spec = "https://mmif.clams.ai/1.1.0"
+
+[project.optional-dependencies]
+dev = [
+    "pytype", "pytest", "pytest-cov",
+    "hypothesis", "hypothesis-jsonschema",
+    "pyyaml", "bs4", "lxml",
+    "setuptools",
+]
+docs = ["sphinx>=7.0,<8.0", "furo", "m2r2", "autodoc-pydantic"]
+test = [
+    "pytype", "pytest", "pytest-cov",
+    "hypothesis", "hypothesis-jsonschema",
+    "pyyaml", "bs4", "lxml",
+    "pillow", "opencv-python", "ffmpeg-python", "wurlitzer",
+]
+cv = ["pillow", "opencv-python", "ffmpeg-python", "wurlitzer"]
+seq = ["numpy"]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["mmif*"]
+
+[tool.setuptools.package-data]
+mmif = ["res/*"]
+
+[tool.pytest.ini_options]
+testpaths = ["mmif", "tests"]
+addopts = "--cov=mmif --cov-report=xml"

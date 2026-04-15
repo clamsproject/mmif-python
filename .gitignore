@@ -70,9 +70,8 @@ docs/**/_site/**
 tags
 .tags
 
-# auto-generated files
-mmif/ver
-mmif/res
+# build artifacts
+mmif_python-*/
 ./VERSION*
 .hypothesis
 

@@ -49,9 +49,10 @@ blob_base_url = f'https://github.com/clamsproject/{project}/blob'
 author = 'Brandeis LLC'
 copyright = f'{datetime.date.today().year}, {author}'
 try:
-    version = open(proj_root_dir / 'VERSION').read().strip()
-except FileNotFoundError:
-    logger.warning("VERSION file not found, using 'dev' as version.")
+    from importlib.metadata import version as _get_version
+    version = _get_version('mmif-python')
+except Exception:
+    logger.warning("Could not read package version, using 'dev'.")
     version = 'dev'
 
 # -- General configuration ---------------------------------------------------
