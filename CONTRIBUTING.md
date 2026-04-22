@@ -50,30 +50,73 @@ To ensure a consistent user experience and avoid resource leaks, all CLI subcomm
 
 ### How CLI Discovery Works
 
-The CLI system automatically discovers subcommands at runtime. The entry point is configured in the build script (currently `setup.py`) as follows:
+The CLI system automatically discovers subcommands at runtime. The entry point is configured in `pyproject.toml`:
 
-```python
-entry_points={
-    'console_scripts': [
-        'mmif = mmif.__init__:cli',
-    ],
-},
+```toml
+[project.scripts]
+mmif = "mmif:cli"
 ```
 
 The `cli()` function in `mmif/__init__.py` handles discovery and delegation. It uses `pkgutil.walk_packages` to find all modules within the top-level of the `mmif.utils.cli` package. For the discovery logic to work, a "cli module" should implement the requirements outlined above. 
 
-This means adding a properly structured module within the CLI package is all that's needed—the module name will automatically be registered as a subcommand. No modifications to `setup.py` or other configuration files are required.
+This means adding a properly structured module within the CLI package is all that's needed—the module name will automatically be registered as a subcommand. No modifications to `pyproject.toml` or other configuration files are required.
 
 > [!NOTE]
-> Any "client" code (not shell CLI) wants to use a module in `cli` package should be able to directrly `from mmif.utils.cli import a_module`. However, for historical reasons, some CLI modules are manually imported in `mmif/__init__.py` (e.g., `source.py`) for backward compatibility for clients predateing the discovery system. 
+> Any "client" code (not shell CLI) wants to use a module in `cli` package should be able to directly `from mmif.utils.cli import a_module`. However, for historical reasons, some CLI modules are manually imported in `mmif/__init__.py` (e.g., `source.py`) for backward compatibility for clients predating the discovery system. 
+
+## Setup
+
+```bash
+pip install -e ".[dev]"
+```
+
+An editable install (`pip install -e .`) is required before running tests or building docs. The package uses `importlib.metadata` for version resolution at runtime, which only works when the package is registered in the environment. You can no longer run `pytest` or `pytype` directly against the source tree without installing first. If you want to avoid pulling in all dependencies, `pip install -e . --no-deps` is sufficient to register the package metadata.
+
+## Local Development
+
+All build tasks are handled by scripts in `build-tools/`. Each script is self-contained and installs its own dependencies as needed.
+
+| Task | Command |
+|------|---------|
+| Build (sdist + wheel) | `python build-tools/build.py` |
+| Run tests | `python build-tools/test.py` |
+| Build docs | `python build-tools/docs.py` |
+| Clean artifacts | `python build-tools/clean.py` |
+| Publish | `python build-tools/publish.py` |
+
+All scripts support `--help` for full usage details.
+
+### Versioning
+
+#### SDK version 
+
+Versions are derived automatically from git tags via `setuptools-scm`.  There is no `VERSION` file to manage. At runtime, the version is accessed through `importlib.metadata`:
+
+```python
+from mmif.ver import __version__
+```
+
+For a dev install without a matching tag, `setuptools-scm` generates a version like `1.3.1.dev11+gb83b63ff5.d20260413`.
+
+The MMIF spec version (`__specver__`) is derived at runtime from the `mmif-spec` URL in `pyproject.toml`'s `[project.urls]` section. For example, `mmif-spec = "https://mmif.clams.ai/1.1.0"` produces `__specver__ = "1.1.0"`. Do NOT hardcode this value in Python source — update the URL in `pyproject.toml` instead.
+
+#### MMIF specification version
+
+`mmif/res/mmif.json` is the MMIF JSON Schema, committed as static package data. When the MMIF spec releases a new version:
+
+1. Update the `mmif-spec` URL in `pyproject.toml` `[project.urls]`
+1. Re-fetch the schema, using something like:
+   ```bash
+   curl -sL "https://raw.githubusercontent.com/clamsproject/mmif/main/schema/mmif.json" \
+     -o mmif/res/mmif.json
+   ```
+1. Run tests — `tests/test_specver.py` will fail if either value is stale
 
 ## Documentation
 
-The documentation for `mmif-python` is built using Sphinx and published to the [CLAMS documentation hub](https://github.com/clamsproject/website-test).
+The documentation for `mmif-python` is built using Sphinx and published to the [CLAMS documentation hub](https://clams.ai).
 
 ### Building Documentation Locally
-
-To build the documentation for the current checkout:
 
 ```bash
 python3 build-tools/docs.py
@@ -82,15 +125,10 @@ python3 build-tools/docs.py
 The output will be in `docs-test`. For more options, run `python build-tools/docs.py --help`.
 
 > [!NOTE]
-> Since the documentation build process is relying on the working `mmif` package, one must "build" the package first before building the documentation. This can be done by running
-> ```bash
-> rm VERSION*                     # remove existing VERSION file if exists
-> make devversion                 # creates a dummy VERSION file
-> pip install -r requirements.dev # install dev dependencies
-> python setup.py sdist           # build the package (will download auto-generate subpackges like `mmif.res` and `mmif.ver`)
+> In CI, documentation is built and published automatically by the `publish.yml` workflow via the shared `sdk-docs.yml`. The CI calls `docs.py --build-ver <version> --output-dir _docs`. All CLAMS SDK repos use the same `docs.py` CLI interface (`--build-ver`, `--output-dir`).
 
 > [!NOTE]
-> running `build-tools/docs.py` in "local testing" mode will overwrite any existing VERSION file with a dummy version.
+> Since the documentation build process is relying on the working `mmif` package, one must "build" the package first (e.g., `python -m pip install -e .`) before building the documentation.
 
 ### API Documentation (autodoc)
 
@@ -114,27 +152,43 @@ As of 2026 (since the next version of 1.2.1), API documentation is **automatical
 To build documentation for a specific historical version (e.g., `v1.0.0`):
 
 ```bash
-make doc-version
-# OR
 python3 build-tools/docs.py --build-ver v1.0.0
 ```
 
 This runs the build in a sandboxed temporary directory. The output will be in `docs-test/<version>`.
 
+> [!NOTE]
+> In CI, documentation is built and published automatically by the `publish.yml` workflow via the shared `sdk-docs.yml`. The CI calls `docs.py --build-ver <version> --output-dir _docs`. All CLAMS SDK repos use the same `docs.py` CLI interface (`--build-ver`, `--output-dir`).
+
 ### Troubleshooting Old Version Builds
 
-**Important:** The build script (`build-tools/docs.py`) uses a "Modern Environment, Legacy Source" strategy. It checks out the old source code but installs **modern** build dependencies (Sphinx 7.x, Furo) to ensure the build works on current systems (including Python 3.13).
+The build script (`build-tools/docs.py`) uses a "Modern Environment, Legacy Source" strategy. It checks out the old source code but installs modern build dependencies (Sphinx 7.x, Furo) to ensure the build works on up-to-date systems (including Python 3.12+).
 
-If an old version fails to build because a dependency is missing (e.g., it was removed from `requirements.txt` in later versions but the old `setup.py` needs it), **do not try to fix the old `setup.py`**.
-
-Instead, manually add the missing dependency to the `run_pip` call in `build-tools/docs.py`:
+If an old version fails to build because a dependency is missing, manually add it to the `run_pip` call in `build-tools/docs.py`:
 
 ```python
-# In build-tools/docs.py
 def build_versioned_docs(...):
     # ...
-    # Add the missing dependency here
-    env.run_pip("install", "jsonschema", "requests", "pyyaml", "deepdiff<7", "YOUR_MISSING_DEP", cwd=source_path)
+    env.run_pip("install", ..., "YOUR_MISSING_DEP", cwd=source_path)
 ```
 
 This "overlay" strategy ensures we can build old docs without modifying historical git tags.
+
+### Example MMIF Documents
+
+Example MMIF documents live in `tests/mmif-examples/` and serve two roles: test fixtures (loaded by `tests/mmif_examples.py`) and documentation source (rendered by the `_mmif_example_builder` Sphinx extension at docs build time). See `tests/mmif-examples/README.md` for details.
+
+## Migration from Makefile
+
+The old `Makefile`, `setup.py`, and `requirements*.txt` files have been
+removed. If you are accustomed to the old workflow, here is a mapping:
+
+| Old command | New equivalent |
+|-------------|----------------|
+| `make package` / `python setup.py sdist` | `python build-tools/build.py` |
+| `make develop` / `python setup.py develop` | `pip install -e ".[dev]"` |
+| `make test` | `python build-tools/test.py` |
+| `make doc` / `make doc-version` | `python build-tools/docs.py` |
+| `make version` / `make devversion` | Automatic via `setuptools-scm` (tag-based) |
+| `make clean` | `python build-tools/clean.py` |
+| `make publish` | `python build-tools/publish.py` |

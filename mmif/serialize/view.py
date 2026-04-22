@@ -605,16 +605,16 @@ class ContainsDict(DataDict[ThingTypesBase, Contain]):
     def __contains__(self, item: Union[str, ThingTypesBase]):
         if isinstance(item, str):
             # in general, when querying with a string, do not use fuzzy equality
-            if 'vocab.lappsgrid.org' in item and item.split('/')[-1] in ThingTypesBase.old_lapps_type_shortnames:
+            if 'vocab.lappsgrid.org' in item and item.split('/')[-1] in ThingTypesBase._old_lapps_type_shortnames:
                 # first, some quirks for legacy LAPPSgrid types
                 shortname = item.split('/')[-1]
-                item = AnnotationTypesBase(f'http://mmif.clams.ai/vocabulary/{shortname}/v1')
+                item = ThingTypesBase.from_str(f'{AnnotationTypes.Annotation.base_uri}/{shortname}/v1')
                 for key in self._items.keys():
                     if item._eq_internal(key, fuzzy=False):
                         return True
                 return False
             else:
-                # otherwise just string match 
+                # otherwise just string match
                 string_keys = [str(k) for k in self._items.keys()]
                 return item in string_keys
         else:

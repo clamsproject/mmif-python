@@ -36,7 +36,7 @@ jobs:
     name: "📦 Build and upload to PyPI"
     needs: check-pypi
     if: needs.check-pypi.outputs.exists == 'false'
-    uses: clamsproject/.github/.github/workflows/sdk-publish.yml@main
+    uses: clamsproject/.github/.github/workflows/sdk-publish-pyproj.yml@main
     secrets: inherit
 
   publish-docs:
@@ -49,8 +49,4 @@ jobs:
       source_ref: ${{ needs.check-pypi.outputs.version }}
       project_name: mmif-python
       version: ${{ needs.check-pypi.outputs.version }}
-      build_command: 'python3 build-tools/docs.py --build-ver ${{ needs.check-pypi.outputs.version }} --output-dir docs'
-      docs_output_dir: 'docs/${{ needs.check-pypi.outputs.version }}'
-      python_version: '3.11'
-      update_latest: true
     secrets: inherit

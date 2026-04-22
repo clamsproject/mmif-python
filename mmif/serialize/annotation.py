@@ -147,6 +147,17 @@ class Annotation(MmifObject):
     def at_type(self, at_type: Union[str, ThingTypesBase]) -> None:
         if isinstance(at_type, str):
             self._type = ThingTypesBase.from_str(at_type)
+        elif isinstance(at_type, type) and issubclass(at_type, ThingTypesBase):
+            # Vocab migration (MMIF spec >= 1.1.1): vocabulary types
+            # are now Pydantic classes (not instances). When callers pass the
+            # class (e.g., ``AnnotationTypes.TimeFrame``), coerce it to an
+            # instance so downstream ``isinstance`` checks still work.
+            # Use ``model_construct()`` to skip Pydantic field validation —
+            # direct ``__init__`` rejects types with required fields
+            # (e.g., ``Alignment`` requires ``source``/``target``).
+            instance = at_type.model_construct()
+            instance.initialized_from = at_type.uri
+            self._type = instance
         else:
             self._type = at_type
 
@@ -454,9 +465,11 @@ class Document(Annotation):
             return self.location
         elif prop_name in self._props_pending:
             return self._props_pending[prop_name]
-        elif prop_name in self._props_ephemeral:
-            return self._props_ephemeral[prop_name]
         else:
+            # Delegates to Annotation.__getitem__(), which checks
+            # self.properties (_props_original) before _props_ephemeral.
+            # This gives annotation-level properties precedence over
+            # view-level contains defaults (MMIF spec >= 1.1.1).
             return super().get(prop_name, default)
 
     get_property = get

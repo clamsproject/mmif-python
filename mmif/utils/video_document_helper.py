@@ -14,11 +14,17 @@ from mmif import Annotation, Document, Mmif
 from mmif.utils.timeunit_helper import convert
 from mmif.vocabulary import DocumentTypes
 
-_CV_DEPS = ('cv2', 'PIL', 'wurlitzer')
+_CV_DEPS = ('av', 'cv2', 'PIL', 'wurlitzer')
 _cv_import_warning = (
     'Optional package "{}" is not found. '
     'You might want to install Computer-Vision dependencies '
     'by running `pip install mmif-python[cv]=={}`'
+)
+
+_PTS_BUG_NOTICE = (
+    'Frame-number arithmetic ignores the video container\'s PTS start offset, '
+    'so the returned frame can be misaligned by however many frames that '
+    'offset spans (see issue #379).'
 )
 
 
@@ -35,7 +41,6 @@ def _check_cv_dep(dep):
 FPS_DOCPROP_KEY = 'fps'
 FRAMECOUNT_DOCPROP_KEY = 'frameCount'
 DURATION_DOCPROP_KEY = 'duration'
-DURATIONUNIT_DOCPROP_KEY = 'durationTimeUnit'
 
 
 class SamplingMode(Enum):
@@ -68,13 +73,68 @@ _sampling_mode = contextvars.ContextVar(
     'sampling_mode', default=SamplingMode.REPRESENTATIVES)
 
 
+def open_container(video_document: Document):
+    """
+    Opens a video file and caches stream metadata on the document.
+
+    Reads ``time_base``, ``start_time``, ``duration``, and ``average_rate``
+    from the first video stream and writes ``fps``, ``frameCount``, and
+    ``duration`` (in ms) to the document as informational properties.
+    These properties are informational only; seek and extraction use
+    actual PTS read from decoded frames.
+
+    :param video_document: :py:class:`~mmif.serialize.annotation.Document`
+        holding a video document (``"@type": ".../VideoDocument/..."``)
+    :returns: open PyAV :py:class:`av.container.InputContainer`
+    :rtype: av.container.InputContainer
+    :raises ValueError: if ``video_document`` is missing or of the wrong type
+    """
+    av = _check_cv_dep('av')
+    if video_document is None or video_document.at_type != DocumentTypes.VideoDocument:
+        raise ValueError(f'The document does not exist.')
+
+    container = av.open(video_document.location_path(nonexist_ok=False))
+    stream = container.streams.video[0]
+    time_base = float(stream.time_base)
+    fps = round(float(stream.average_rate), 2)
+    # `stream.frames` comes from the container header. Verified exact on
+    # CFR H.264/MP4 inputs even with non-zero start offset; for VFR or
+    # headerless streams it may be 0, in which case `duration * rate` is
+    # the best available (approximate) estimate.
+    if stream.frames > 0:
+        frame_count = stream.frames
+    elif stream.duration is not None and stream.average_rate is not None:
+        frame_count = int(round(float(stream.duration) * time_base
+                                * float(stream.average_rate)))
+    else:
+        frame_count = 0
+    if stream.duration is not None:
+        duration_ms = int(round(float(stream.duration) * time_base * 1000))
+    elif frame_count > 0 and fps > 0:
+        duration_ms = int(round(frame_count / fps * 1000))
+    else:
+        duration_ms = 0
+    video_document.add_property(FPS_DOCPROP_KEY, fps)
+    video_document.add_property(FRAMECOUNT_DOCPROP_KEY, frame_count)
+    video_document.add_property(DURATION_DOCPROP_KEY, duration_ms)
+    return container
+
+
 def capture(video_document: Document):
     """
+    .. deprecated::
+       Use :py:func:`open_container` instead. See issue #379.
+
     Captures a video file using OpenCV and adds fps, frame count, and duration as properties to the document.
 
     :param video_document: :py:class:`~mmif.serialize.annotation.Document` instance that holds a video document (``"@type": ".../VideoDocument/..."``)
     :return: `OpenCV VideoCapture <https://docs.opencv.org/3.4/d8/dfe/classcv_1_1VideoCapture.html>`_ object
     """
+    warnings.warn(
+        f'capture() is deprecated; use open_container() instead. '
+        f'{_PTS_BUG_NOTICE}',
+        DeprecationWarning, stacklevel=2,
+    )
     cv2 = _check_cv_dep('cv2')
     if video_document is None or video_document.at_type != DocumentTypes.VideoDocument:
         raise ValueError(f'The document does not exist.')
@@ -86,13 +146,13 @@ def capture(video_document: Document):
     video_document.add_property(FPS_DOCPROP_KEY, fps)
     video_document.add_property(FRAMECOUNT_DOCPROP_KEY, fc)
     video_document.add_property(DURATION_DOCPROP_KEY, dur)
-    video_document.add_property(DURATIONUNIT_DOCPROP_KEY, 'milliseconds')
     return v
 
 
 def get_framerate(video_document: Document) -> float:
     """
-    Gets the frame rate of a video document. First by checking the fps property of the document, then by capturing the video.
+    Gets the frame rate of a video document. First by checking the fps
+    property of the document, then by opening the video via PyAV.
 
     :param video_document: :py:class:`~mmif.serialize.annotation.Document` instance that holds a video document (``"@type": ".../VideoDocument/..."``)
     :return: frames per second as a float, rounded to 2 decimal places
@@ -106,16 +166,105 @@ def get_framerate(video_document: Document) -> float:
                       'framepersecond', 'framePerSecond', 'frame_per_second', 'frame-per-second')
     for k in framerate_keys:
         if k in video_document:
-            fps = round(video_document.get_property(k), 2)
-            return fps
-    cap = capture(video_document)
-    fps = video_document.get_property(FPS_DOCPROP_KEY)
-    cap.release()
-    return fps
+            return round(video_document.get_property(k), 2)
+    container = open_container(video_document)
+    try:
+        return video_document.get_property(FPS_DOCPROP_KEY)
+    finally:
+        container.close()
+
+
+def extract_timepoints_as_images(
+    video_document: Document,
+    timepoints_ms: Iterable[int],
+    as_PIL: bool = False,
+):
+    """
+    Extracts frames at the given media-timeline timepoints (in milliseconds).
+
+    For each requested timepoint, returns the frame whose actual
+    presentation timestamp (PTS) is closest to it. Duplicate timepoints
+    produce duplicate frames at the same list positions as the input.
+
+    :param video_document: :py:class:`~mmif.serialize.annotation.Document`
+        holding a video document (``"@type": ".../VideoDocument/..."``)
+    :param timepoints_ms: iterable of timepoint values in milliseconds
+    :param as_PIL: return :py:class:`PIL.Image.Image` (RGB) instead of
+        :py:class:`~numpy.ndarray` (BGR)
+    :returns: frames in the same order (and with the same multiplicity) as
+        ``timepoints_ms``
+    :rtype: list
+    """
+    original_timepoints = list(timepoints_ms)
+    if not original_timepoints:
+        return []
+    unique_sorted_ms = sorted(set(original_timepoints))
+
+    Image = _check_cv_dep('PIL.Image') if as_PIL else None
+
+    container = open_container(video_document)
+    result_map = {}
+    try:
+        stream = container.streams.video[0]
+        time_base = float(stream.time_base)
+        # convert each target ms to stream ticks (PTS units)
+        target_ticks = [int(round(t_ms / 1000.0 / time_base))
+                        for t_ms in unique_sorted_ms]
+
+        # seek to the nearest keyframe at or before the earliest target
+        container.seek(target_ticks[0], backward=True, any_frame=False,
+                       stream=stream)
+
+        targets = iter(zip(unique_sorted_ms, target_ticks))
+        cur_ms, cur_pts = next(targets, (None, None))
+        prev_frame = None
+        prev_pts = None
+
+        def _emit(frame, t_ms):
+            result_map[t_ms] = (frame.to_image() if as_PIL
+                                else frame.to_ndarray(format='bgr24'))
+
+        for frame in container.decode(stream):
+            if frame.pts is None:
+                continue
+            pts = frame.pts
+            while cur_ms is not None and pts >= cur_pts:
+                # pick whichever of (prev, current) is closer to target
+                if prev_pts is None or (pts - cur_pts) <= (cur_pts - prev_pts):
+                    _emit(frame, cur_ms)
+                else:
+                    _emit(prev_frame, cur_ms)
+                cur_ms, cur_pts = next(targets, (None, None))
+            prev_frame = frame
+            prev_pts = pts
+            if cur_ms is None:
+                break
+
+        # targets past the last decoded frame: fall back to the last frame
+        while cur_ms is not None:
+            if prev_frame is not None:
+                warnings.warn(
+                    f'Timepoint {cur_ms}ms is beyond the video duration; '
+                    f'returning the last decoded frame for {video_document.id}.'
+                )
+                _emit(prev_frame, cur_ms)
+            else:
+                warnings.warn(
+                    f'No frames decoded for timepoint {cur_ms}ms from '
+                    f'video {video_document.id}.'
+                )
+            cur_ms, cur_pts = next(targets, (None, None))
+    finally:
+        container.close()
+
+    return [result_map[t] for t in original_timepoints if t in result_map]
 
 
 def extract_frames_as_images(video_document: Document, framenums: Iterable[int], as_PIL: bool = False, record_ffmpeg_errors: bool = False):
     """
+    .. deprecated::
+       Use :py:func:`extract_timepoints_as_images` instead. See issue #379.
+
     Extracts frames from a video document as a list of :py:class:`numpy.ndarray`.
     Use with :py:func:`sample_frames` function to get the list of frame numbers first.
 
@@ -125,6 +274,11 @@ def extract_frames_as_images(video_document: Document, framenums: Iterable[int],
     :param record_ffmpeg_errors: if True, records and warns about FFmpeg stderr output during extraction
     :return: frames as a list of :py:class:`~numpy.ndarray` or :py:class:`~PIL.Image.Image`
     """
+    warnings.warn(
+        f'extract_frames_as_images() is deprecated; use '
+        f'extract_timepoints_as_images() instead. {_PTS_BUG_NOTICE}',
+        DeprecationWarning, stacklevel=2,
+    )
     cv2 = _check_cv_dep('cv2')
     # deduplicate and sort frame numbers for extraction, then map back to original order
     original_framenums = list(framenums)
@@ -206,7 +360,8 @@ def extract_mid_frame(mmif: Mmif, time_frame: Annotation, as_PIL: bool = False):
     """
     warnings.warn('This function is deprecated. Use ``extract_frames_by_mode()`` instead.', DeprecationWarning, stacklevel=2)
     vd = mmif[time_frame.get_property('document')]
-    return extract_frames_as_images(vd, [get_mid_framenum(mmif, time_frame)], as_PIL=as_PIL)[0]
+    fn = get_mid_framenum(mmif, time_frame)
+    return extract_frames_as_images(vd, [fn], as_PIL=as_PIL)[0]
 
 
 def get_representative_framenums(mmif: Mmif, time_frame: Annotation) -> List[int]:
@@ -273,18 +428,21 @@ def extract_representative_frame(mmif: Mmif, time_frame: Annotation, as_PIL: boo
     return extract_frames_as_images(video_document, rep_frame_num, as_PIL=as_PIL)[0]
 
 
-def _tp_ids_to_framenums(mmif: Mmif, tp_ids: List[str]) -> List[int]:
+def _tp_ids_to_timepoints_ms(mmif: Mmif, tp_ids: List[str]) -> List[int]:
     """
-    Converts a list of timepoint annotation IDs to frame numbers.
+    Converts a list of timepoint annotation IDs to media-timeline timepoints in milliseconds.
 
     :param mmif: :py:class:`~mmif.serialize.mmif.Mmif` instance
     :param tp_ids: list of timepoint annotation IDs
-    :return: list of frame numbers
+    :return: list of timepoint values in ms
+    :rtype: list
     """
-    return [
-        int(convert_timepoint(mmif, mmif[tp_id], 'f'))
-        for tp_id in tp_ids
-    ]
+    # TODO: when a source annotation has timeUnit='frame', convert_timepoint
+    # falls back to `frame / fps` ms math that ignores the container's PTS
+    # start offset. Fully resolving this requires retiring timeUnit='frame'
+    # (tracked in clams-vocabulary#15).
+    return [int(round(convert_timepoint(mmif, mmif[tp_id], 'ms')))
+            for tp_id in tp_ids]
 
 
 def _resolve_video_document(mmif: Mmif, time_frame: Annotation):
@@ -311,79 +469,86 @@ def _resolve_video_document(mmif: Mmif, time_frame: Annotation):
         f'{time_frame.id}.')
 
 
-def _timeframe_to_frame_range(
+def _timeframe_to_timepoint_range_ms(
     mmif: Mmif, time_frame: Annotation
 ) -> Tuple[int, int]:
     """
-    Converts a TimeFrame's start/end to frame numbers.
+    Converts a TimeFrame's start/end to media-timeline timepoints in ms.
 
     :param mmif: :py:class:`~mmif.serialize.mmif.Mmif` instance
     :param time_frame: :py:class:`~mmif.serialize.annotation.Annotation`
         instance of a TimeFrame with ``start``, ``end``,
         ``timeUnit``, and ``document`` properties
-    :return: tuple of (start_frame, end_frame)
+    :return: tuple of (start_ms, end_ms)
+    :rtype: tuple
     """
-    start, end = convert_timeframe(mmif, time_frame, 'f')
-    return int(start), int(end)
+    start, end = convert_timeframe(mmif, time_frame, 'ms')
+    return int(round(start)), int(round(end))
 
 
-def _sample_all(mmif: Mmif, time_frame: Annotation) -> List[int]:
+def _sample_all_timepoints_ms(mmif: Mmif, time_frame: Annotation) -> List[int]:
     """
-    Samples all frame numbers from a TimeFrame. Uses all
-    ``targets`` if present, otherwise generates every frame
-    in the start/end interval.
+    Samples all timepoints (ms) from a TimeFrame. Uses all ``targets`` if
+    present, otherwise samples the start/end interval at the stream's
+    average frame rate.
 
     :param mmif: :py:class:`~mmif.serialize.mmif.Mmif` instance
     :param time_frame: :py:class:`~mmif.serialize.annotation.Annotation`
         instance of a TimeFrame
-    :return: list of frame numbers
+    :return: list of timepoint values in ms
+    :rtype: list
     """
     if 'targets' in time_frame.properties:
-        return _tp_ids_to_framenums(
+        return _tp_ids_to_timepoints_ms(
             mmif, time_frame.get_property('targets'))
-    start, end = _timeframe_to_frame_range(mmif, time_frame)
-    return sample_frames(start, end)
+    start_ms, end_ms = _timeframe_to_timepoint_range_ms(mmif, time_frame)
+    video_document = _resolve_video_document(mmif, time_frame)
+    fps = get_framerate(video_document)
+    step_ms = 1000.0 / fps
+    return sample_timepoints(start_ms, end_ms, step_ms)
 
 
-def _sample_representatives(
+def _sample_representatives_timepoints_ms(
     mmif: Mmif, time_frame: Annotation
 ) -> List[int]:
     """
-    Samples frame numbers from a TimeFrame's representatives.
-    Returns an empty list if ``representatives`` is not present
-    (skips the TimeFrame).
+    Samples timepoints (ms) from a TimeFrame's representatives. Returns an
+    empty list if ``representatives`` is not present (skips the TimeFrame).
 
     :param mmif: :py:class:`~mmif.serialize.mmif.Mmif` instance
     :param time_frame: :py:class:`~mmif.serialize.annotation.Annotation`
         instance of a TimeFrame
-    :return: list of frame numbers (empty if no representatives)
+    :return: list of timepoint values in ms (empty if no representatives)
+    :rtype: list
     """
     if 'representatives' in time_frame.properties:
         reps = time_frame.get_property('representatives')
         if reps:
-            return _tp_ids_to_framenums(mmif, reps)
+            return _tp_ids_to_timepoints_ms(mmif, reps)
     return []
 
 
-def _sample_single(mmif: Mmif, time_frame: Annotation) -> List[int]:
+def _sample_single_timepoint_ms(
+    mmif: Mmif, time_frame: Annotation
+) -> List[int]:
     """
-    Samples a single frame number from a TimeFrame. Uses the
-    middle representative if ``representatives`` is present,
-    otherwise computes the midpoint of the start/end interval
-    via floor division.
+    Samples a single timepoint (ms) from a TimeFrame. Uses the middle
+    representative if ``representatives`` is present, otherwise the
+    midpoint of the start/end interval.
 
     :param mmif: :py:class:`~mmif.serialize.mmif.Mmif` instance
     :param time_frame: :py:class:`~mmif.serialize.annotation.Annotation`
         instance of a TimeFrame
-    :return: list containing a single frame number
+    :return: list containing a single timepoint value in ms
+    :rtype: list
     """
     if 'representatives' in time_frame.properties:
         reps = time_frame.get_property('representatives')
         if reps:
             mid = reps[len(reps) // 2]
-            return _tp_ids_to_framenums(mmif, [mid])
-    start, end = _timeframe_to_frame_range(mmif, time_frame)
-    return [(start + end) // 2]
+            return _tp_ids_to_timepoints_ms(mmif, [mid])
+    start_ms, end_ms = _timeframe_to_timepoint_range_ms(mmif, time_frame)
+    return [(start_ms + end_ms) // 2]
 
 
 def extract_target_frames(mmif: Mmif, annotation: Annotation, min_timepoints: int = 0, max_timepoints: int = sys.maxsize, fraction: float = 1.0, as_PIL: bool = False):
@@ -418,9 +583,9 @@ def extract_target_frames(mmif: Mmif, annotation: Annotation, min_timepoints: in
         indices = [int(i * (num_targets - 1) / (count - 1)) for i in range(count)]
 
     selected_target_ids = [targets[i] for i in indices]
-    frame_nums = _tp_ids_to_framenums(mmif, selected_target_ids)
+    timepoints_ms = _tp_ids_to_timepoints_ms(mmif, selected_target_ids)
     video_doc = _resolve_video_document(mmif, annotation)
-    images = extract_frames_as_images(video_doc, frame_nums, as_PIL=as_PIL)
+    images = extract_timepoints_as_images(video_doc, timepoints_ms, as_PIL=as_PIL)
     return images, selected_target_ids
 
 
@@ -447,19 +612,54 @@ def extract_frames_by_mode(
     if mode is None:
         mode = _sampling_mode.get()
     if mode == SamplingMode.ALL:
-        frame_nums = _sample_all(mmif, time_frame)
+        timepoints_ms = _sample_all_timepoints_ms(mmif, time_frame)
     elif mode == SamplingMode.REPRESENTATIVES:
-        frame_nums = _sample_representatives(mmif, time_frame)
+        timepoints_ms = _sample_representatives_timepoints_ms(mmif, time_frame)
     else:
-        frame_nums = _sample_single(mmif, time_frame)
-    if not frame_nums:
+        timepoints_ms = _sample_single_timepoint_ms(mmif, time_frame)
+    if not timepoints_ms:
         return []
     video_doc = _resolve_video_document(mmif, time_frame)
-    return extract_frames_as_images(video_doc, frame_nums, as_PIL=as_PIL)
+    return extract_timepoints_as_images(video_doc, timepoints_ms, as_PIL=as_PIL)
+
+
+def sample_timepoints(
+    start_ms: int,
+    end_ms: int,
+    step_ms: Union[int, float],
+) -> List[int]:
+    """
+    Samples timepoints (in ms) from a half-open time interval
+    ``[start_ms, end_ms)`` with a fixed step.
+
+    :param start_ms: start of the interval (inclusive), in ms
+    :param end_ms: end of the interval (exclusive), in ms
+    :param step_ms: step size between adjacent timepoints, in ms;
+        may be fractional (e.g. ``1000/fps``), but emitted timepoints
+        are always integer ms
+    :returns: list of integer timepoint values in ms
+    :rtype: list
+    :raises ValueError: if ``step_ms`` is not positive
+    """
+    if step_ms <= 0:
+        raise ValueError(
+            f'step_ms must be positive, got {step_ms}')
+    timepoints: List[int] = []
+    i = 0
+    while True:
+        t = start_ms + i * step_ms
+        if t >= end_ms:
+            break
+        timepoints.append(int(round(t)))
+        i += 1
+    return timepoints
 
 
 def sample_frames(start_frame: int, end_frame: int, sample_rate: float = 1) -> List[int]:
     """
+    .. deprecated::
+       Use :py:func:`sample_timepoints` instead. See issue #379.
+
     Helper function to sample frames from a time interval.
     Can also be used as a "cutoff" function when used with ``start_frame==0`` and ``sample_rate==1``.
 
@@ -468,6 +668,11 @@ def sample_frames(start_frame: int, end_frame: int, sample_rate: float = 1) -> L
     :param sample_rate: sampling rate (or step) to configure how often to take a frame, default is 1, meaning all consecutive frames are sampled
     :return: list of frame numbers to extract
     """
+    warnings.warn(
+        f'sample_frames() is deprecated; use sample_timepoints() instead. '
+        f'{_PTS_BUG_NOTICE}',
+        DeprecationWarning, stacklevel=2,
+    )
     if sample_rate < 1:
         raise ValueError(f"Sample rate must be greater than 1, but got {sample_rate}")
     frame_nums: List[int] = []
@@ -502,7 +707,7 @@ def get_annotation_property(mmif, annotation, prop_name):
 def convert_timepoint(mmif: Mmif, timepoint: Annotation, out_unit: str) -> Union[int, float, str]:
     """
     Converts a time point included in an annotation to a different time unit.
-    The input annotation must have ``timePoint`` property. 
+    The input annotation must have ``timePoint`` property.
 
     :param mmif: input MMIF to obtain fps and input timeunit
     :param timepoint: :py:class:`~mmif.serialize.annotation.Annotation` instance with ``timePoint`` property
@@ -531,31 +736,55 @@ def convert_timeframe(mmif: Mmif, time_frame: Annotation, out_unit: str) -> Tupl
 
 def framenum_to_second(video_doc: Document, frame: int):
     """
-    Converts a frame number to a second value.
+    .. deprecated::
+       Use :py:func:`~mmif.utils.timeunit_helper.convert` with ``ms``/``s``
+       directly. See issue #379.
     """
+    warnings.warn(
+        f'framenum_to_second() is deprecated. {_PTS_BUG_NOTICE}',
+        DeprecationWarning, stacklevel=2,
+    )
     fps = get_framerate(video_doc)
     return convert(frame, 'f', 's', fps)
 
 
 def framenum_to_millisecond(video_doc: Document, frame: int):
     """
-    Converts a frame number to a millisecond value.
+    .. deprecated::
+       Use :py:func:`~mmif.utils.timeunit_helper.convert` with ``ms``/``s``
+       directly. See issue #379.
     """
+    warnings.warn(
+        f'framenum_to_millisecond() is deprecated. {_PTS_BUG_NOTICE}',
+        DeprecationWarning, stacklevel=2,
+    )
     fps = get_framerate(video_doc)
     return convert(frame, 'f', 'ms', fps)
 
 
 def second_to_framenum(video_doc: Document, second) -> int:
     """
-    Converts a second value to a frame number.
+    .. deprecated::
+       Use :py:func:`extract_timepoints_as_images` or stay in the time
+       domain. See issue #379.
     """
+    warnings.warn(
+        f'second_to_framenum() is deprecated. {_PTS_BUG_NOTICE}',
+        DeprecationWarning, stacklevel=2,
+    )
     fps = get_framerate(video_doc)
     return int(convert(second, 's', 'f', fps))
 
 
 def millisecond_to_framenum(video_doc: Document, millisecond: float) -> int:
     """
-    Converts a millisecond value to a frame number.
+    .. deprecated::
+       Use :py:func:`extract_timepoints_as_images` or stay in the time
+       domain. See issue #379.
     """
+    warnings.warn(
+        f'millisecond_to_framenum() is deprecated. {_PTS_BUG_NOTICE}',
+        DeprecationWarning, stacklevel=2,
+    )
     fps = get_framerate(video_doc)
     return int(convert(millisecond, 'ms', 'f', fps))
