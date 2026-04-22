@@ -39,21 +39,17 @@ source = "https://github.com/clamsproject/mmif-python"
 mmif-spec = "https://mmif.clams.ai/1.1.1"
 
 [project.optional-dependencies]
-dev = [
-    "pytype", "pytest", "pytest-cov",
-    "hypothesis", "hypothesis-jsonschema",
-    "pyyaml", "bs4", "lxml",
-    "setuptools",
-]
-docs = ["sphinx>=7.0,<8.0", "furo", "m2r2", "autodoc-pydantic"]
-test = [
-    "pytype", "pytest", "pytest-cov",
-    "hypothesis", "hypothesis-jsonschema",
-    "pyyaml", "bs4", "lxml",
-    "pillow", "opencv-python", "ffmpeg-python", "wurlitzer",
-]
 cv = ["pillow", "opencv-python", "ffmpeg-python", "wurlitzer", "av"]
 seq = ["numpy"]
+docs = ["sphinx>=7.0,<8.0", "furo", "m2r2", "autodoc-pydantic"]
+test = [
+    "mmif-python[cv]",
+    "mmif-python[seq]",
+    "pytype", "pytest", "pytest-cov",
+    "hypothesis", "hypothesis-jsonschema",
+    "pyyaml", "bs4", "lxml",
+]
+dev = ["mmif-python[test]", "setuptools"]
 
 [tool.setuptools.packages.find]
 where = ["."]
