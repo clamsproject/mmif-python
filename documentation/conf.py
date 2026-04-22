@@ -19,6 +19,9 @@ logger = logging.getLogger(__name__)
 # Add project root to sys.path so that autodoc can find the mmif package.
 proj_root_dir = Path(__file__).parent.parent
 sys.path.insert(0, str(proj_root_dir.absolute()))
+# Add the local Sphinx extensions directory so '_mmif_example_builder'
+# can be imported by name from the ``extensions`` list below.
+sys.path.insert(0, str(Path(__file__).parent.absolute()))
 
 # At this point, `pip install -e .` should have been run, so mmif is importable
 import mmif
@@ -46,9 +49,10 @@ blob_base_url = f'https://github.com/clamsproject/{project}/blob'
 author = 'Brandeis LLC'
 copyright = f'{datetime.date.today().year}, {author}'
 try:
-    version = open(proj_root_dir / 'VERSION').read().strip()
-except FileNotFoundError:
-    logger.warning("VERSION file not found, using 'dev' as version.")
+    from importlib.metadata import version as _get_version
+    version = _get_version('mmif-python')
+except Exception:
+    logger.warning("Could not read package version, using 'dev'.")
     version = 'dev'
 
 # -- General configuration ---------------------------------------------------
@@ -59,6 +63,7 @@ extensions = [
     'sphinx.ext.linkcode',
     'm2r2',
     'sphinxcontrib.autodoc_pydantic',
+    '_mmif_example_builder',
 ]
 
 autodoc_pydantic_model_show_json = True

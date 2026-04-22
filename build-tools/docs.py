@@ -60,45 +60,21 @@ def build_docs_local(source_dir: Path, output_dir: Path):
     """
     print("--- Running in Local Build Mode ---")
 
-    # Warning for user as VERSION file is critical
-    if sys.stdin.isatty():
-        import select
-        print("\nWARNING: The 'VERSION' file will be overwritten with a dummy version for this local build.")
-        print("Pausing for 3 seconds (press Enter to continue immediately)...")
-        select.select([sys.stdin], [], [], 3)
-
-    # Overwrite VERSION file with dummy version for local builds
-    version = get_dummy_version()
-    print(f"Generating dummy VERSION for local build: {version}")
-    (source_dir / "VERSION").write_text(version)
-
-    # 1. Generate source code and install in editable mode.
-    print("\n--- Step 1: Generating source code and installing in editable mode ---")
+    # Install package with docs dependencies in editable mode.
+    print("\n--- Step 1: Installing package with docs dependencies ---")
     try:
-        run_command([sys.executable, "-m", "pip", "install", "-e", "."], cwd=source_dir)
+        run_command(
+            [sys.executable, "-m", "pip", "install", "-e", ".[docs]"],
+            cwd=source_dir,
+        )
     except SystemExit:
-        print("Warning: 'pip install -e .' failed. This might be due to an externally managed environment.")
-        print("Attempting to proceed with documentation build assuming dependencies are met...")
-
-
-    # 2. Install documentation-specific dependencies.
-    print("\n--- Step 2: Installing documentation dependencies ---")
-    doc_reqs = Path.cwd() / "build-tools" / "requirements.docs.txt"
-    if not doc_reqs.exists():
-        print(f"Error: Documentation requirements not found at {doc_reqs}")
-        sys.exit(1)
-    try:
-        run_command([sys.executable, "-m", "pip", "install", "-r", str(doc_reqs)])
-    except SystemExit:
-        print("Warning: Failed to install documentation dependencies.")
-        # Check if sphinx-build is available
+        print("Warning: 'pip install -e .[docs]' failed.")
         if shutil.which("sphinx-build") is None:
             print("Error: 'sphinx-build' not found and installation failed.")
-            print("Please install dependencies manually or run this script inside a virtual environment.")
             sys.exit(1)
         print("Assuming dependencies are already installed...")
 
-    # 3. Build the documentation using Sphinx.
+    # Build the documentation using Sphinx.
     print("\n--- Step 3: Building Sphinx documentation ---")
     docs_source_dir = source_dir / "documentation"
     docs_build_dir = output_dir / "develop"

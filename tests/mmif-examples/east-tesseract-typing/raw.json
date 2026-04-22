@@ -1,0 +1,124 @@
+{
+  "metadata": {
+    "mmif": "http://mmif.clams.ai/$VERSION"
+  },
+  "documents": [
+    {
+      "@type": "http://clams.ai/vocabulary/type/ImageDocument/$ImageDocument_VER",
+      "properties": {
+        "id": "m1",
+        "mime": "image/jpeg",
+        "location": "file:///var/archive/image-fido-barks.jpg"
+      }
+    }
+  ],
+  "views": [
+    {
+      "id": "v1",
+      "metadata": {
+        "app": "http://mmif.clams.ai/apps/east/0.2.1",
+        "contains": {
+          "http://clams.ai/vocabulary/type/BoundingBox/$BoundingBox_VER": {
+            "timeUnit": "pixels",
+            "document": "m1"
+          }
+        }
+      },
+      "annotations": [
+        {
+          "@type": "http://clams.ai/vocabulary/type/BoundingBox/$BoundingBox_VER",
+          "properties": {
+            "id": "v1:bb1",
+            "coordinates": [ [10, 20], [40, 20], [10, 30], [40, 30] ],
+            "label": "text"
+          }
+        },
+        {
+          "@type": "http://clams.ai/vocabulary/type/BoundingBox/$BoundingBox_VER",
+          "properties": {
+            "id": "v1:bb2",
+            "coordinates": [ [210, 220], [240, 220], [210, 230], [240, 230] ],
+            "label": "text"
+          }
+        }
+      ]
+    },
+    {
+      "id": "v2",
+      "metadata": {
+        "app": "http://mmif.clams.ai/apps/tesseract/0.2.1",
+        "contains": {
+          "http://mmif.clams.ai/0.1.0/TextDocument": {},
+          "http://mmif.clams.ai/0.1.0/Alignment": {}
+        }
+      },
+      "annotations": [
+        {
+          "@type": "http://clams.ai/vocabulary/type/TextDocument/$TextDocument_VER",
+          "properties": {
+            "id": "v2:td1",
+            "text": {
+              "@value": "Arf"
+            }
+          }
+        },
+        {
+          "@type": "http://clams.ai/vocabulary/type/Alignment/$Alignment_VER",
+          "properties": {
+            "id": "v2:a1",
+            "source": "v1:bb1",
+            "target": "v2:td1"
+          }
+        },
+        {
+          "@type": "http://clams.ai/vocabulary/type/TextDocument/$TextDocument_VER",
+          "properties": {
+            "id": "v2:td2",
+            "text": {
+              "@value": "yelp"
+            }
+          }
+        },
+        {
+          "@type": "http://clams.ai/vocabulary/type/Alignment/$Alignment_VER",
+          "properties": {
+            "id": "v2:a2",
+            "source": "v1:bb2",
+            "target": "v2:td2"
+          }
+        }
+      ]
+    },
+    {
+      "id": "v3",
+      "metadata": {
+        "app": "http://mmif.clams.ai/apps/semantic-typer/0.2.4",
+        "contains": {
+          "http://vocab.lappsgrid.org/SemanticTag": {}
+        }
+      },
+      "annotations": [
+        {
+          "@type": "http://vocab.lappsgrid.org/SemanticTag",
+          "properties": {
+            "id": "v3:st1",
+            "category": "dog-sound",
+            "document": "V2:td1",
+            "start": 0,
+            "end": 4
+          }
+        },
+        {
+          "@type": "http://vocab.lappsgrid.org/SemanticTag",
+          "properties": {
+            "id": "v3:st2",
+            "category": "dog-sound",
+            "document": "V2:td2",
+            "start": 0,
+            "end": 4
+          }
+        }
+      ]
+    }
+  ]
+}
