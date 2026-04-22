@@ -69,6 +69,7 @@ class TestVideoDocumentHelper(unittest.TestCase):
         tf = self.a_view.new_annotation(AnnotationTypes.TimeFrame, start=0, end=3, timeUnit='seconds', document=self.video_doc.id)
         self.assertEqual(vdh.convert(1.5, 's', 'f', self.fps), vdh.get_mid_framenum(self.mmif_obj, tf))
 
+    @pytest.mark.filterwarnings('ignore::DeprecationWarning')
     def test_extract_representative_frame(self):
         tp = self.a_view.new_annotation(AnnotationTypes.TimePoint, timePoint=1500, timeUnit='milliseconds', document=self.video_doc.id)
         tf = self.a_view.new_annotation(AnnotationTypes.TimeFrame, start=1000, end=2000, timeUnit='milliseconds', document=self.video_doc.id)
@@ -87,18 +88,23 @@ class TestVideoDocumentHelper(unittest.TestCase):
     def test_get_framerate(self):
         self.assertAlmostEqual(29.97, vdh.get_framerate(self.video_doc), places=0)
 
+    @pytest.mark.filterwarnings('ignore::DeprecationWarning')
     def test_frames_to_seconds(self):
         self.assertAlmostEqual(3.337, vdh.framenum_to_second(self.video_doc, 100), places=0)
 
+    @pytest.mark.filterwarnings('ignore::DeprecationWarning')
     def test_frames_to_milliseconds(self):
         self.assertAlmostEqual(3337.0, vdh.framenum_to_millisecond(self.video_doc, 100), places=0)
 
+    @pytest.mark.filterwarnings('ignore::DeprecationWarning')
     def test_seconds_to_frames(self):
         self.assertAlmostEqual(100, vdh.second_to_framenum(self.video_doc, 3.337), places=0)
 
+    @pytest.mark.filterwarnings('ignore::DeprecationWarning')
     def test_milliseconds_to_frames(self):
         self.assertAlmostEqual(100, vdh.millisecond_to_framenum(self.video_doc, 3337.0), places=0)
 
+    @pytest.mark.filterwarnings('ignore::DeprecationWarning')
     def test_convert_roundtrip(self):
         # ms for 1 frame
         tolerance = 1000 / self.video_doc.get_property('fps')
@@ -107,6 +113,7 @@ class TestVideoDocumentHelper(unittest.TestCase):
             m2f2m = vdh.framenum_to_millisecond(self.video_doc, m2f)
             self.assertAlmostEqual(ms, m2f2m, delta=tolerance)
 
+    @pytest.mark.filterwarnings('ignore::DeprecationWarning')
     def test_sample_frames(self):
         s_frame = vdh.second_to_framenum(self.video_doc, 3)
         e_frame = vdh.second_to_framenum(self.video_doc, 5.5)
@@ -115,6 +122,19 @@ class TestVideoDocumentHelper(unittest.TestCase):
         s_frame = vdh.second_to_framenum(self.video_doc, 3)
         e_frame = vdh.second_to_framenum(self.video_doc, 5)
         self.assertEqual(1, len(vdh.sample_frames(s_frame, e_frame, 60)))
+
+    def test_deprecated_framenum_helpers_warn(self):
+        # each fnum-leaking helper should emit DeprecationWarning pointing at issue #379
+        with pytest.warns(DeprecationWarning, match='#379'):
+            vdh.framenum_to_second(self.video_doc, 100)
+        with pytest.warns(DeprecationWarning, match='#379'):
+            vdh.framenum_to_millisecond(self.video_doc, 100)
+        with pytest.warns(DeprecationWarning, match='#379'):
+            vdh.second_to_framenum(self.video_doc, 1)
+        with pytest.warns(DeprecationWarning, match='#379'):
+            vdh.millisecond_to_framenum(self.video_doc, 1000)
+        with pytest.warns(DeprecationWarning, match='#379'):
+            vdh.sample_frames(0, 10, 1)
 
     def test_convert_timepoint(self):
         timepoint_ann = self.a_view.new_annotation(AnnotationTypes.BoundingBox, timePoint=3, timeUnit='second',
@@ -127,6 +147,7 @@ class TestVideoDocumentHelper(unittest.TestCase):
         for times in zip((3.337, 6.674), vdh.convert_timeframe(self.mmif_obj, timeframe_ann, 's')):
             self.assertAlmostEqual(*times, places=0)
 
+    @pytest.mark.filterwarnings('ignore::DeprecationWarning')
     def test_extract_frames_as_images(self):
         frame_list = [5, 10, 15]
         target_images = vdh.extract_frames_as_images(self.video_doc, frame_list, as_PIL=False)
@@ -144,85 +165,176 @@ class TestVideoDocumentHelper(unittest.TestCase):
         self.assertEqual(4, len(frame_list))
         self.assertEqual(3, len(new_target_images))
 
-    def test_sample_all(self):
+    def test_open_container(self):
+        # open_container sets fps/frameCount/duration as informational props
+        vd = Document({
+            "@type": "http://mmif.clams.ai/vocabulary/VideoDocument/v1",
+            "properties": {
+                "mime": "video",
+                "id": "o1",
+                "location": f"file://{pathlib.Path(__file__).parent}/black-2997fps.mp4",
+            }
+        })
+        c = vdh.open_container(vd)
+        try:
+            self.assertAlmostEqual(29.97, vd.get_property('fps'), places=1)
+            self.assertGreater(vd.get_property('frameCount'), 0)
+            self.assertGreater(vd.get_property('duration'), 0)
+        finally:
+            c.close()
+
+    def test_sample_timepoints(self):
+        # half-open interval; step in ms
+        self.assertEqual([0, 100, 200, 300, 400],
+                         vdh.sample_timepoints(0, 500, 100))
+        # empty when step overshoots
+        self.assertEqual([0], vdh.sample_timepoints(0, 100, 200))
+        # negative or zero step is a programmer error
+        with pytest.raises(ValueError):
+            vdh.sample_timepoints(0, 100, 0)
+        with pytest.raises(ValueError):
+            vdh.sample_timepoints(0, 100, -10)
+
+    def test_extract_timepoints_as_images(self):
+        # basic: three distinct timepoints
+        ms_list = [1000, 2000, 3000]
+        imgs = vdh.extract_timepoints_as_images(
+            self.video_doc, ms_list, as_PIL=False)
+        self.assertEqual(3, len(imgs))
+        # empty input
+        self.assertEqual(
+            [], vdh.extract_timepoints_as_images(self.video_doc, []))
+        # duplicates preserved in input order
+        dup_ms = [500, 250, 500, 750, 250]
+        dup_imgs = vdh.extract_timepoints_as_images(self.video_doc, dup_ms)
+        self.assertEqual(5, len(dup_imgs))
+
+    def _make_timepoints(self, count):
+        # Explicit aid avoids a pre-existing clams-vocabulary / mmif-python
+        # compat path (`at_type.get_prefix()`) that is broken in this env
+        # and is not related to this PR.
         tps = []
-        for i in range(10):
+        for i in range(count):
             tp = self.a_view.new_annotation(
-                AnnotationTypes.TimePoint,
-                timePoint=i * 100, timeUnit='frame',
+                AnnotationTypes.TimePoint, aid=f'tp_{i}',
+                timePoint=i * 100, timeUnit='milliseconds',
                 document=self.video_doc.id)
             tps.append(tp)
-        parent_ann = self.a_view.new_annotation(
-            AnnotationTypes.TimeFrame,
+        return tps
+
+    def test_sample_all_timepoints_ms(self):
+        tps = self._make_timepoints(10)
+        parent = self.a_view.new_annotation(
+            AnnotationTypes.TimeFrame, aid='tf_0',
             targets=[tp.id for tp in tps])
 
-        frame_nums = vdh._sample_all(self.mmif_obj, parent_ann)
-        self.assertEqual(10, len(frame_nums))
-        self.assertEqual([i * 100 for i in range(10)], frame_nums)
+        ms_list = vdh._sample_all_timepoints_ms(self.mmif_obj, parent)
+        self.assertEqual([i * 100 for i in range(10)], ms_list)
 
-        # start/end fallback (no targets)
-        parent_ann2 = self.a_view.new_annotation(
-            AnnotationTypes.TimeFrame,
-            start=0, end=10, timeUnit='frame',
+        # start/end fallback (no targets): sampled at the stream's frame rate
+        parent2 = self.a_view.new_annotation(
+            AnnotationTypes.TimeFrame, aid='tf_1',
+            start=0, end=1000, timeUnit='milliseconds',
             document=self.video_doc.id)
-        frame_nums2 = vdh._sample_all(self.mmif_obj, parent_ann2)
-        self.assertEqual(list(range(10)), frame_nums2)
+        ms_list2 = vdh._sample_all_timepoints_ms(self.mmif_obj, parent2)
+        # 30 frames in 1000ms at 29.97fps (step ≈ 33.37ms)
+        self.assertEqual(30, len(ms_list2))
+        self.assertEqual(0, ms_list2[0])
+        self.assertLess(ms_list2[-1], 1000)
 
-    def test_sample_representatives(self):
-        tps = []
-        for i in range(10):
-            tp = self.a_view.new_annotation(
-                AnnotationTypes.TimePoint,
-                timePoint=i * 100, timeUnit='frame',
-                document=self.video_doc.id)
-            tps.append(tp)
+    def test_sample_representatives_timepoints_ms(self):
+        tps = self._make_timepoints(10)
         reps = [tps[2].id, tps[5].id, tps[8].id]
-        parent_ann = self.a_view.new_annotation(
-            AnnotationTypes.TimeFrame,
+        parent = self.a_view.new_annotation(
+            AnnotationTypes.TimeFrame, aid='tf_0',
             targets=[tp.id for tp in tps],
             representatives=reps)
 
-        # should use representatives
-        frame_nums = vdh._sample_representatives(
-            self.mmif_obj, parent_ann)
-        self.assertEqual(3, len(frame_nums))
-        self.assertEqual([200, 500, 800], frame_nums)
+        ms_list = vdh._sample_representatives_timepoints_ms(
+            self.mmif_obj, parent)
+        self.assertEqual([200, 500, 800], ms_list)
 
-        # without representatives, should return empty (skip)
-        parent_ann2 = self.a_view.new_annotation(
-            AnnotationTypes.TimeFrame,
+        # no representatives → empty (skip)
+        parent2 = self.a_view.new_annotation(
+            AnnotationTypes.TimeFrame, aid='tf_1',
             targets=[tp.id for tp in tps])
-        frame_nums2 = vdh._sample_representatives(
-            self.mmif_obj, parent_ann2)
-        self.assertEqual([], frame_nums2)
+        self.assertEqual(
+            [], vdh._sample_representatives_timepoints_ms(
+                self.mmif_obj, parent2))
 
-    def test_sample_single(self):
-        tps = []
-        for i in range(10):
-            tp = self.a_view.new_annotation(
-                AnnotationTypes.TimePoint,
-                timePoint=i * 100, timeUnit='frame',
-                document=self.video_doc.id)
-            tps.append(tp)
+    def test_sample_single_timepoint_ms(self):
+        tps = self._make_timepoints(10)
         reps = [tps[2].id, tps[5].id, tps[8].id]
-        parent_ann = self.a_view.new_annotation(
-            AnnotationTypes.TimeFrame,
+        parent = self.a_view.new_annotation(
+            AnnotationTypes.TimeFrame, aid='tf_0',
             targets=[tp.id for tp in tps],
             representatives=reps)
 
-        # should pick middle representative (index 1 of 3 = tps[5])
-        frame_nums = vdh._sample_single(
-            self.mmif_obj, parent_ann)
-        self.assertEqual([500], frame_nums)
+        # middle representative (index 1 of 3 → tps[5] → 500ms)
+        self.assertEqual(
+            [500],
+            vdh._sample_single_timepoint_ms(self.mmif_obj, parent))
 
-        # start/end fallback (no representatives)
-        parent_ann2 = self.a_view.new_annotation(
-            AnnotationTypes.TimeFrame,
-            start=100, end=500, timeUnit='frame',
+        # start/end fallback midpoint
+        parent2 = self.a_view.new_annotation(
+            AnnotationTypes.TimeFrame, aid='tf_1',
+            start=100, end=500, timeUnit='milliseconds',
             document=self.video_doc.id)
-        frame_nums2 = vdh._sample_single(
-            self.mmif_obj, parent_ann2)
-        self.assertEqual([300], frame_nums2)
+        self.assertEqual(
+            [300],
+            vdh._sample_single_timepoint_ms(self.mmif_obj, parent2))
+
+    def test_pts_offset_regression(self):
+        # regression for https://github.com/clamsproject/mmif-python/issues/379
+        # on a container with non-zero PTS start offset, requesting a
+        # timepoint equal to the first frame's actual PTS must return that
+        # first frame, not the second one.
+        import av
+        fixture = pathlib.Path(__file__).parent / 'testsrc-2997fps-ptsoffset.mp4'
+        vd = Document({
+            "@type": "http://mmif.clams.ai/vocabulary/VideoDocument/v1",
+            "properties": {
+                "mime": "video",
+                "id": "p1",
+                "location": f"file://{fixture}",
+            }
+        })
+
+        # ground truth: map (pixel-bytes hash) → pts for every frame
+        container = av.open(str(fixture))
+        stream = container.streams.video[0]
+        tb = float(stream.time_base)
+        pts_by_hash = {}
+        for frame in container.decode(stream):
+            if frame.pts is None:
+                continue
+            pts_by_hash[hash(frame.to_ndarray(format='bgr24').tobytes())] \
+                = frame.pts
+        container.close()
+
+        # requested 33ms should resolve to the actual PTS-equivalent frame
+        # (start_time is ~33ms; the first frame's PTS is nearest 33ms)
+        imgs = vdh.extract_timepoints_as_images(vd, [33], as_PIL=False)
+        self.assertEqual(1, len(imgs))
+        got_pts = pts_by_hash.get(hash(imgs[0].tobytes()))
+        self.assertIsNotNone(got_pts)
+        got_ms = got_pts * tb * 1000
+        frame_dur_ms = 1000 / 29.97
+        self.assertLessEqual(abs(got_ms - 33),
+                             frame_dur_ms / 2 + 1.0)
+
+        # differential: the deprecated cv2 path returns a DIFFERENT frame
+        # (off by one) for the same requested timepoint → this confirms
+        # the fix.
+        import warnings as _w
+        with _w.catch_warnings():
+            _w.simplefilter('ignore', DeprecationWarning)
+            fnum = vdh.millisecond_to_framenum(vd, 33)
+            old_img = vdh.extract_frames_as_images(vd, [fnum])[0]
+        old_pts = pts_by_hash.get(hash(old_img.tobytes()))
+        self.assertNotEqual(got_pts, old_pts,
+                            'cv2 and PyAV paths should disagree on '
+                            'PTS-offset videos')
 
 
 class TestSequenceHelper(unittest.TestCase):
