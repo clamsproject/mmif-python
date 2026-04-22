@@ -1,0 +1,22 @@
+[
+  {
+    "dir": "bars-tones-slates",
+    "title": "Minimal: bars-and-tones and slate",
+    "description": "A minimal MMIF with two documents (video and transcript) and three views (bars-and-tones, slate, and tokenizer output). Demonstrates the smallest shape that exercises every required top-level field."
+  },
+  {
+    "dir": "segmenter-kaldi-ner",
+    "title": "Audio: segmenter → Kaldi → NER",
+    "description": "An audio document processed through a chain of three tools: audio segmentation, Kaldi speech recognition producing a text document with tokens and alignments, and named entity recognition over the transcript. Shows how text documents are emitted mid-pipeline and consumed by downstream NLP views."
+  },
+  {
+    "dir": "east-tesseract-typing",
+    "title": "Visual: EAST → Tesseract → semantic typing",
+    "description": "An image document processed through text-box detection (EAST), OCR (Tesseract), and semantic typing of the OCR output. Shows how bounding boxes, text documents, and alignments chain together across views."
+  },
+  {
+    "dir": "everything",
+    "title": "Everything: audiovisual pipeline end-to-end",
+    "description": "A comprehensive example combining bars-and-tones and slate extraction, audio segmentation, Kaldi speech recognition, EAST text-box detection, Tesseract OCR, named entity recognition, and slate parsing over a short synthetic video. Exercises the full range of view chaining and cross-view annotation references."
+  }
+]

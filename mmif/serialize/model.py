@@ -399,7 +399,19 @@ class MmifObjectEncoder(json.JSONEncoder):
         """
         Overrides default encoding behavior to prioritize :func:`MmifObject.serialize()`.
         """
-        if hasattr(obj, '_serialize'):
+        # Vocab migration (MMIF spec >= 1.1.1): vocabulary types are
+        # Pydantic BaseModel subclasses with a ``@classmethod _serialize()``
+        # that returns ``repr(cls)`` — correct for CLAMS type classes but
+        # broken for generic ``TypesBase`` instances (non-CLAMS URIs like
+        # ``http://vocab.lappsgrid.org/SemanticTag``), where ``cls`` is the
+        # plain ``TypesBase`` class and ``repr(cls)`` yields
+        # ``<class 'clams_vocabulary.base.TypesBase'>``. Handle ``TypesBase``
+        # instances explicitly via ``str(obj)`` before the ``_serialize``
+        # fallback.
+        from mmif.vocabulary.base_types import TypesBase
+        if isinstance(obj, TypesBase):
+            return str(obj)
+        elif hasattr(obj, '_serialize'):
             return obj._serialize()
         elif hasattr(obj, 'isoformat'):         # for datetime objects
             s = obj.isoformat()

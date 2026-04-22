@@ -1,4 +1,0 @@
-
-orderly-set==5.3.*  # 5.4 drops py38 support
-jsonschema
-pydantic>=2.0

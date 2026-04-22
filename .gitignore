@@ -70,19 +70,20 @@ docs/**/_site/**
 tags
 .tags
 
-# auto-generated files
-mmif/ver
-mmif/res
-mmif/vocabulary
+# build artifacts
+mmif_python-*/
 ./VERSION*
 .hypothesis
 
 # Documentation build artifacts
 documentation/cli_help.rst
 documentation/whatsnew.md
+documentation/examples.rst
+documentation/examples/
 documentation/autodoc
 docs-test
 
 # environments
 .venv*
 venv*
+_issues
