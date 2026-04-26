@@ -7,7 +7,7 @@ import math
 import warnings
 from io import StringIO
 from typing import Iterable  # todo: replace with collections.abc.Iterable in Python 3.9
-from typing import List, Union, Tuple
+from typing import List, Optional, Union, Tuple
 
 import mmif
 from mmif import Annotation, Document, Mmif
@@ -57,13 +57,13 @@ SAMPLING_MODE_DESCRIPTIONS = {
     ),
     SamplingMode.SINGLE: (
         "uses the middle representative if present, otherwise "
-        "extracts a frame from the midpoint of the start/end "
+        "extracts an image from the midpoint of the start/end "
         "interval (midpoint is calculated by floor division "
         "of the sum of start and end)."
     ),
     SamplingMode.ALL: (
         "uses all target timepoints if present, otherwise "
-        "extracts all frames from the time interval."
+        "extracts all images from the time interval."
     ),
 }
 SAMPLING_MODE_DEFAULT = SamplingMode.REPRESENTATIVES
@@ -145,24 +145,24 @@ def get_framerate(video_document: Document) -> float:
         container.close()
 
 
-def extract_timepoints_as_images(
+def extract_images_from_timepoints(
     video_document: Document,
     timepoints_ms: Iterable[int],
     as_PIL: bool = False,
 ):
     """
-    Extracts frames at the given media-timeline timepoints (in milliseconds).
+    Extracts images at the given media-timeline timepoints (in milliseconds).
 
-    For each requested timepoint, returns the frame whose actual
+    For each requested timepoint, returns the image whose actual
     presentation timestamp (PTS) is closest to it. Duplicate timepoints
-    produce duplicate frames at the same list positions as the input.
+    produce duplicate images at the same list positions as the input.
 
     :param video_document: :py:class:`~mmif.serialize.annotation.Document`
         holding a video document (``"@type": ".../VideoDocument/..."``)
     :param timepoints_ms: iterable of timepoint values in milliseconds
     :param as_PIL: return :py:class:`PIL.Image.Image` (RGB) instead of
         :py:class:`~numpy.ndarray` (BGR)
-    :returns: frames in the same order (and with the same multiplicity) as
+    :returns: images in the same order (and with the same multiplicity) as
         ``timepoints_ms``
     :rtype: list
     """
@@ -231,20 +231,6 @@ def extract_timepoints_as_images(
     return [result_map[t] for t in original_timepoints if t in result_map]
 
 
-def _get_mid_framenum(mmif: Mmif, time_frame: Annotation) -> int:
-    """
-    Calculates the middle frame number of a time interval annotation.
-
-    :param mmif: :py:class:`~mmif.serialize.mmif.Mmif` instance
-    :param time_frame: :py:class:`~mmif.serialize.annotation.Annotation` instance that holds a time interval annotation (``"@type": ".../TimeFrame/..."``)
-    :return: middle frame number as an integer
-    """
-    timeunit = time_frame.get_property('timeUnit')
-    video_document = mmif[time_frame.get_property('document')]
-    fps = get_framerate(video_document)
-    return int(convert(time_frame.get_property('start') + time_frame.get_property('end'), timeunit, 'frame', fps) // 2)
-
-
 def _tp_ids_to_timepoints_ms(mmif: Mmif, tp_ids: List[str]) -> List[int]:
     """
     Converts a list of timepoint annotation IDs to media-timeline timepoints in milliseconds.
@@ -303,93 +289,114 @@ def _timeframe_to_timepoint_range_ms(
     return int(round(start)), int(round(end))
 
 
-def _sample_all_timepoints_ms(mmif: Mmif, time_frame: Annotation) -> List[int]:
+def _sample_all_timepoint_pairs_ms(
+    mmif: Mmif, time_frame: Annotation
+) -> List[Tuple[int, Optional[str]]]:
     """
-    Samples all timepoints (ms) from a TimeFrame. Uses all ``targets`` if
-    present, otherwise samples the start/end interval of the time_frameat 
-    the stream's average frame rate, resulting one sample per second.
+    Samples all (timepoint_ms, source_id) pairs from a TimeFrame. Uses all
+    ``targets`` if present (source is the TP annotation id), otherwise
+    samples the start/end interval at the stream's average frame rate
+    (source is None for each sampled point).
 
     :param mmif: :py:class:`~mmif.serialize.mmif.Mmif` instance
     :param time_frame: :py:class:`~mmif.serialize.annotation.Annotation`
         instance of a TimeFrame
-    :return: list of timepoint values in ms
+    :return: list of (ms, source_id) pairs; source_id is ``None`` when
+        the point came from interval sampling rather than a TP
     :rtype: list
     """
     if 'targets' in time_frame.properties:
-        return _tp_ids_to_timepoints_ms(
-            mmif, time_frame.get_property('targets'))
+        target_ids = time_frame.get_property('targets')
+        ms_list = _tp_ids_to_timepoints_ms(mmif, target_ids)
+        return list(zip(ms_list, target_ids))
     start_ms, end_ms = _timeframe_to_timepoint_range_ms(mmif, time_frame)
     video_document = _resolve_video_document(mmif, time_frame)
     fps = get_framerate(video_document)
     step_ms = 1000.0 / fps
-    return sample_timepoints(start_ms, end_ms, step_ms)
+    return [(t, None) for t in sample_timepoints(start_ms, end_ms, step_ms)]
 
 
-def _sample_representatives_timepoints_ms(
+def _sample_representatives_timepoint_pairs_ms(
     mmif: Mmif, time_frame: Annotation
-) -> List[int]:
+) -> List[Tuple[int, str]]:
     """
-    Samples timepoints (ms) from a TimeFrame's representatives. Returns an
-    empty list if ``representatives`` is not present (skips the TimeFrame).
+    Samples (timepoint_ms, source_id) pairs from a TimeFrame's
+    representatives. Returns an empty list if ``representatives`` is not
+    present (skips the TimeFrame). Source is always the rep TP id.
 
     :param mmif: :py:class:`~mmif.serialize.mmif.Mmif` instance
     :param time_frame: :py:class:`~mmif.serialize.annotation.Annotation`
         instance of a TimeFrame
-    :return: list of timepoint values in ms (empty if no representatives)
+    :return: list of (ms, rep_id) pairs (empty if no representatives)
     :rtype: list
     """
     if 'representatives' in time_frame.properties:
         reps = time_frame.get_property('representatives')
         if reps:
-            return _tp_ids_to_timepoints_ms(mmif, reps)
+            ms_list = _tp_ids_to_timepoints_ms(mmif, reps)
+            return list(zip(ms_list, reps))
     return []
 
 
-def _sample_single_timepoint_ms(
+def _sample_single_timepoint_pair_ms(
     mmif: Mmif, time_frame: Annotation
-) -> List[int]:
+) -> List[Tuple[int, Optional[str]]]:
     """
-    Samples a single timepoint (ms) from a TimeFrame. Uses the middle
-    representative if ``representatives`` is present, otherwise the
-    midpoint of the start/end interval.
+    Samples a single (timepoint_ms, source_id) pair from a TimeFrame.
+    Uses the middle representative if ``representatives`` is present
+    (source is the rep TP id), otherwise falls back to the midpoint of
+    the start/end interval (source is None).
 
     :param mmif: :py:class:`~mmif.serialize.mmif.Mmif` instance
     :param time_frame: :py:class:`~mmif.serialize.annotation.Annotation`
         instance of a TimeFrame
-    :return: list containing a single timepoint value in ms
+    :return: single-element list ``[(ms, source_id)]``; source_id is
+        ``None`` when the point came from the interval midpoint fallback
     :rtype: list
     """
     if 'representatives' in time_frame.properties:
         reps = time_frame.get_property('representatives')
         if reps:
             mid = reps[len(reps) // 2]
-            return _tp_ids_to_timepoints_ms(mmif, [mid])
+            ms_list = _tp_ids_to_timepoints_ms(mmif, [mid])
+            return [(ms_list[0], mid)]
     start_ms, end_ms = _timeframe_to_timepoint_range_ms(mmif, time_frame)
-    return [(start_ms + end_ms) // 2]
+    return [((start_ms + end_ms) // 2, None)]
 
 
-def extract_target_frames(
-        mmif: Mmif, 
-        annotation: Annotation, 
-        min_timepoints: int = 0, 
-        max_timepoints: int = sys.maxsize, 
-        fraction: float = 1.0, 
+def extract_images_by_count_with_sources(
+        mmif: Mmif,
+        annotation: Annotation,
+        min_timepoints: int = 0,
+        max_timepoints: int = sys.maxsize,
+        fraction: float = 1.0,
         as_PIL: bool = False
     ) -> Tuple[List, List[str]]:
     """
-    Extracts frames corresponding to the timepoints listed in the ``targets`` property of an annotation.
-    Selection of timepoints is based on minimum, maximum, and fraction of targets to include.
+    Extracts images at a count-controlled subset of the timepoints listed
+    in the ``targets`` property of an annotation, alongside the IDs of the
+    selected target TPs.
+
+    The number of timepoints chosen is ``max(min_timepoints,
+    int(num_targets * fraction))``, clamped to ``max_timepoints`` and to
+    the number of available targets. The chosen indices are spread evenly
+    across the target list.
 
     :param mmif: :py:class:`~mmif.serialize.mmif.Mmif` instance
-    :param annotation: :py:class:`~mmif.serialize.annotation.Annotation` instance containing a ``targets`` property
+    :param annotation: :py:class:`~mmif.serialize.annotation.Annotation`
+        instance containing a ``targets`` property
     :param min_timepoints: minimum number of timepoints to include
     :param max_timepoints: maximum number of timepoints to include
     :param fraction: fraction of targets to include (ideally)
-    :param as_PIL: return :py:class:`~PIL.Image.Image` instead of :py:class:`~numpy.ndarray`
-    :return: a tuple containing (list of frames, list of selected target IDs)
+    :param as_PIL: return :py:class:`~PIL.Image.Image` instead of
+        :py:class:`~numpy.ndarray`
+    :return: tuple of (list of images, list of selected target TP IDs);
+        the two lists are parallel
+    :rtype: tuple
     """
     if 'targets' not in annotation.properties:
-        raise ValueError(f'Annotation {annotation.id} does not have a "targets" property.')
+        raise ValueError(
+            f'Annotation {annotation.id} does not have a "targets" property.')
 
     targets = annotation.get_property('targets')
     num_targets = len(targets)
@@ -404,47 +411,126 @@ def extract_target_frames(
     if count == 1:
         indices = [num_targets // 2]
     else:
-        indices = [int(i * (num_targets - 1) / (count - 1)) for i in range(count)]
+        indices = [int(i * (num_targets - 1) / (count - 1))
+                   for i in range(count)]
 
     selected_target_ids = [targets[i] for i in indices]
     timepoints_ms = _tp_ids_to_timepoints_ms(mmif, selected_target_ids)
     video_doc = _resolve_video_document(mmif, annotation)
-    images = extract_timepoints_as_images(video_doc, timepoints_ms, as_PIL=as_PIL)
+    images = extract_images_from_timepoints(
+        video_doc, timepoints_ms, as_PIL=as_PIL)
     return images, selected_target_ids
 
 
-def extract_frames_by_mode(
+def extract_images_by_count(
+        mmif: Mmif,
+        annotation: Annotation,
+        min_timepoints: int = 0,
+        max_timepoints: int = sys.maxsize,
+        fraction: float = 1.0,
+        as_PIL: bool = False
+    ) -> List:
+    """
+    Extracts images at a count-controlled subset of the timepoints listed
+    in the ``targets`` property of an annotation. See
+    :py:func:`extract_images_by_count_with_sources` for selection details
+    and for a variant that also returns the IDs of the selected target TPs.
+
+    :param mmif: :py:class:`~mmif.serialize.mmif.Mmif` instance
+    :param annotation: :py:class:`~mmif.serialize.annotation.Annotation`
+        instance containing a ``targets`` property
+    :param min_timepoints: minimum number of timepoints to include
+    :param max_timepoints: maximum number of timepoints to include
+    :param fraction: fraction of targets to include (ideally)
+    :param as_PIL: return :py:class:`~PIL.Image.Image` instead of
+        :py:class:`~numpy.ndarray`
+    :return: list of images
+    :rtype: list
+    """
+    images, _ = extract_images_by_count_with_sources(
+        mmif, annotation,
+        min_timepoints=min_timepoints,
+        max_timepoints=max_timepoints,
+        fraction=fraction,
+        as_PIL=as_PIL,
+    )
+    return images
+
+
+def extract_images_by_mode_with_sources(
     mmif: Mmif,
     time_frame: Annotation,
     mode: Union[SamplingMode, None] = None,
-    as_PIL: bool = False
-) -> List:
+    as_PIL: bool = False,
+) -> Tuple[List, List[Union[str, int]]]:
     """
-    Extracts frames from a TimeFrame annotation based on a
-    sampling mode. If ``mode`` is not specified, uses the
-    context-level default (set via
+    Extracts images from a TimeFrame using a :py:class:`SamplingMode`,
+    alongside the per-image source: a TP annotation id (``str``) when the
+    image was selected from a TP (a representative or a target), or the
+    sampled timepoint in milliseconds (``int``) when a fallback path was
+    used (SINGLE with no representatives, or ALL with no targets).
+
+    If ``mode`` is not specified, uses the context-level default (set via
     :py:data:`_sampling_mode` context variable).
 
     :param mmif: :py:class:`~mmif.serialize.mmif.Mmif` instance
     :param time_frame: TimeFrame annotation to sample from
-    :param mode: :py:class:`SamplingMode`, or None to use
-        the context default
-    :param as_PIL: return PIL Images instead of ndarrays
-    :return: list of frames (may be empty for
-        ``REPRESENTATIVES`` mode when no representatives exist)
+    :param mode: :py:class:`SamplingMode`, or None to use the context
+        default
+    :param as_PIL: return :py:class:`PIL.Image.Image` instead of
+        :py:class:`~numpy.ndarray`
+    :return: tuple of (list of images, list of sources); the two lists
+        are parallel. May be ``([], [])`` for ``REPRESENTATIVES`` mode
+        when no representatives exist.
+    :rtype: tuple
     """
     if mode is None:
         mode = _sampling_mode.get()
     if mode == SamplingMode.ALL:
-        timepoints_ms = _sample_all_timepoints_ms(mmif, time_frame)
+        pairs = _sample_all_timepoint_pairs_ms(mmif, time_frame)
     elif mode == SamplingMode.REPRESENTATIVES:
-        timepoints_ms = _sample_representatives_timepoints_ms(mmif, time_frame)
+        pairs = _sample_representatives_timepoint_pairs_ms(mmif, time_frame)
     else:
-        timepoints_ms = _sample_single_timepoint_ms(mmif, time_frame)
-    if not timepoints_ms:
-        return []
+        pairs = _sample_single_timepoint_pair_ms(mmif, time_frame)
+    if not pairs:
+        return [], []
+    timepoints_ms = [ms for ms, _ in pairs]
+    sources: List[Union[str, int]] = [
+        tp_id if tp_id is not None else ms for ms, tp_id in pairs
+    ]
     video_doc = _resolve_video_document(mmif, time_frame)
-    return extract_timepoints_as_images(video_doc, timepoints_ms, as_PIL=as_PIL)
+    images = extract_images_from_timepoints(
+        video_doc, timepoints_ms, as_PIL=as_PIL)
+    return images, sources
+
+
+def extract_images_by_mode(
+    mmif: Mmif,
+    time_frame: Annotation,
+    mode: Union[SamplingMode, None] = None,
+    as_PIL: bool = False,
+) -> List:
+    """
+    Extracts images from a TimeFrame using a :py:class:`SamplingMode`.
+    See :py:func:`extract_images_by_mode_with_sources` for the variant
+    that also returns the per-image source IDs / timepoints.
+
+    If ``mode`` is not specified, uses the context-level default (set via
+    :py:data:`_sampling_mode` context variable).
+
+    :param mmif: :py:class:`~mmif.serialize.mmif.Mmif` instance
+    :param time_frame: TimeFrame annotation to sample from
+    :param mode: :py:class:`SamplingMode`, or None to use the context
+        default
+    :param as_PIL: return :py:class:`PIL.Image.Image` instead of
+        :py:class:`~numpy.ndarray`
+    :return: list of images (may be empty for ``REPRESENTATIVES`` mode
+        when no representatives exist)
+    :rtype: list
+    """
+    images, _ = extract_images_by_mode_with_sources(
+        mmif, time_frame, mode=mode, as_PIL=as_PIL)
+    return images
 
 
 def sample_timepoints(
@@ -541,7 +627,7 @@ def capture(video_document: Document):
 def extract_frames_as_images(video_document: Document, framenums: Iterable[int], as_PIL: bool = False, record_ffmpeg_errors: bool = False):
     """
     .. deprecated::
-       Use :py:func:`extract_timepoints_as_images` instead. See issue #379.
+       Use :py:func:`extract_images_from_timepoints` instead. See issue #379.
 
     Extracts frames from a video document as a list of :py:class:`numpy.ndarray`.
     Use with :py:func:`sample_frames` function to get the list of frame numbers first.
@@ -554,7 +640,7 @@ def extract_frames_as_images(video_document: Document, framenums: Iterable[int],
     """
     warnings.warn(
         f'extract_frames_as_images() is deprecated; use '
-        f'extract_timepoints_as_images() instead. {_PTS_BUG_NOTICE}',
+        f'extract_images_from_timepoints() instead. {_PTS_BUG_NOTICE}',
         DeprecationWarning, stacklevel=2,
     )
     cv2 = _check_cv_dep('cv2')
@@ -599,6 +685,21 @@ def extract_frames_as_images(video_document: Document, framenums: Iterable[int],
     video.release()
     # return frames in original input order, duplicating where needed
     return [unique_frames[f] for f in original_framenums if f in unique_frames]
+
+
+def _get_mid_framenum(mmif: Mmif, time_frame: Annotation) -> int:
+    """
+    Calculates the middle frame number of a time interval annotation.
+    Used internally by deprecated helpers below.
+
+    :param mmif: :py:class:`~mmif.serialize.mmif.Mmif` instance
+    :param time_frame: :py:class:`~mmif.serialize.annotation.Annotation` instance that holds a time interval annotation (``"@type": ".../TimeFrame/..."``)
+    :return: middle frame number as an integer
+    """
+    timeunit = time_frame.get_property('timeUnit')
+    video_document = mmif[time_frame.get_property('document')]
+    fps = get_framerate(video_document)
+    return int(convert(time_frame.get_property('start') + time_frame.get_property('end'), timeunit, 'frame', fps) // 2)
 
 
 def get_mid_framenum(mmif: Mmif, time_frame: Annotation) -> int:
@@ -772,7 +873,7 @@ def framenum_to_millisecond(video_doc: Document, frame: int):
 def second_to_framenum(video_doc: Document, second) -> int:
     """
     .. deprecated::
-       Use :py:func:`extract_timepoints_as_images` or stay in the time
+       Use :py:func:`extract_images_from_timepoints` or stay in the time
        domain. See issue #379.
     """
     warnings.warn(
@@ -786,7 +887,7 @@ def second_to_framenum(video_doc: Document, second) -> int:
 def millisecond_to_framenum(video_doc: Document, millisecond: float) -> int:
     """
     .. deprecated::
-       Use :py:func:`extract_timepoints_as_images` or stay in the time
+       Use :py:func:`extract_images_from_timepoints` or stay in the time
        domain. See issue #379.
     """
     warnings.warn(
@@ -795,3 +896,44 @@ def millisecond_to_framenum(video_doc: Document, millisecond: float) -> int:
     )
     fps = get_framerate(video_doc)
     return int(convert(millisecond, 'ms', 'f', fps))
+
+
+def extract_timepoints_as_images(*args, **kwargs):
+    """
+    .. deprecated::
+       Renamed to :py:func:`extract_images_from_timepoints`.
+    """
+    warnings.warn(
+        'extract_timepoints_as_images() is deprecated; '
+        'use extract_images_from_timepoints() instead.',
+        DeprecationWarning, stacklevel=2,
+    )
+    return extract_images_from_timepoints(*args, **kwargs)
+
+
+def extract_target_frames(*args, **kwargs):
+    """
+    .. deprecated::
+       Renamed to :py:func:`extract_images_by_count_with_sources`.
+       For a bare-images variant, use :py:func:`extract_images_by_count`.
+    """
+    warnings.warn(
+        'extract_target_frames() is deprecated; '
+        'use extract_images_by_count_with_sources() instead.',
+        DeprecationWarning, stacklevel=2,
+    )
+    return extract_images_by_count_with_sources(*args, **kwargs)
+
+
+def extract_frames_by_mode(*args, **kwargs):
+    """
+    .. deprecated::
+       Renamed to :py:func:`extract_images_by_mode`. For per-image source
+       IDs, use :py:func:`extract_images_by_mode_with_sources`.
+    """
+    warnings.warn(
+        'extract_frames_by_mode() is deprecated; '
+        'use extract_images_by_mode() instead.',
+        DeprecationWarning, stacklevel=2,
+    )
+    return extract_images_by_mode(*args, **kwargs)
