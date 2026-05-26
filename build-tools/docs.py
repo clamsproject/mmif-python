@@ -109,10 +109,6 @@ def build_versioned_docs(env: Venv, source_path: Path, version: str):
     print("\n--- Installing sphinx and furo theme ---")
     env.run_pip("install", "sphinx>=7.0,<8.0", "furo", "m2r2", cwd=source_path)
 
-    # Write VERSION file (needed for setup.py and sphinx)
-    version_file = source_path / "VERSION"
-    version_file.write_text(version)
-
     # Inject linkcode_resolve function into conf.py for GitHub source links
     # because some old version of conf.py may not have it
     print("\n--- Injecting linkcode_resolve into conf.py ---")
@@ -148,10 +144,16 @@ def linkcode_resolve(domain, info):
         with open(conf_py, "a") as f:
             f.write(linkcode_snippet)
 
-    # Install package in develop mode to generate code (ver, res, vocabulary)
-    # Uses setup.py develop for compatibility with all versions
-    print("\n--- Installing package in develop mode ---")
-    env.run_python("setup.py", "develop", cwd=source_path)
+    # Install package in editable mode so sphinx-autodoc can import it.
+    # Pre-1.4.0 releases ship setup.py with build-time code generation that
+    # needs a VERSION file; 1.4.0+ releases are pyproject-only and version
+    # themselves from git tags via setuptools-scm.
+    print("\n--- Installing package in editable mode ---")
+    if (source_path / "setup.py").exists():
+        (source_path / "VERSION").write_text(version)
+        env.run_python("setup.py", "develop", cwd=source_path)
+    else:
+        env.run_pip("install", "-e", ".", cwd=source_path)
 
     # Build documentation with sphinx-build
     print("\n--- Building Sphinx documentation ---")
@@ -216,8 +218,8 @@ def build_docs_for_version(version: str, output_base_dir: Path, repo_path: Path 
         print(f"\n--- Step 2: Creating and setting up virtual environment ---")
         env = Venv(venv_path)
         env.create()
-        # Use setuptools<80 for compatibility with older setup.py files
-        # that use the old import structure
+        # setuptools<80 pin keeps the legacy `python setup.py develop` path
+        # working for pre-1.4.0 tags; harmless for pyproject-only tags.
         env.run_pip("install", "--upgrade", "pip", "setuptools<80", "wheel")
 
         print(f"\n--- Step 3: Building documentation ---")
