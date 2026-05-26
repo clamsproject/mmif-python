@@ -115,7 +115,11 @@ def generate_workflow_identifier(mmif_input: Union[str, Path, Mmif],
     Generate a workflow identifier string from a MMIF file or object.
 
     The identifier follows the storage directory structure format:
-    app_name/version/param_hash/app_name2/version2/param_hash2/...
+    source_composition/app_name/version/param_hash/app_name2/version2/param_hash2/...
+
+    The leading ``source_composition`` segment encodes the top-level
+    document mix as ``Type-N`` pairs joined by ``-`` and sorted by type
+    name (e.g. ``TextDocument-1-VideoDocument-1``).
 
     Uses view.metadata.parameters (raw user-passed values) for hashing
     to ensure reproducibility. Views with errors or warnings are excluded
@@ -127,6 +131,10 @@ def generate_workflow_identifier(mmif_input: Union[str, Path, Mmif],
     """
     data = _read_mmif_from_path(mmif_input)
     segments = []
+
+    # First prefix is source information, sorted by document type
+    sources = Counter(doc.at_type.shortname for doc in data.documents)
+    segments.append('-'.join([f'{k}-{sources[k]}' for k in sorted(sources.keys())]))
 
     # Group views into runs
     grouped_apps = group_views_by_app(data.views)
