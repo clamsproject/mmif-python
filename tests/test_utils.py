@@ -195,18 +195,18 @@ class TestVideoDocumentHelper(unittest.TestCase):
         with pytest.raises(ValueError):
             vdh.sample_timepoints(0, 100, -10)
 
-    def test_extract_timepoints_as_images(self):
+    def test_extract_images_from_timepoints(self):
         # basic: three distinct timepoints
         ms_list = [1000, 2000, 3000]
-        imgs = vdh.extract_timepoints_as_images(
+        imgs = vdh.extract_images_from_timepoints(
             self.video_doc, ms_list, as_PIL=False)
         self.assertEqual(3, len(imgs))
         # empty input
         self.assertEqual(
-            [], vdh.extract_timepoints_as_images(self.video_doc, []))
+            [], vdh.extract_images_from_timepoints(self.video_doc, []))
         # duplicates preserved in input order
         dup_ms = [500, 250, 500, 750, 250]
-        dup_imgs = vdh.extract_timepoints_as_images(self.video_doc, dup_ms)
+        dup_imgs = vdh.extract_images_from_timepoints(self.video_doc, dup_ms)
         self.assertEqual(5, len(dup_imgs))
 
     def _make_timepoints(self, count):
@@ -222,27 +222,31 @@ class TestVideoDocumentHelper(unittest.TestCase):
             tps.append(tp)
         return tps
 
-    def test_sample_all_timepoints_ms(self):
+    def test_sample_all_timepoint_pairs_ms(self):
         tps = self._make_timepoints(10)
         parent = self.a_view.new_annotation(
             AnnotationTypes.TimeFrame, aid='tf_0',
             targets=[tp.id for tp in tps])
 
-        ms_list = vdh._sample_all_timepoints_ms(self.mmif_obj, parent)
-        self.assertEqual([i * 100 for i in range(10)], ms_list)
+        pairs = vdh._sample_all_timepoint_pairs_ms(self.mmif_obj, parent)
+        # source IDs are the target TP ids; ms values match timePoints
+        self.assertEqual(
+            [(i * 100, tp.id) for i, tp in enumerate(tps)], pairs)
 
-        # start/end fallback (no targets): sampled at the stream's frame rate
+        # start/end fallback (no targets): sampled at the stream's frame
+        # rate; source is None for each sampled point
         parent2 = self.a_view.new_annotation(
             AnnotationTypes.TimeFrame, aid='tf_1',
             start=0, end=1000, timeUnit='milliseconds',
             document=self.video_doc.id)
-        ms_list2 = vdh._sample_all_timepoints_ms(self.mmif_obj, parent2)
+        pairs2 = vdh._sample_all_timepoint_pairs_ms(self.mmif_obj, parent2)
         # 30 frames in 1000ms at 29.97fps (step ≈ 33.37ms)
-        self.assertEqual(30, len(ms_list2))
-        self.assertEqual(0, ms_list2[0])
-        self.assertLess(ms_list2[-1], 1000)
+        self.assertEqual(30, len(pairs2))
+        self.assertEqual((0, None), pairs2[0])
+        self.assertTrue(all(src is None for _, src in pairs2))
+        self.assertLess(pairs2[-1][0], 1000)
 
-    def test_sample_representatives_timepoints_ms(self):
+    def test_sample_representatives_timepoint_pairs_ms(self):
         tps = self._make_timepoints(10)
         reps = [tps[2].id, tps[5].id, tps[8].id]
         parent = self.a_view.new_annotation(
@@ -250,19 +254,20 @@ class TestVideoDocumentHelper(unittest.TestCase):
             targets=[tp.id for tp in tps],
             representatives=reps)
 
-        ms_list = vdh._sample_representatives_timepoints_ms(
+        pairs = vdh._sample_representatives_timepoint_pairs_ms(
             self.mmif_obj, parent)
-        self.assertEqual([200, 500, 800], ms_list)
+        self.assertEqual(
+            [(200, reps[0]), (500, reps[1]), (800, reps[2])], pairs)
 
         # no representatives → empty (skip)
         parent2 = self.a_view.new_annotation(
             AnnotationTypes.TimeFrame, aid='tf_1',
             targets=[tp.id for tp in tps])
         self.assertEqual(
-            [], vdh._sample_representatives_timepoints_ms(
+            [], vdh._sample_representatives_timepoint_pairs_ms(
                 self.mmif_obj, parent2))
 
-    def test_sample_single_timepoint_ms(self):
+    def test_sample_single_timepoint_pair_ms(self):
         tps = self._make_timepoints(10)
         reps = [tps[2].id, tps[5].id, tps[8].id]
         parent = self.a_view.new_annotation(
@@ -270,19 +275,120 @@ class TestVideoDocumentHelper(unittest.TestCase):
             targets=[tp.id for tp in tps],
             representatives=reps)
 
-        # middle representative (index 1 of 3 → tps[5] → 500ms)
+        # middle representative (index 1 of 3 → tps[5] → 500ms, source=reps[1])
         self.assertEqual(
-            [500],
-            vdh._sample_single_timepoint_ms(self.mmif_obj, parent))
+            [(500, reps[1])],
+            vdh._sample_single_timepoint_pair_ms(self.mmif_obj, parent))
 
-        # start/end fallback midpoint
+        # start/end fallback midpoint: source is None
         parent2 = self.a_view.new_annotation(
             AnnotationTypes.TimeFrame, aid='tf_1',
             start=100, end=500, timeUnit='milliseconds',
             document=self.video_doc.id)
         self.assertEqual(
-            [300],
-            vdh._sample_single_timepoint_ms(self.mmif_obj, parent2))
+            [(300, None)],
+            vdh._sample_single_timepoint_pair_ms(self.mmif_obj, parent2))
+
+    def test_extract_images_by_count(self):
+        tps = self._make_timepoints(10)
+        parent = self.a_view.new_annotation(
+            AnnotationTypes.TimeFrame, aid='tf_0',
+            targets=[tp.id for tp in tps])
+
+        # bare form: returns just images
+        imgs = vdh.extract_images_by_count(self.mmif_obj, parent, fraction=0.3)
+        self.assertEqual(3, len(imgs))
+
+        # missing 'targets' raises ValueError (bare delegates through
+        # _with_sources)
+        no_targets = self.a_view.new_annotation(
+            AnnotationTypes.TimeFrame, aid='tf_no',
+            start=0, end=100, timeUnit='milliseconds',
+            document=self.video_doc.id)
+        with pytest.raises(ValueError):
+            vdh.extract_images_by_count(self.mmif_obj, no_targets)
+
+    def test_extract_images_by_count_with_sources(self):
+        tps = self._make_timepoints(10)
+        parent = self.a_view.new_annotation(
+            AnnotationTypes.TimeFrame, aid='tf_0',
+            targets=[tp.id for tp in tps])
+
+        imgs, ids = vdh.extract_images_by_count_with_sources(
+            self.mmif_obj, parent, fraction=0.5)
+        self.assertEqual(len(imgs), len(ids))
+        self.assertEqual(5, len(imgs))
+        # source IDs are a subset of the input targets, in order
+        self.assertEqual(ids, sorted(ids, key=[t.id for t in tps].index))
+        for tid in ids:
+            self.assertIn(tid, [t.id for t in tps])
+
+        # empty targets → empty parallel lists
+        empty = self.a_view.new_annotation(
+            AnnotationTypes.TimeFrame, aid='tf_empty', targets=[])
+        self.assertEqual(
+            ([], []),
+            vdh.extract_images_by_count_with_sources(self.mmif_obj, empty))
+
+    def test_extract_images_by_mode_with_sources_reps(self):
+        tps = self._make_timepoints(10)
+        reps = [tps[2].id, tps[5].id, tps[8].id]
+        parent = self.a_view.new_annotation(
+            AnnotationTypes.TimeFrame, aid='tf_0',
+            targets=[tp.id for tp in tps],
+            representatives=reps)
+
+        imgs, sources = vdh.extract_images_by_mode_with_sources(
+            self.mmif_obj, parent, mode=vdh.SamplingMode.REPRESENTATIVES)
+        self.assertEqual(3, len(imgs))
+        # all sources are TP IDs (str), not ms ints
+        self.assertEqual(reps, sources)
+        self.assertTrue(all(isinstance(s, str) for s in sources))
+
+    def test_extract_images_by_mode_with_sources_single_fallback(self):
+        # SINGLE mode without representatives → midpoint fallback,
+        # source is the midpoint ms (int)
+        parent = self.a_view.new_annotation(
+            AnnotationTypes.TimeFrame, aid='tf_0',
+            start=100, end=500, timeUnit='milliseconds',
+            document=self.video_doc.id)
+        imgs, sources = vdh.extract_images_by_mode_with_sources(
+            self.mmif_obj, parent, mode=vdh.SamplingMode.SINGLE)
+        self.assertEqual(1, len(imgs))
+        self.assertEqual([300], sources)
+        self.assertTrue(all(isinstance(s, int) for s in sources))
+
+    def test_extract_images_by_mode_with_sources_all_fallback(self):
+        # ALL mode without targets → stream-rate sampling, sources are
+        # the sampled ms ints
+        parent = self.a_view.new_annotation(
+            AnnotationTypes.TimeFrame, aid='tf_0',
+            start=0, end=200, timeUnit='milliseconds',
+            document=self.video_doc.id)
+        imgs, sources = vdh.extract_images_by_mode_with_sources(
+            self.mmif_obj, parent, mode=vdh.SamplingMode.ALL)
+        self.assertEqual(len(imgs), len(sources))
+        self.assertGreater(len(imgs), 0)
+        self.assertTrue(all(isinstance(s, int) for s in sources))
+        # the sources match the sampled ms values
+        self.assertEqual(sorted(sources), sources)
+
+    def test_renamed_helpers_emit_deprecation_warnings(self):
+        # The three pre-rename names live as deprecation aliases that
+        # delegate to the new names.
+        with pytest.warns(DeprecationWarning, match='extract_images_from_timepoints'):
+            vdh.extract_timepoints_as_images(self.video_doc, [500])
+
+        tps = self._make_timepoints(4)
+        parent = self.a_view.new_annotation(
+            AnnotationTypes.TimeFrame, aid='tf_dep',
+            targets=[tp.id for tp in tps])
+        with pytest.warns(DeprecationWarning, match='extract_images_by_count_with_sources'):
+            vdh.extract_target_frames(self.mmif_obj, parent)
+
+        with pytest.warns(DeprecationWarning, match='extract_images_by_mode'):
+            vdh.extract_frames_by_mode(
+                self.mmif_obj, parent, mode=vdh.SamplingMode.ALL)
 
     def test_pts_offset_regression(self):
         # regression for https://github.com/clamsproject/mmif-python/issues/379
@@ -314,7 +420,7 @@ class TestVideoDocumentHelper(unittest.TestCase):
 
         # requested 33ms should resolve to the actual PTS-equivalent frame
         # (start_time is ~33ms; the first frame's PTS is nearest 33ms)
-        imgs = vdh.extract_timepoints_as_images(vd, [33], as_PIL=False)
+        imgs = vdh.extract_images_from_timepoints(vd, [33], as_PIL=False)
         self.assertEqual(1, len(imgs))
         got_pts = pts_by_hash.get(hash(imgs[0].tobytes()))
         self.assertIsNotNone(got_pts)
@@ -471,9 +577,9 @@ class TestWorkflowHelper(unittest.TestCase):
         try:
             workflow_id = wfh.generate_workflow_identifier(tmp_file)
             segments = workflow_id.split('/')
-            self.assertEqual(len(segments), 6)
-            self.assertIn('app1', segments[0])
-            self.assertIn('app2', segments[3])
+            self.assertEqual(len(segments), 7)
+            self.assertIn('app1', segments[1])
+            self.assertIn('app2', segments[4])
         finally:
             os.unlink(tmp_file)
 

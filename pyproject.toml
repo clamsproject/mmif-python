@@ -36,7 +36,7 @@ source = "https://github.com/clamsproject/mmif-python"
 #   curl -sL https://raw.githubusercontent.com/clamsproject/mmif/main/schema/mmif.json \
 #     -o mmif/res/mmif.json
 # tests/test_specver.py will fail CI if this value is stale.
-mmif-spec = "https://mmif.clams.ai/1.1.1"
+mmif-spec = "https://mmif.clams.ai/1.2.0"
 
 [project.optional-dependencies]
 cv = ["pillow", "opencv-python", "ffmpeg-python", "wurlitzer", "av"]
