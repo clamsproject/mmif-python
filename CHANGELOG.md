@@ -1,4 +1,29 @@
 
+## releasing 1.5.0 (2026-05-27)
+### Overview
+
+Improves image-extraction API in `video_document_helper` for TP source tracking, restores the source-composition prefix in workflow identifiers, and fixes the versioned-docs publishing pipeline.
+
+### Additions
+
+* `extract_images_by_count_with_sources` and `extract_images_by_mode_with_sources`: new public functions in `mmif.utils.video_document_helper` that return per-image source IDs (or sampled timepoints in ms when a fallback path is used), so downstream apps can anchor each extracted image to a specific point in the source media (https://github.com/clamsproject/mmif-python/pull/385, https://github.com/clamsproject/mmif-python/issues/384).
+
+### Changes
+
+* `mmif.utils.video_document_helper`: renamed 
+    * `extract_timepoints_as_images` --> `extract_images_from_timepoints`, 
+    * `extract_target_frames` -->  `extract_images_by_count_with_sources` (alongside new bare `extract_images_by_count`), and 
+    * `extract_frames_by_mode` --> `extract_images_by_mode`. 
+    * The three pre-rename names remain importable as soft-deprecated aliases through 2.0.0 (https://github.com/clamsproject/mmif-python/pull/385).
+* `mmif.utils.workflow_helper.generate_workflow_identifier`: now prefixes a `source_composition` segment (`TextDocument-1-VideoDocument-1/...`) describing the top-level document mix in the input MMIF (https://github.com/clamsproject/mmif-python/pull/386).
+* `build-tools/docs.py`: versioned-docs build now works against pyproject-only tags, restoring docs publishing in the release workflow (https://github.com/clamsproject/mmif-python/pull/388, https://github.com/clamsproject/mmif-python/issues/387).
+
+> [!NOTE]
+> - `mmif describe` (and the underlying `mmif.utils.workflow_helper`) is still experimental and subject to change in future releases without notice. Backward compatibility is not guaranteed.
+> - The new `source_composition` prefix in `generate_workflow_identifier()` changes the format of returned identifiers. Downstream tools parsing the identifier path (e.g. for storage-directory routing) may need to account for the extra leading segment.
+
+
+
 ## releasing 1.4.0 (2026-04-22)
 ### Overview
 * This is minor level release that 1) replacing simple string enums in `mmif.vocabulary` with fully-fledged pydantic classes in `clams-vocabulary` package 2) deprecating framenum-based image extraction functions in VDH (frame numbers are no longer considered as proper timestamps)
