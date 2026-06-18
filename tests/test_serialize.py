@@ -1304,7 +1304,36 @@ class TestDocument(unittest.TestCase):
         doc1_mmif_roundtrip = mmif_roundtrip['doc1']
         self.assertEqual(0, len(doc1_mmif_roundtrip._props_pending))
         self.assertEqual('me', doc1_mmif_roundtrip.get_property('author'))
-        
+
+    def test_document_pending_property_membership(self):
+        # regression for issue #390: a property added via `add_property`
+        # lands in `_props_pending` and must be visible through `get_property`,
+        # subscripting, AND the `in` operator consistently -- without needing a
+        # serialize/deserialize round trip first.
+        doc = Document()
+        doc.at_type = DocumentTypes.VideoDocument
+        doc.id = 'doc1'
+        doc.add_property('fps', 29.97)
+        self.assertIn('fps', doc._props_pending)
+        # all three access paths must agree
+        self.assertEqual(29.97, doc.get_property('fps'))
+        self.assertEqual(29.97, doc['fps'])
+        self.assertIn('fps', doc)
+        # special fields and absent keys are unaffected
+        self.assertIn('id', doc)
+        self.assertEqual('doc1', doc['id'])
+        self.assertNotIn('nope', doc)
+        with self.assertRaises(KeyError):
+            _ = doc['nope']
+        # an unset `location` must read as absent, not as always-present None
+        self.assertNotIn('location', doc)
+        with self.assertRaises(KeyError):
+            _ = doc['location']
+        self.assertIsNone(doc.get('location'))
+        doc.location = 'file:///tmp/doc1.mp4'
+        self.assertIn('location', doc)
+        self.assertEqual('file:///tmp/doc1.mp4', doc['location'])
+
     def test_document_adding_duplicate_properties(self):
         mmif = Mmif(self.data['everything']['string'])
         doc1 = Document()
