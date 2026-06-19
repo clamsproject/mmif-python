@@ -1,4 +1,9 @@
 
+## releasing 1.5.1 (2026-06-19)
+### Overview
+This patch contains a bug fix in VDH that couldn't handle some mkv-contained video files (https://github.com/clamsproject/mmif-python/issues/390) , and some other minor documentation generation bugs.
+
+
 ## releasing 1.5.0 (2026-05-27)
 ### Overview
 
