@@ -13,9 +13,16 @@ We follow a Gitflow-inspired branching model to maintain a stable `main` branch 
     - Once work is complete, open a PR targeting the `develop` branch.
     - **Communication**: High-level discussion and planning should occur in the issue thread. The PR conversation is strictly for code review and implementation-specific feedback.
 5. **Releases**:
-    - When `develop` is ready for a new release, open a PR from `develop` to `main` using the "release" PR template.
+    - When `develop` is ready for a new release, open a PR from `develop` to `main` using the "release" PR template. See the **Releases** section below for the required title format and preparation steps.
     - After merging the release candidate into `main`, manually tag the commit with the version number. This tag triggers the automated CI/CD pipeline for publishing.
 6. **Branch Protection**: Both `main` and `develop` are protected branches. Direct pushes are disabled; all changes must be introduced via Pull Requests.
+
+## Releases
+
+Release PRs (from `develop` to `main`) are gated by the `release-check` CI workflow. Before opening one:
+
+1. Title the PR exactly `releasing X.Y.Z` (strict semver); `release-check` reads the version from the title.
+2. Run `python build-tools/prep_release.py X.Y.Z` and commit its changes. See inside the prep script to see what's actually prepared.
 
 ## CLI Scripts
 

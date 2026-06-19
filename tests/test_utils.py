@@ -183,6 +183,26 @@ class TestVideoDocumentHelper(unittest.TestCase):
         finally:
             c.close()
 
+    def test_open_container_matroska(self):
+        # regression for issue #390: Matroska/webm leave the per-stream
+        # `frames`/`duration` fields unset, so open_container must fall back to
+        # the container-level duration instead of caching frameCount/duration 0.
+        vd = Document({
+            "@type": "http://mmif.clams.ai/vocabulary/VideoDocument/v1",
+            "properties": {
+                "mime": "video",
+                "id": "o1",
+                "location": f"file://{pathlib.Path(__file__).parent}/black-2997fps.webm",
+            }
+        })
+        c = vdh.open_container(vd)
+        try:
+            self.assertAlmostEqual(29.97, vd.get_property('fps'), places=1)
+            self.assertGreater(vd.get_property('frameCount'), 0)
+            self.assertGreater(vd.get_property('duration'), 0)
+        finally:
+            c.close()
+
     def test_sample_timepoints(self):
         # half-open interval; step in ms
         self.assertEqual([0, 100, 200, 300, 400],

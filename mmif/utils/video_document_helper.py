@@ -96,20 +96,36 @@ def open_container(video_document: Document):
     container = av.open(video_document.location_path(nonexist_ok=False))
     stream = container.streams.video[0]
     time_base = float(stream.time_base)
-    fps = round(float(stream.average_rate), 2)
+    # Frame rate: prefer ffmpeg's guessed rate (av_guess_frame_rate), which
+    # falls back to the stream's base rate (r_frame_rate) when the average
+    # rate (avg_frame_rate) is unset. Matroska/webm commonly leave
+    # `average_rate` as None (which would crash float()) or 0, so it cannot be
+    # used directly. `rate` stays a Fraction for exact frame-count math; both
+    # None and a zero rate are falsy, so the chain yields the first usable one.
+    rate = stream.guessed_rate or stream.average_rate or stream.base_rate
+    fps = round(float(rate), 2) if rate else 0.0
+    # Resolve duration (in seconds) from the most reliable source available.
+    # `stream.duration` is exact for CFR H.264/MP4, but Matroska/webm leave it
+    # unset and carry the length only at the container level
+    # (`container.duration`, in `av.time_base` microseconds).
+    if stream.duration is not None:
+        duration_s = float(stream.duration) * time_base
+    elif container.duration is not None:
+        duration_s = container.duration / av.time_base
+    else:
+        duration_s = None
     # `stream.frames` comes from the container header. Verified exact on
     # CFR H.264/MP4 inputs even with non-zero start offset; for VFR or
     # headerless streams it may be 0, in which case `duration * rate` is
     # the best available (approximate) estimate.
     if stream.frames > 0:
         frame_count = stream.frames
-    elif stream.duration is not None and stream.average_rate is not None:
-        frame_count = int(round(float(stream.duration) * time_base
-                                * float(stream.average_rate)))
+    elif duration_s is not None and rate:
+        frame_count = int(round(duration_s * float(rate)))
     else:
         frame_count = 0
-    if stream.duration is not None:
-        duration_ms = int(round(float(stream.duration) * time_base * 1000))
+    if duration_s is not None:
+        duration_ms = int(round(duration_s * 1000))
     elif frame_count > 0 and fps > 0:
         duration_ms = int(round(frame_count / fps * 1000))
     else:

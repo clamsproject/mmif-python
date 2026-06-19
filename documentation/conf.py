@@ -6,7 +6,6 @@ import datetime
 import inspect
 import json
 import os
-import re
 import subprocess
 import sys
 import textwrap
@@ -148,42 +147,6 @@ def linkcode_resolve(domain, info):
         return None
 
 
-def update_target_versions(app):
-    """
-    Update documentation/target-versions.csv with the current version and spec version.
-    This replaces the old logic in setup.py.
-    """
-    # Check if we have __specver__ (it might not be there if not installed via setup.py develop)
-    if not hasattr(mmif, '__specver__'):
-        return
-
-    current_ver = mmif.__version__
-    # Skip dev/dummy versions to avoid dirtying the git-tracked CSV
-    if 'dev' in current_ver or not re.match(r'^\d+\.\d+\.\d+$', current_ver):
-        return
-    spec_ver = mmif.__specver__
-
-    csv_path = proj_root_dir / 'documentation' / 'target-versions.csv'
-    if not csv_path.exists():
-        return
-
-    # Read existing content
-    with open(csv_path, 'r') as f:
-        lines = f.readlines()
-
-    # Check if current version is already in the file (first data line)
-    # lines[0] is header, lines[1] is latest version
-    if len(lines) > 1 and lines[1].startswith(f'{current_ver},'):
-        return
-
-    # Insert new version
-    logger.info(f"Updating target-versions.csv: {current_ver} -> {spec_ver}")
-    lines.insert(1, f'{current_ver},"{spec_ver}"\n')
-
-    with open(csv_path, 'w') as f:
-        f.writelines(lines)
-
-
 def generate_cli_rst(app):
     from mmif import prep_argparser_and_subcmds
 
@@ -292,7 +255,6 @@ def run_apidoc(app):
 def setup(app):
     try:
         app.connect('builder-inited', run_apidoc)
-        app.connect('builder-inited', update_target_versions)
         app.connect('builder-inited', generate_cli_rst)
         app.connect('builder-inited', generate_whatsnew_rst)
     except ImportError:
