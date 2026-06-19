@@ -414,22 +414,56 @@ class Document(Annotation):
             else:
                 super().add_property(name, value)
 
+    def __getitem__(self, prop_name: str):
+        """
+        Property access for ``Document`` objects, following the document
+        property hierarchy (highest to lowest priority):
+
+        #. Special fields (``id``, ``location``)
+        #. Pending properties (added via :meth:`add_property` after creation,
+           to be serialized as capital ``Annotation`` objects)
+        #. Original properties (in ``document.properties``)
+        #. Ephemeral properties (from existing ``Annotation`` objects or view
+           ``contains`` metadata)
+
+        ``Document`` overrides ``__getitem__`` (not only :meth:`get`) so that
+        the ``in`` operator, subscripting, and :meth:`get` all agree.
+        ``__contains__`` is implemented on top of ``__getitem__``, so without
+        this override a property added via :meth:`add_property` (which lands in
+        ``_props_pending``) is readable through :meth:`get` yet invisible to
+        ``in`` until a serialize/deserialize round trip. See issue #390.
+
+        :param prop_name: the name of the property to retrieve
+        :raises KeyError: if the property is not found in any of the stores
+        """
+        if prop_name == 'id':
+            # because all three dicts have `id` key as required field, we need
+            # this special case to return the correct value from the correct dict
+            return self.id
+        elif prop_name == 'location':
+            # location is internally stored as `location_`, so the regular
+            # lookup below never finds it. Treat an unset location as absent
+            # (raise) rather than returning None, so the inherited
+            # `__contains__` does not report `'location'` as always present.
+            if self.location is None:
+                raise KeyError(prop_name)
+            return self.location
+        elif prop_name in self._props_pending:
+            return self._props_pending[prop_name]
+        else:
+            # Delegates to Annotation.__getitem__(), which checks
+            # self.properties (_props_original) before _props_ephemeral.
+            # This gives annotation-level properties precedence over
+            # view-level contains defaults (MMIF spec >= 1.1.1).
+            return super().__getitem__(prop_name)
+
     def get(self, prop_name, default=None):
         """
         Safe property access with optional default value for Document objects.
 
-        Searches for a document property by name and returns its value, or a
-        default value if not found. Documents have a more complex property
-        hierarchy than regular annotations:
-
-        Priority order (highest to lowest):
-        1. Special fields ('id', 'location')
-        2. Pending properties (added after creation, to be serialized as ``Annotation`` objects)
-        3. Ephemeral properties (from existing ``Annotation`` annotations or view metadata)
-        4. Original properties (in ``document.properties``)
-
-        This allows convenient access to all document properties regardless of
-        where they're stored internally.
+        Searches for a document property by name and returns its value, or
+        ``default`` if not found, following the priority order documented on
+        :meth:`__getitem__`.
 
         :param prop_name: The name of the property to retrieve
         :param default: The value to return if the property is not found (default: None)
@@ -455,22 +489,10 @@ class Document(Annotation):
         add_property : Add a new property to the document
         mmif.serialize.mmif.Mmif.generate_capital_annotations : How pending properties are serialized
         """
-        if prop_name == 'id':
-            # because all three dicts have `id` key as required field, we need
-            # this special case to return the correct value from the correct dict
-            return self.id
-        elif prop_name == 'location':
-            # because location is internally stored in self.location_,
-            # it doesn't work with regular __getitem__ method
-            return self.location
-        elif prop_name in self._props_pending:
-            return self._props_pending[prop_name]
-        else:
-            # Delegates to Annotation.__getitem__(), which checks
-            # self.properties (_props_original) before _props_ephemeral.
-            # This gives annotation-level properties precedence over
-            # view-level contains defaults (MMIF spec >= 1.1.1).
-            return super().get(prop_name, default)
+        try:
+            return self.__getitem__(prop_name)
+        except KeyError:
+            return default
 
     get_property = get
     
