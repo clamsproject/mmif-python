@@ -162,7 +162,7 @@ To build documentation for a specific historical version (e.g., `v1.0.0`):
 python3 build-tools/docs.py --build-ver v1.0.0
 ```
 
-This runs the build in a sandboxed temporary directory. The output will be in `docs-test/<version>`.
+This runs the build in a sandboxed temporary directory. A single `--build-ver` places the built docs **flat** in the output directory (`docs-test/` by default). The batch `--build-all-since` mode instead nests each version under a `<version>/` subdirectory of the output directory, so multiple versions can coexist. The flat single-version layout is what the CI docs-publish workflow relies on — it invokes `docs.py --build-ver <ver> --output-dir _docs` and uploads `_docs/` as-is, without needing to know whether the project is versioned.
 
 > [!NOTE]
 > In CI, documentation is built and published automatically by the `publish.yml` workflow via the shared `sdk-docs.yml`. The CI calls `docs.py --build-ver <version> --output-dir _docs`. All CLAMS SDK repos use the same `docs.py` CLI interface (`--build-ver`, `--output-dir`).
