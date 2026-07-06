@@ -82,6 +82,25 @@ class View(MmifObject):
         self._required_attributes = ["id", "metadata", "annotations"]
         super().__init__(view_obj)
         self._fix_old_short_ids()
+        self._rebuild_id_counts()
+
+    def _rebuild_id_counts(self):
+        """
+        Re-seed the per-view auto-ID counters from the annotations loaded during
+        deserialization.
+
+        ``_id_counts`` is not serialized, so a view read back from JSON starts
+        with an empty counter. Without this, the next :meth:`new_annotation`
+        regenerates an ID (e.g. ``an_1``) that already exists in the
+        deserialized view and :meth:`AnnotationsList.append` raises ``KeyError``.
+        See issue #393.
+        """
+        for annotation in self.annotations:
+            local_id = annotation.id.split(self.id_delimiter)[-1]
+            prefix, _, num = local_id.rpartition('_')
+            if prefix and num.isdigit():
+                self._id_counts[prefix] = max(
+                    self._id_counts.get(prefix, 0), int(num))
 
     def _fix_old_short_ids(self):
         """
