@@ -1194,6 +1194,35 @@ class TestAnnotation(unittest.TestCase):
             self.assertTrue("nonspeech", tf3.get_property('label'))
             self.assertTrue("speech", tf3.get_property('frameLabel'))
 
+    def test_alias_precedes_view_contains_default(self):
+        # An annotation that sets a property via a deprecated alias (frameType
+        # aliases label) provides an annotation-level value. A view-level
+        # `contains` default for the canonical name must NOT override it -- the
+        # annotation-level value takes precedence over the view-level default.
+        tf = "http://mmif.clams.ai/vocabulary/TimeFrame/v6"
+        raw = {
+            "metadata": {"mmif": "http://mmif.clams.ai/1.2.0"},
+            "documents": [{"@type": "http://mmif.clams.ai/vocabulary/VideoDocument/v1",
+                           "properties": {"id": "m1", "mime": "video/mp4",
+                                          "location": "file:///v.mp4"}}],
+            "views": [{"id": "v1",
+                       "metadata": {"app": "http://x/1", "contains": {tf: {"label": "X"}}},
+                       "annotations": [{"@type": tf,
+                                        "properties": {"id": "v1:a1", "start": 0,
+                                                       "end": 5, "frameType": "bars"}}]}]
+        }
+        mmif_obj = Mmif(json.dumps(raw), validate=False)
+        ann = mmif_obj['v1:a1']
+        # the annotation's own frameType (alias of label) wins over contains
+        self.assertEqual('bars', ann.get_property('label'))
+        self.assertEqual('bars', ann.get_property('frameType'))
+        # a genuine view-level default (not shadowed by any annotation value)
+        # still applies
+        raw['views'][0]['metadata']['contains'][tf] = {"timeUnit": "milliseconds"}
+        raw['views'][0]['annotations'][0]['properties'] = {"id": "v1:a1", "start": 0, "end": 5}
+        ann = Mmif(json.dumps(raw), validate=False)['v1:a1']
+        self.assertEqual('milliseconds', ann.get_property('timeUnit'))
+
     def test_change_id(self):
         anno_obj: Annotation = self.data['everything']['mmif']['v5:bb1']
 
