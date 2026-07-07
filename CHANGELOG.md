@@ -1,4 +1,10 @@
 
+## releasing 1.5.2 (2026-07-07)
+### Overview
+This is a quick patch on the bug that when MMIF is deserialized, the annotation ID counts in the views weren't properly initialized. This should not be a real bug since new annotations should always written to new views (of current processing app) but not to existing views (where annotation count > 0), however, bugs in app code can trigger this condition, and this patch preventively fixes such cases.
+
+
+
 ## releasing 1.5.1 (2026-06-19)
 ### Overview
 This patch contains a bug fix in VDH that couldn't handle some mkv-contained video files (https://github.com/clamsproject/mmif-python/issues/390) , and some other minor documentation generation bugs.
