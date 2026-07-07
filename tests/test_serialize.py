@@ -1451,7 +1451,57 @@ class TestDocument(unittest.TestCase):
             'author'))
         self.assertEqual('you', list(mmif_roundtrip2.views.get_last_contentful_view().get_annotations(AnnotationTypes.Annotation))[
             0].get_property('author'))
-        
+
+    def test_view_id_counts_rebuilt_on_deserialize(self):
+        # regression for issue #393: `_id_counts` is not serialized, so after
+        # deserialization the next generated id must not collide with an existing
+        # one already present in the view.
+        mmif = Mmif(validate=False)
+        doc = Document(); doc.at_type = DocumentTypes.VideoDocument
+        doc.id = 'd1'; doc.location = 'file:///v.mp4'
+        mmif.add_document(doc)
+        v = mmif.new_view()
+        v.metadata.app = tester_appname
+        a1 = v.new_annotation(AnnotationTypes.Annotation, document='d1', frameCount=10)
+        self.assertTrue(a1.id.endswith('an_1'))
+        # round-trip: the reloaded view still contains `an_1` but starts with an
+        # empty counter unless rebuilt
+        v2 = Mmif(mmif.serialize())[v.id]
+        a2 = v2.new_annotation(AnnotationTypes.Annotation, document='d1', duration=20)
+        self.assertTrue(a2.id.endswith('an_2'))   # must not regenerate an_1
+
+    def test_capital_annotation_no_collision_across_apps(self):
+        # regression for issue #393: a downstream app re-deriving a document
+        # property with a *different* value must not crash on serialize; the
+        # distinct value is recorded as an additional capital annotation
+        # (value-based de-dup preserves both assertions), not a colliding one.
+        m = Mmif(validate=False)
+        d = Document()
+        d.at_type = DocumentTypes.VideoDocument
+        d.id = 'd1'
+        d.location = 'file:///v.mp4'
+        m.add_document(d)
+        v1 = m.new_view(); v1.metadata.app = 'http://app/producer'
+        v1.new_annotation(AnnotationTypes.TimeFrame, label='bars')
+        d.add_property('frameCount', 51248.0)
+        d.add_property('duration', 1709977.0)
+
+        # downstream app loads it and re-derives a *different* duration value
+        m2 = Mmif(m.serialize())
+        d2 = m2['d1']
+        v2 = m2.new_view(); v2.metadata.app = 'http://app/consumer'
+        v2.new_annotation(AnnotationTypes.TimeFrame, label='caption')
+        d2.add_property('frameCount', 51248)      # same value -> de-duped away
+        d2.add_property('duration', 1709975)      # different value -> new annotation
+        out = Mmif(m2.serialize())                # must not raise KeyError
+
+        caps = [a for view in out.views
+                for a in view.get_annotations(AnnotationTypes.Annotation)]
+        durations = {a.get_property('duration') for a in caps if 'duration' in a}
+        # both distinct duration assertions coexist; neither is lost or overwritten
+        self.assertEqual(2, len(caps))
+        self.assertEqual({1709977.0, 1709975}, durations)
+
     def test_capital_annotation_generation_viewfinder(self):
         mmif = Mmif(validate=False)
         for i in range(1, 3):

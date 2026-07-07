@@ -188,7 +188,8 @@ def linkcode_resolve(domain, info):
     return docs_build_dir
 
 
-def build_docs_for_version(version: str, output_base_dir: Path, repo_path: Path = None):
+def build_docs_for_version(version: str, output_base_dir: Path, repo_path: Path = None,
+                           versioned_subdir: bool = True):
     """
     Builds docs for a specific version in a sandbox.
     Uses local repo copy instead of cloning for efficiency.
@@ -197,6 +198,12 @@ def build_docs_for_version(version: str, output_base_dir: Path, repo_path: Path 
         version: Git tag/ref to build
         output_base_dir: Directory to output built docs
         repo_path: Path to local repo to copy from (defaults to cwd)
+        versioned_subdir: when True (batch/from-scratch rebuild), the built
+            docs are placed under ``output_base_dir/<version>/`` so multiple
+            versions can coexist. When False (single build, as used by CI),
+            the docs are placed flat into ``output_base_dir`` so the shared
+            docs-publish workflow can upload them as-is without knowing about
+            versioning.
     """
     print(f"--- Running in Version Build Mode for version: {version} ---")
 
@@ -226,13 +233,19 @@ def build_docs_for_version(version: str, output_base_dir: Path, repo_path: Path 
         built_docs_path = build_versioned_docs(env, source_path, version)
 
         print(f"\n--- Step 4: Copying built artifacts to output directory ---")
-        version_output_dir = output_base_dir / version
-        if version_output_dir.exists():
-            print(f"Removing existing directory: {version_output_dir}")
-            shutil.rmtree(version_output_dir)
-        shutil.copytree(built_docs_path, version_output_dir)
+        if versioned_subdir:
+            dest = output_base_dir / version
+            if dest.exists():
+                print(f"Removing existing directory: {dest}")
+                shutil.rmtree(dest)
+            shutil.copytree(built_docs_path, dest)
+        else:
+            # flat: place the built docs directly into output_base_dir
+            output_base_dir.mkdir(parents=True, exist_ok=True)
+            shutil.copytree(built_docs_path, output_base_dir, dirs_exist_ok=True)
+            dest = output_base_dir
 
-        print(f"\nDocumentation for {version} built successfully in: {version_output_dir}")
+        print(f"\nDocumentation for {version} built successfully in: {dest}")
 
 
 def get_all_tags():
@@ -317,7 +330,9 @@ def main():
             for version, error in failed:
                 print(f"  {version}: {error}")
     elif args.build_ver:
-        build_docs_for_version(args.build_ver, output_dir)
+        # single build (CI + local single-version): flat output so the
+        # shared docs-publish workflow uploads it version-agnostically
+        build_docs_for_version(args.build_ver, output_dir, versioned_subdir=False)
     else:
         build_docs_local(Path.cwd(), output_dir)
 
