@@ -76,7 +76,7 @@ class TestMmif(unittest.TestCase):
                     mmif_obj = Mmif(example)
                 except ValidationError:
                     self.fail(f"example {i}")
-                self.assertEqual(mmif_obj.serialize(True), Mmif(mmif_obj.serialize()).serialize(True), f'Failed on {i}')
+                self.assertEqual(mmif_obj.serialize(pretty=True), Mmif(mmif_obj.serialize()).serialize(pretty=True), f'Failed on {i}')
 
     def test_json_mmif_deserialize(self):
         for i, example in MMIF_EXAMPLES.items():
@@ -91,7 +91,7 @@ class TestMmif(unittest.TestCase):
                 for annotation in view.annotations:
                     self.assertIn('_type', annotation.__dict__)
             self.assertTrue('id' in list(mmif_obj.views._items.values())[0].__dict__)
-            self.assertEqual(mmif_obj.serialize(True), Mmif(json.loads(mmif_obj.serialize())).serialize(True), f'Failed on {i}')
+            self.assertEqual(mmif_obj.serialize(pretty=True), Mmif(json.loads(mmif_obj.serialize())).serialize(pretty=True), f'Failed on {i}')
 
     def test_str_vs_json_deserialize(self):
         for i, example in MMIF_EXAMPLES.items():
@@ -99,7 +99,7 @@ class TestMmif(unittest.TestCase):
                 continue
             str_mmif_obj = Mmif(example)
             json_mmif_obj = Mmif(json.loads(example))
-            self.assertEqual(str_mmif_obj.serialize(True), json_mmif_obj.serialize(True), f'Failed on {i}')
+            self.assertEqual(str_mmif_obj.serialize(pretty=True), json_mmif_obj.serialize(pretty=True), f'Failed on {i}')
 
     def test_bad_mmif_deserialize_no_metadata(self):
         self.mmif_examples_json['everything'].pop('metadata')
@@ -1194,6 +1194,35 @@ class TestAnnotation(unittest.TestCase):
             self.assertTrue("nonspeech", tf3.get_property('label'))
             self.assertTrue("speech", tf3.get_property('frameLabel'))
 
+    def test_alias_precedes_view_contains_default(self):
+        # An annotation that sets a property via a deprecated alias (frameType
+        # aliases label) provides an annotation-level value. A view-level
+        # `contains` default for the canonical name must NOT override it -- the
+        # annotation-level value takes precedence over the view-level default.
+        tf = "http://mmif.clams.ai/vocabulary/TimeFrame/v6"
+        raw = {
+            "metadata": {"mmif": "http://mmif.clams.ai/1.2.0"},
+            "documents": [{"@type": "http://mmif.clams.ai/vocabulary/VideoDocument/v1",
+                           "properties": {"id": "m1", "mime": "video/mp4",
+                                          "location": "file:///v.mp4"}}],
+            "views": [{"id": "v1",
+                       "metadata": {"app": "http://x/1", "contains": {tf: {"label": "X"}}},
+                       "annotations": [{"@type": tf,
+                                        "properties": {"id": "v1:a1", "start": 0,
+                                                       "end": 5, "frameType": "bars"}}]}]
+        }
+        mmif_obj = Mmif(json.dumps(raw), validate=False)
+        ann = mmif_obj['v1:a1']
+        # the annotation's own frameType (alias of label) wins over contains
+        self.assertEqual('bars', ann.get_property('label'))
+        self.assertEqual('bars', ann.get_property('frameType'))
+        # a genuine view-level default (not shadowed by any annotation value)
+        # still applies
+        raw['views'][0]['metadata']['contains'][tf] = {"timeUnit": "milliseconds"}
+        raw['views'][0]['annotations'][0]['properties'] = {"id": "v1:a1", "start": 0, "end": 5}
+        ann = Mmif(json.dumps(raw), validate=False)['v1:a1']
+        self.assertEqual('milliseconds', ann.get_property('timeUnit'))
+
     def test_change_id(self):
         anno_obj: Annotation = self.data['everything']['mmif']['v5:bb1']
 
@@ -1501,6 +1530,100 @@ class TestDocument(unittest.TestCase):
         # both distinct duration assertions coexist; neither is lost or overwritten
         self.assertEqual(2, len(caps))
         self.assertEqual({1709977.0, 1709975}, durations)
+
+    def test_factor_out_shared_properties(self):
+        # A view-level metadata property (document/timeUnit/labelset) shared
+        # across all annotations of a type is factored up into the view's
+        # `contains` on serialize, while instance-level properties (label) and
+        # anchors stay on the annotations.
+        m = Mmif(validate=False)
+        v = m.new_view(); v.metadata.app = tester_appname
+        v.new_annotation(AnnotationTypes.TimeFrame, document='m1', timeUnit='ms',
+                         start=0, end=5, label='bars')
+        v.new_annotation(AnnotationTypes.TimeFrame, document='m1', timeUnit='ms',
+                         start=5, end=9, label='slate')
+        out = json.loads(m.serialize())
+        vout = out['views'][0]
+        tf_key = next(k for k in vout['metadata']['contains'] if 'TimeFrame' in k)
+        contains = vout['metadata']['contains'][tf_key]
+        # shared `document`/`timeUnit` are factored up ...
+        self.assertEqual('m1', contains.get('document'))
+        self.assertEqual('ms', contains.get('timeUnit'))
+        for a in vout['annotations']:
+            # ... and removed from each annotation ...
+            self.assertNotIn('document', a['properties'])
+            self.assertNotIn('timeUnit', a['properties'])
+            # ... while anchors and the differing label stay per-annotation
+            self.assertIn('start', a['properties'])
+            self.assertIn('label', a['properties'])
+        # round-trip: the factored values still resolve per annotation
+        m2 = Mmif(m.serialize())
+        for a in m2.views[0].get_annotations(AnnotationTypes.TimeFrame):
+            self.assertEqual('m1', a.get_property('document'))
+            self.assertEqual('ms', a.get_property('timeUnit'))
+
+    def test_factor_out_protects_listed_props_and_skips_singletons(self):
+        # Blocklisted props (anchors/links) are never factored even when
+        # identical across annotations; a type with a single annotation is
+        # skipped (needs > 1 to be genuinely shared).
+        m = Mmif(validate=False)
+        v = m.new_view(); v.metadata.app = tester_appname
+        tf = v.new_annotation(AnnotationTypes.TimeFrame, start=0, end=5)
+        td1 = v.new_textdocument(text='a'); td2 = v.new_textdocument(text='b')
+        # two Alignments share the same `source` -- must NOT be factored out
+        v.new_annotation(AnnotationTypes.Alignment, source=tf.id, target=td1.id)
+        v.new_annotation(AnnotationTypes.Alignment, source=tf.id, target=td2.id)
+        out = json.loads(m.serialize())
+        aligns = [a for a in out['views'][0]['annotations'] if 'Alignment' in a['@type']]
+        for a in aligns:
+            self.assertIn('source', a['properties'])
+        # a single-annotation type is not factored (threshold)
+        m2 = Mmif(validate=False); v2 = m2.new_view(); v2.metadata.app = tester_appname
+        v2.new_annotation(AnnotationTypes.TimeFrame, document='m1', start=0, end=5)
+        out2 = json.loads(m2.serialize())
+        self.assertIn('document', out2['views'][0]['annotations'][0]['properties'])
+
+    def test_alignment_cached_from_view_level_source_target(self):
+        # regression for the `_cache_alignment` fix: `source`/`target` supplied
+        # as view-level `contains` defaults (distributed to ephemeral, absent
+        # from the annotation's own properties) must still be honored.
+        al = "http://mmif.clams.ai/vocabulary/Alignment/v1"
+        tf = "http://mmif.clams.ai/vocabulary/TimeFrame/v6"
+        td = "http://mmif.clams.ai/vocabulary/TextDocument/v2"
+        raw = {
+            "metadata": {"mmif": "http://mmif.clams.ai/1.2.0"},
+            "documents": [],
+            "views": [{"id": "v1",
+                       "metadata": {"app": "http://x/1", "contains": {
+                           al: {"source": "v1:tf1", "target": "v1:td1"}}},
+                       "annotations": [
+                           {"@type": tf, "properties": {"id": "v1:tf1", "start": 0, "end": 5}},
+                           {"@type": td, "properties": {"id": "v1:td1", "text": {"@value": "x"}}},
+                           {"@type": al, "properties": {"id": "v1:a1"}}]}]
+        }
+        m = Mmif(json.dumps(raw), validate=False)
+        self.assertTrue(list(m['v1:tf1'].get_all_aligned()))
+
+    def test_factor_out_shared_properties_flag(self):
+        # `factor_out_shared_properties` gates factoring independently of
+        # `autogenerate_capital_annotations`.
+        m = Mmif(validate=False)
+        v = m.new_view(); v.metadata.app = tester_appname
+        v.new_annotation(AnnotationTypes.TimeFrame, document='m1', start=0, end=5)
+        v.new_annotation(AnnotationTypes.TimeFrame, document='m1', start=5, end=9)
+        # disabled -> shared `document` stays on each annotation
+        off = json.loads(m.serialize(factor_out_shared_properties=False))
+        for a in off['views'][0]['annotations']:
+            self.assertIn('document', a['properties'])
+        # independent of generation: a reloaded MMIF (props already in
+        # `.properties`) is still factored with capital-annotation generation OFF
+        reloaded = Mmif(m.serialize(factor_out_shared_properties=False))
+        on = json.loads(reloaded.serialize(autogenerate_capital_annotations=False,
+                                           factor_out_shared_properties=True))
+        tf_key = next(k for k in on['views'][0]['metadata']['contains'] if 'TimeFrame' in k)
+        self.assertEqual('m1', on['views'][0]['metadata']['contains'][tf_key].get('document'))
+        for a in on['views'][0]['annotations']:
+            self.assertNotIn('document', a['properties'])
 
     def test_capital_annotation_generation_viewfinder(self):
         mmif = Mmif(validate=False)

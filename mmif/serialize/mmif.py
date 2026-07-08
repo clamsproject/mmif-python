@@ -175,6 +175,14 @@ class Mmif(MmifObject):
        all_views = mmif.views[1:4]       # Slice of views
     """
 
+    #: Hardcoded list of property names that must stay at the individual
+    #: annotation level, and never "factored" into the view's ``contains``
+    #: metadata, even when redundant across annotations.
+    _NON_FACTORABLE_PROPS = frozenset({
+        'start', 'end', 'targets', 'source', 'target', 'representatives', 
+        'mime', 'location', 'location_', 'text',
+    })
+
     def __init__(self, mmif_obj: Optional[Union[bytes, str, dict]] = None, *, validate: bool = True) -> None:
         self.metadata: MmifMetadata = MmifMetadata()
         self.documents: DocumentsList = DocumentsList()
@@ -211,26 +219,42 @@ class Mmif(MmifObject):
             json_str = json.loads(json_str)
         jsonschema.validators.validate(json_str, schema)
 
-    def serialize(self, sanitize: bool = False, autogenerate_capital_annotations: bool = True, **kwargs) -> str:
+    def serialize(self,
+                  pretty: bool = False,
+                  include_context: bool = True,
+                  *,
+                  sanitize: bool = False,
+                  autogenerate_capital_annotations: bool = True,
+                  factor_out_shared_properties: bool = True) -> str:
         """
         Serializes the MMIF object to a JSON string.
 
+        :param pretty: If True, returns the string with indentation.
+        :param include_context: If False, excludes contextual attributes (e.g.
+            runtime timestamps) from serialization.
         :param sanitize: If True, performs some sanitization of before returning
             the JSON string. See :meth:`sanitize` for details.
         :param autogenerate_capital_annotations: If True, automatically convert
             any "pending" temporary properties from `Document` objects to
             `Annotation` objects. See :meth:`generate_capital_annotations` for
             details.
-        :param kwargs: Keyword arguments to pass to the parent's ``serialize``
-                       method (e.g., ``pretty=True``, ``include_context=False``).
+        :param factor_out_shared_properties: If True, lift properties shared
+            (same value) across all annotations of a type in a view into the
+            view's ``contains`` metadata. See
+            :meth:`factor_out_shared_properties` for details. Independent of
+            ``autogenerate_capital_annotations``, but runs after it (so
+            freshly-materialized pending properties are included) when both are
+            enabled.
         :return: JSON string of the MMIF object.
         """
         if autogenerate_capital_annotations:
             self.generate_capital_annotations()
+        if factor_out_shared_properties:
+            self.factor_out_shared_properties()
         # sanitization should be done after `Annotation` annotations are generated
         if sanitize:
             self.sanitize()
-        return super().serialize(**kwargs)
+        return super().serialize(pretty=pretty, include_context=include_context)
 
     def _deserialize(self, input_dict: dict) -> None:
         """
@@ -261,9 +285,16 @@ class Mmif(MmifObject):
             for ann in view.get_annotations():
                 ## for "capital" Annotation properties
                 # first add all extrinsic properties to the Annotation objects
-                # as "ephemeral" properties
+                # as "ephemeral" properties. A view-level `contains` default must
+                # not override an annotation-level value that is already present
+                # in `_props_ephemeral` -- namely an alias of a property set on the
+                # annotation itself (put there by `_add_prop_aliases` during the
+                # annotation's own deserialization, which runs earlier). Per the
+                # spec, the annotation-level value takes precedence over the
+                # view-level default.
                 for prop_key, prop_value in extrinsic_props[ann.at_type].items():
-                    ann._props_ephemeral[prop_key] = prop_value
+                    if prop_key not in ann._props_ephemeral:
+                        ann._props_ephemeral[prop_key] = prop_value
                 # then, do the same to associated Document objects. Note that, 
                 # in a view, it is guaranteed that all Annotation objects are not duplicates
                 if ann.at_type == AnnotationTypes.Annotation:
@@ -297,7 +328,7 @@ class Mmif(MmifObject):
                 f"Alignment {alignment_ann.id} has `source` and `target` properties that do not point to Annotation objects.",
                 RuntimeWarning)
         ## caching alignments
-        if all(map(lambda x: x in alignment_ann.properties, ('source', 'target'))):
+        if all(map(lambda x: x in alignment_ann, ('source', 'target'))):
             try:
                 source_ann = self.__getitem__(alignment_ann.get('source'))
                 target_ann = self.__getitem__(alignment_ann.get('target'))
@@ -383,14 +414,50 @@ class Mmif(MmifObject):
                     if view_to_write.metadata.app == current_app and doc_id in view_to_write.annotations:
                         view_to_write[doc_id].properties.update(props)
                     else:
-                        if len(anns_to_write) == 1:
-                            # if there's only one document, we can record the doc_id in the contains metadata
-                            view_to_write.metadata.new_contain(AnnotationTypes.Annotation, document=doc_id)
-                            props.pop('document', None)
-                        else:
-                            # otherwise, doc_id needs to be recorded in the annotation property
-                            props['document'] = doc_id
+                        props['document'] = doc_id
                         view_to_write.new_annotation(AnnotationTypes.Annotation, **props)
+
+
+    def factor_out_shared_properties(self):
+        """
+        Factor properties that are shared (identical value) across all
+        annotations of a type within a view up into that view's ``contains``
+        metadata, per the MMIF spec recommendation to prefer view-level
+        defaults for properties shared among annotations of a type.
+
+        A property is factored when it is present, with the same value, on
+        **every** annotation of a given ``@type`` in the view, there are at
+        least two such annotations (so the value is genuinely shared), and the
+        key is not in the :attr:`_NON_FACTORABLE_PROPS` protection list.
+        Factored values are mirrored into each annotation's ephemeral props at
+        deserialization time, so in-memory access is unchanged, while the 
+        serialized output carries the value once, in ``contains``.
+        """
+        for view in self.views:
+            by_type = defaultdict(list)
+            for ann in view.get_annotations():
+                by_type[ann.at_type].append(ann)
+            for at_type, anns in by_type.items():
+                if len(anns) < 2:
+                    continue
+                shared = {}
+                for key in list(anns[0].properties.keys()):
+                    if key in self._NON_FACTORABLE_PROPS:
+                        continue
+                    value = anns[0].properties[key]
+                    if all(key in a.properties and a.properties[key] == value
+                           for a in anns):
+                        shared[key] = value
+                if not shared:
+                    continue
+                if at_type not in view.metadata.contains:
+                    view.metadata.new_contain(at_type)
+                contain = view.metadata.contains[at_type]
+                for key, value in shared.items():
+                    contain[key] = value
+                    for a in anns:
+                        del a.properties[key]
+                        a._props_ephemeral[key] = value
 
     def sanitize(self):
         """
