@@ -1,4 +1,16 @@
 
+## releasing 1.5.3 (2026-07-08)
+### Overview
+This patch includes improvements in automatic conversion between contains-metadata properties and annotation properties (#396) 
+
+### Additions
+* automatic "factoring" of value-shared properties from annotation-level to contains-level at serialization time works much more generally now (formerly only worked for `Annotation` type and `document` prop) 
+
+### Changes
+* fixed a bug in reading old MMIF files with non-canonical prop names (contains-level prop value was not properly propagated at deserialization for those non-canonical named props)
+
+
+
 ## releasing 1.5.2 (2026-07-07)
 ### Overview
 This is a quick patch on the bug that when MMIF is deserialized, the annotation ID counts in the views weren't properly initialized. This should not be a real bug since new annotations should always written to new views (of current processing app) but not to existing views (where annotation count > 0), however, bugs in app code can trigger this condition, and this patch preventively fixes such cases.
