@@ -1,9 +1,63 @@
 import json
+from collections.abc import MutableMapping
 
 from typing import Any
 
+from mmif.serialize.annotation import canonicalize_prop_name
+from mmif.serialize.model import MmifObject
 from mmif.utils.summarizer import config
 
+
+class NodeProperties(MutableMapping):
+
+    """Read-through view of an annotation's properties for use in a Node. Reads
+    resolve, in order, local writes made by the summarizer, the annotation's own
+    properties (deprecated spellings included, e.g. `word` for `text`), and the
+    view-level defaults for the annotation's type in the view's `contains`
+    metadata. Values are plain JSON types, as they would be after a serialization
+    round trip. Writes never reach the annotation; they are kept locally so that
+    summarizing leaves the loaded MMIF unchanged.
+
+    Note on the alternative: the SDK could instead copy `contains` defaults into
+    each annotation's `.properties` at deserialization and rely on
+    `Mmif.factor_out_shared_properties` to lift them back out on serialization.
+    That round trip is not shape-preserving when a type has a single annotation
+    in the view, when the key is non-factorable (`start`, `source`, `target`, ...),
+    or when another annotation of the type overrides the default, so the SDK
+    keeps defaults out of `.properties` and this class resolves them here."""
+
+    def __init__(self, annotation, view):
+        self.annotation = annotation
+        contains = {} if view is None else view.metadata.contains.get(annotation.at_type, {})
+        self.defaults = {canonicalize_prop_name(annotation.at_type, k): v for k, v in contains.items()}
+        self.local = {}
+
+    @staticmethod
+    def _as_json(value):
+        return json.loads(str(value)) if isinstance(value, MmifObject) else value
+
+    def __getitem__(self, key):
+        if key in self.local:
+            return self.local[key]
+        if key in self.annotation.properties:
+            return self._as_json(self.annotation.properties[key])
+        return self.defaults[canonicalize_prop_name(self.annotation.at_type, key)]
+
+    def __setitem__(self, key, value):
+        self.local[key] = value
+
+    def __delitem__(self, key):
+        del self.local[key]
+
+    def __iter__(self):
+        seen = set()
+        for key in (*self.annotation.properties, *self.defaults, *self.local):
+            if key not in seen:
+                seen.add(key)
+                yield key
+
+    def __len__(self):
+        return sum(1 for _ in self)
 
 
 class Node(object):
@@ -16,11 +70,7 @@ class Node(object):
         # copy some information from the Annotation
         self.at_type = annotation.at_type
         self.identifier = annotation.id
-        # TODO (krim): this sees the annotation's own properties only; a value
-        # that `factor_out_shared_properties` lifted into the view's `contains`
-        # (e.g. a shared `label`) is invisible here. Build this from resolved
-        # values (`annotation.get_property`) instead.
-        self.properties = json.loads(str(annotation.properties))
+        self.properties = NodeProperties(annotation, view)
         # get the document from the view or the properties
         self.document = self._get_document()
         # The targets property contains a list of annotations or documents that
@@ -155,23 +205,10 @@ class Node(object):
 
     def _get_document(self):
         """Return the document or annotation node that the annotation/document in
-        the node refers to via the document property. This could be a local property
-        or a metadata property if there is no such local property. Return None
-        if neither of those exist."""
-        # try the local property
+        the node refers to via the document property (the annotation's own, or the
+        view-level default). Return None if there is none."""
         docid = self.properties.get('document')
-        if docid is not None:
-            # print('>>>', docid, self.graph.get_node(docid))
-            return self.graph.get_node(docid)
-        # try the metadata property
-        if self.view is not None:
-            try:
-                metadata = self.view.metadata.contains[self.at_type]
-                docid = metadata['document']
-                return self.graph.get_node(docid)
-            except KeyError:
-                return None
-        return None
+        return None if docid is None else self.graph.get_node(docid)
 
     def summary(self):
         """The default summary is just the identfier, this should typically be
@@ -201,7 +238,7 @@ class Node(object):
 class TimeFrameNode(Node):
 
     def __str__(self):
-        label = ' ' + self.label() if self.has_label() else ''
+        label = f' {self.label()}' if self.has_label() else ''
         return ('<TimeFrameNode %s %s:%s%s>'
                 % (self.identifier, self.start(), self.end(), label))
 

@@ -147,7 +147,7 @@ class Annotations(object):
         self.data = defaultdict(list)
         # summary.graph.get_nodes(config.ANNOTATION, view_id=view.id)
         for anno in summary.graph.get_nodes(config.ANNOTATION):
-            self.data[anno.view.id].append(anno.properties)
+            self.data[anno.view.id].append(dict(anno.properties))
 
     def get(self, item):
         return self.data.get(item, [])
@@ -300,7 +300,7 @@ class TranscriptElement:
             # this adds the current token to the transcript
             start = t.properties['start']
             end = t.properties['end']
-            word = t.properties['word']
+            word = t.properties['text']
             transcript.set_chars(word, start, end)
         self.id = identifier
         self.start = sentence[0].anchors['time-offsets'][0]

@@ -363,6 +363,29 @@ class TestSummarize(BaseCliTestCase, IOTestMixin):
         finally:
             os.unlink(tmp_file)
 
+    def test_summarize_timeframes_with_lifted_label(self):
+        # a `label` shared by all TimeFrames in a view is lifted into the
+        # view's `contains` metadata at serialization; the summarizer must
+        # still report it for each time frame
+        mmif_obj = Mmif(BASIC_MMIF_STRING)
+        view = mmif_obj.new_view()
+        view.metadata.app = 'http://apps.clams.ai/test/v1'
+        for start, end in ((0, 5), (5, 9)):
+            view.new_annotation(AnnotationTypes.TimeFrame, document='d1', timeUnit='milliseconds',
+                                start=start, end=end, label='slate')
+        serialized = json.loads(mmif_obj.serialize())
+        tf_key = next(k for k in serialized['views'][0]['metadata']['contains'] if 'TimeFrame' in k)
+        self.assertEqual('slate', serialized['views'][0]['metadata']['contains'][tf_key]['label'])
+        tmp_file = self.create_temp_mmif_file(mmif_obj)
+        try:
+            output = self.run_cli_capture_stdout(
+                argparse.Namespace(MMIF_FILE=tmp_file, output=None, pretty=False)
+            )
+            timeframes = output['timeframes'][view.metadata.app]
+            self.assertEqual(['slate', 'slate'], [tf['label'] for tf in timeframes])
+        finally:
+            os.unlink(tmp_file)
+
 
 if __name__ == '__main__':
     unittest.main()
