@@ -6,6 +6,7 @@ In MMIF, annotations are created by apps in a workflow as a part
 of a view. For documentation on how views are represented, see
 :mod:`mmif.serialize.view`.
 """
+import functools
 import importlib
 import itertools
 import os
@@ -22,7 +23,7 @@ from .model import MmifObject, PRMTV_TYPES
 from .. import DocumentTypes, AnnotationTypes
 import mmif_docloc_http
 
-__all__ = ['Annotation', 'AnnotationProperties', 'Document', 'DocumentProperties', 'Text']
+__all__ = ['Annotation', 'AnnotationProperties', 'Document', 'DocumentProperties', 'Text', 'canonicalize_prop_name']
 
 T = TypeVar('T')
 LIST_PRMTV = typing.List[PRMTV_TYPES]  # list of values (most cases for annotation props)
@@ -41,6 +42,40 @@ discovered_docloc_plugins.update({
 })
 
 
+@functools.lru_cache(maxsize=None)
+def _prop_alias_map(shortname: str) -> Dict[str, str]:
+    """
+    Maps every spelling of an aliased property of a type to the canonical
+    name. The table is read from the latest version of the type in the
+    vocabulary (``AnnotationTypes.<shortname>``), which is the single source
+    of truth for property aliases.
+
+    :param shortname: shortname of the annotation type (e.g. ``TimeFrame``)
+    :return: ``{spelling: canonical_name}``, empty for types without aliases
+    """
+    latest = getattr(AnnotationTypes, shortname, None)
+    groups = getattr(latest, '_property_aliases', None) or {}
+    return {alias: canonical for canonical, group in groups.items() for alias in group}
+
+
+def canonicalize_prop_name(at_type: ThingTypesBase, prop_name: str) -> str:
+    """
+    Resolves a property name to its canonical spelling for the given type.
+    Property aliases were introduced in MMIF 1.0.2, when the general
+    ``label`` property replaced ``frameType`` (``TimeFrame``) and ``boxType``
+    (``BoundingBox``). Names that are not aliases, and types without an alias
+    table, are returned unchanged.
+
+    :param at_type: the ``@type`` of the annotation
+    :param prop_name: a property name, canonical or deprecated
+    :return: the canonical property name
+    """
+    shortname = getattr(at_type, 'shortname', None)
+    if not shortname:
+        return prop_name
+    return _prop_alias_map(shortname).get(prop_name, prop_name)
+
+
 class Annotation(MmifObject):
     """
     MmifObject that represents an annotation in a MMIF view.
@@ -49,11 +84,11 @@ class Annotation(MmifObject):
     def __init__(self, anno_obj: Optional[Union[bytes, str, dict]] = None, *_) -> None:
         self._type: ThingTypesBase = ThingTypesBase('')
         # to store the parent view ID
-        self._props_ephemeral: AnnotationProperties = AnnotationProperties()
+        self._props_ephemeral: AnnotationProperties = AnnotationProperties(None, self)
         self._alignments = {}  # to hold alignment information (Alignment anno long_id -> aligned anno long_id)
         self.reserved_names.update(('_props_ephemeral', '_alignments'))
         if not hasattr(self, 'properties'):  # don't overwrite DocumentProperties on super() call
-            self.properties: AnnotationProperties = AnnotationProperties()
+            self.properties: AnnotationProperties = AnnotationProperties(None, self)
             self._attribute_classes = {'properties': AnnotationProperties}
         self.disallow_additional_properties()
         self._required_attributes = ["_type", "properties"]
@@ -69,9 +104,7 @@ class Annotation(MmifObject):
         # here is the place to parse formatted IDs and store prefixes in the parent mmif object. 
         # (see https://github.com/clamsproject/mmif/issues/64#issuecomment-849241309 for discussion)
         super()._deserialize(input_dict)
-        for k, v in self.properties.items():
-            self._add_prop_aliases(k, v)
-                            
+
     def _cache_alignment(self, alignment_ann: 'Annotation', alignedto_ann: 'Annotation') -> None:
         """
         Cache alignment information. This cache will not be serialized.
@@ -107,29 +140,20 @@ class Annotation(MmifObject):
             yield aligned
         
         
-    def _add_prop_aliases(self, key_to_add, val_to_add):
+    def _add_ephemeral_defaults(self, defaults: typing.Mapping[str, typing.Any]) -> None:
         """
-        Method to handle aliases of the same property.
-        Annotation property aliases were first introduced in MMIF 1.0.2, 
-        with addition of general `label` property to all `Annotation` 
-        subtypes, and effectively deprecated `frameType` and `boxType`
-        in `TimeFrame` and `BoundingBox` respectively.
+        Distributes view-level defaults (from the ``contains`` metadata of the
+        parent view) to this annotation as ephemeral properties, under their
+        canonical names. An annotation-level value takes precedence over a
+        view-level default, so a default is skipped when the annotation
+        carries the property itself.
+
+        :param defaults: property defaults for this annotation's ``@type``
         """
-        prop_aliases = AnnotationTypes._prop_aliases.get(self._type.shortname, {})
-        for alias_rep, alias_group in prop_aliases.items():
-            if key_to_add in alias_group:
-                for alias in alias_group:
-                    if alias != key_to_add:
-                        self._props_ephemeral[alias] = val_to_add
-                        if alias in self.properties.keys():
-                            warning_msg = (f'Both "{key_to_add}" and "{alias}" are in the properties of "{self.id}", '
-                                           f'however ')
-                            if alias == alias_rep:
-                                warning_msg += f'"{key_to_add}" is an alias of "{alias_rep}".'
-                            else:
-                                warning_msg += f'"{key_to_add}" and "{alias}" are both aliases of "{alias_rep}".'
-                            warning_msg += f'Having two synonyms in the same annotation can cause unexpected behavior. '
-                            warnings.warn(warning_msg, UserWarning)
+        for name, value in defaults.items():
+            name = canonicalize_prop_name(self._type, name)
+            if name not in self.properties:
+                self._props_ephemeral[name] = value
 
     def is_type(self, at_type: Union[str, ThingTypesBase]) -> bool:
         """
@@ -239,7 +263,9 @@ class Annotation(MmifObject):
     def add_property(self, name: str,
                      value: Union[PRMTV_TYPES, LIST_PRMTV, LIST_LIST_PRMTV, DICT_PRMTV, DICT_LIST_PRMTV]) -> None:
         """
-        Adds a property to the annotation's properties.
+        Adds a property to the annotation's properties. A deprecated spelling
+        of an aliased property (e.g. ``frameType``) is stored under its
+        canonical name (``label``), with a :class:`DeprecationWarning`.
 
         :param name: the name of the property
         :param value: the property's desired value
@@ -252,14 +278,14 @@ class Annotation(MmifObject):
         #                      "either string, number, boolean, None, a JSON array of them, "
         #                      "or a JSON object of them keyed by strings."
         #                      f"(\"{name}\": \"{str(value)}\"")
-        self._add_prop_aliases(name, value)
 
     def __getitem__(self, prop_name: str):
         if prop_name in {'at_type', '@type'}:
             return str(self._type)
         elif prop_name == 'properties':
             return self.properties
-        elif prop_name in self.properties:
+        prop_name = canonicalize_prop_name(self._type, prop_name)
+        if prop_name in self.properties:
             return self.properties[prop_name]
         elif prop_name in self._props_ephemeral:
             return self._props_ephemeral[prop_name]
@@ -279,7 +305,9 @@ class Annotation(MmifObject):
         3. Special fields (``@type``, ``properties``)
 
         This allows convenient access to properties without explicitly
-        checking the ``properties`` object or view-level metadata.
+        checking the ``properties`` object or view-level metadata. A
+        deprecated spelling of an aliased property (e.g. ``frameType``)
+        resolves to the canonical property (``label``).
 
         :param prop_name: The name of the property to retrieve
         :param default: The value to return if the property is not found (default: None)
@@ -318,23 +346,6 @@ class Annotation(MmifObject):
         except KeyError:
             return False
     
-    def _get_label(self) -> str:
-        """
-        Another prototypical method to handle property aliases.
-        See :meth:`.Annotation._add_prop_aliases` for more details on 
-        what property aliases are.
-        Not recommended to use this method as `_add_prop_aliases` method 
-        is preferred. 
-        """
-        if 'label' in self:
-            return str(self.get('label'))
-        elif self._type.shortname == 'TimeFrame' and 'frameType' in self:
-            return str(self.get('frameType'))
-        elif self._type.shortname == 'BoundingBox' and 'boxType' in self:
-            return str(self.get('boxType'))
-        else:
-            raise KeyError("No label found in this annotation.")
-    
     def is_document(self):
         return isinstance(self._type, DocumentTypesBase)
 
@@ -356,8 +367,8 @@ class Document(Annotation):
         # see https://github.com/clamsproject/mmif-python/issues/226 for discussion
         # around the use of these three dictionaries
         # (names changed since, `existing` >> `ephemeral` and `temporary` >> `pending`)
-        self._props_original: DocumentProperties = DocumentProperties()
-        self._props_pending: AnnotationProperties = AnnotationProperties()
+        self._props_original: DocumentProperties = DocumentProperties(None, self)
+        self._props_pending: AnnotationProperties = AnnotationProperties(None, self)
         self.reserved_names.update(('_props_original', '_props_pending'))
         
         self._type: Union[ThingTypesBase, DocumentTypesBase] = ThingTypesBase('')
@@ -578,6 +589,7 @@ class AnnotationProperties(MmifObject, MutableMapping[str, T]):
     """
 
     def __delitem__(self, key: str) -> None:
+        key = self._canonical(key)
         frm = None
         for k in self.__iter__():
             if k == key:
@@ -593,35 +605,82 @@ class AnnotationProperties(MmifObject, MutableMapping[str, T]):
             del frm[key]
         else:
             raise KeyError(f'Key "{key}" not found.')
-                
+
     def __iter__(self) -> Iterator[str]:
         """
-        ``__iter__`` on Mapping should basically work as ``keys()`` method 
+        ``__iter__`` on Mapping should basically work as ``keys()`` method
         of vanilla dict.
         """
         for key in itertools.chain(self._named_attributes(), self._unnamed_attributes):
             yield key
-                
+
     def __getitem__(self, key):
         """
-        Parent MmifObject class has a __getitem__ method that checks if 
-        the value is empty when asked for an unnamed attribute. But for 
-        AnnotationProperties, any arbitrary property that's added 
-        explicitly by the user (developer) should not be ignored and 
-        returned even the value is empty. 
+        Parent MmifObject class has a __getitem__ method that checks if
+        the value is empty when asked for an unnamed attribute. But for
+        AnnotationProperties, any arbitrary property that's added
+        explicitly by the user (developer) should not be ignored and
+        returned even the value is empty.
         """
+        key = self._canonical(key)
         if key in self._named_attributes():
             return self.__dict__[key]
         else:
             return self._unnamed_attributes[key]
 
-    def __init__(self, mmif_obj: Optional[Union[bytes, str, dict]] = None, *_) -> None:
+    def __setitem__(self, key: str, value) -> None:
+        """
+        Sets a property. A deprecated spelling of an aliased property (e.g.
+        ``frameType``) is stored under its canonical name (``label``), with
+        a :class:`DeprecationWarning`.
+        """
+        canonical = self._canonical(key)
+        if canonical != key:
+            warnings.warn(f'"{key}" is a deprecated alias of "{canonical}", storing the value as "{canonical}".',
+                          DeprecationWarning)
+        super().__setitem__(canonical, value)
+
+    def __init__(self, mmif_obj: Optional[Union[bytes, str, dict]] = None,
+                 parent: Optional['Annotation'] = None, *_) -> None:
         self.id: str = ''
         # any individual at_type (subclassing this class) can have its own set of required attributes
         self._required_attributes = ["id"]
         # allowing additional attributes for arbitrary annotation properties
         self._unnamed_attributes = {}
+        # the Annotation these properties belong to; its `@type` decides which
+        # property names are aliases of each other (see `canonicalize_prop_name`)
+        self._parent_annotation = parent
+        self.reserved_names.add('_parent_annotation')
         super().__init__(mmif_obj)
+
+    def _canonical(self, key: str) -> str:
+        if self._parent_annotation is None:
+            return key
+        return canonicalize_prop_name(self._parent_annotation._type, key)
+
+    def _deserialize(self, input_dict: dict) -> None:
+        """
+        Deserializes the properties, rewriting deprecated spellings to their
+        canonical names so that there is one key per property. When two
+        spellings of the same property are present, the canonical one wins
+        (or the first one seen, when neither is canonical), with a warning.
+        """
+        canonical_dict = {}
+        # canonical name -> the deprecated spelling it was read from
+        from_alias = {}
+        for key, value in input_dict.items():
+            canonical = self._canonical(key)
+            if canonical in canonical_dict and (canonical != key or canonical in from_alias):
+                alias = key if canonical != key else from_alias[canonical]
+                warnings.warn(f'Both "{alias}" and "{canonical}" are in the properties of '
+                              f'"{input_dict.get("id", "")}", but "{alias}" is an alias of "{canonical}". '
+                              f'Keeping the value of "{canonical}".', UserWarning)
+                if canonical != key:
+                    continue
+            canonical_dict[canonical] = value
+            if canonical != key:
+                from_alias[canonical] = key
+        super()._deserialize(canonical_dict)
 
 
 class DocumentProperties(AnnotationProperties):
@@ -632,7 +691,8 @@ class DocumentProperties(AnnotationProperties):
     :param mmif_obj: the JSON data that defines the properties
     """
 
-    def __init__(self, mmif_obj: Optional[Union[bytes, str, dict]] = None, *_) -> None:
+    def __init__(self, mmif_obj: Optional[Union[bytes, str, dict]] = None,
+                 parent: Optional['Annotation'] = None, *_) -> None:
         self.mime: str = ''
         # note the trailing underscore here. I wanted to use the name `location`
         # for @property in this class and `Document` class, so had to use a diff
@@ -643,9 +703,9 @@ class DocumentProperties(AnnotationProperties):
         self._attribute_classes = {'text': Text}
         # in theory, either `location` or `text` should appear in a `document`
         # but with current implementation, there's no easy way to set a condition 
-        # for `oneOf` requirement 
-        # see MmifObject::_required_attributes in model.py 
-        super().__init__(mmif_obj)
+        # for `oneOf` requirement
+        # see MmifObject::_required_attributes in model.py
+        super().__init__(mmif_obj, parent)
 
     def _deserialize(self, input_dict: dict) -> None:
         if "location" in input_dict:
