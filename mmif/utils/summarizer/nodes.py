@@ -16,6 +16,10 @@ class Node(object):
         # copy some information from the Annotation
         self.at_type = annotation.at_type
         self.identifier = annotation.id
+        # TODO (krim): this sees the annotation's own properties only; a value
+        # that `factor_out_shared_properties` lifted into the view's `contains`
+        # (e.g. a shared `label`) is invisible here. Build this from resolved
+        # values (`annotation.get_property`) instead.
         self.properties = json.loads(str(annotation.properties))
         # get the document from the view or the properties
         self.document = self._get_document()
@@ -197,9 +201,9 @@ class Node(object):
 class TimeFrameNode(Node):
 
     def __str__(self):
-        frame_type = ' ' + self.frame_type() if self.has_label() else ''
+        label = ' ' + self.label() if self.has_label() else ''
         return ('<TimeFrameNode %s %s:%s%s>'
-                % (self.identifier, self.start(), self.end(), frame_type))
+                % (self.identifier, self.start(), self.end(), label))
 
     def start(self):
         return self.properties.get('start', -1)
@@ -207,13 +211,11 @@ class TimeFrameNode(Node):
     def end(self):
         return self.properties.get('end', -1)
 
-    def frame_type(self):
-        # TODO: rename this, uses old property since replaced by "label""
-        # NOTE: this is still aloowing for the old property though
-        return self.properties.get('label') or self.properties.get('frameType')
+    def label(self):
+        return self.properties.get('label')
 
     def has_label(self):
-        return self.frame_type() is not None
+        return self.label() is not None
 
     def representatives(self) -> list:
         """Return a list of the representative TimePoints."""
@@ -228,7 +230,7 @@ class TimeFrameNode(Node):
         return { 'id': self.identifier,
                  'start': self.properties['start'],
                  'end': self.properties['end'],
-                 'frameType': self.properties.get('frameType') }
+                 'frameType': self.label() }
 
 
 class EntityNode(Node):

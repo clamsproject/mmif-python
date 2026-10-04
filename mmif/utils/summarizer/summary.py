@@ -378,7 +378,7 @@ class TimeFrames(Nodes):
 
     def _collect_timeframe_summaries(self):
         for tf in self.nodes:
-            label = tf.frame_type()
+            label = tf.label()
             try:
                 start, end = tf.anchors['time-offsets']
             except KeyError:

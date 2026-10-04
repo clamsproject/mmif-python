@@ -276,25 +276,11 @@ class Mmif(MmifObject):
         super()._deserialize(input_dict)
         for view in self.views:
             view._parent_mmif = self
-            # this dict will be populated with properties 
-            # that are not encoded in individual annotations objects themselves
-            extrinsic_props = defaultdict(dict)
-            for at_type, type_lv_props in view.metadata.contains.items():
-                for prop_key, prop_value in type_lv_props.items():
-                    extrinsic_props[at_type][prop_key] = prop_value
             for ann in view.get_annotations():
                 ## for "capital" Annotation properties
-                # first add all extrinsic properties to the Annotation objects
-                # as "ephemeral" properties. A view-level `contains` default must
-                # not override an annotation-level value that is already present
-                # in `_props_ephemeral` -- namely an alias of a property set on the
-                # annotation itself (put there by `_add_prop_aliases` during the
-                # annotation's own deserialization, which runs earlier). Per the
-                # spec, the annotation-level value takes precedence over the
-                # view-level default.
-                for prop_key, prop_value in extrinsic_props[ann.at_type].items():
-                    if prop_key not in ann._props_ephemeral:
-                        ann._props_ephemeral[prop_key] = prop_value
+                # first, distribute view-level defaults from `contains` metadata
+                # to the Annotation objects as "ephemeral" properties
+                ann._add_ephemeral_defaults(view.metadata.contains.get(ann.at_type, {}))
                 # then, do the same to associated Document objects. Note that, 
                 # in a view, it is guaranteed that all Annotation objects are not duplicates
                 if ann.at_type == AnnotationTypes.Annotation:

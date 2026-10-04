@@ -17,7 +17,7 @@ from datetime import datetime
 from typing import Dict, Union, Optional, Generator, List, cast
 
 from mmif import DocumentTypes, AnnotationTypes, ThingTypesBase, ClamsTypesBase
-from mmif.serialize.annotation import Annotation, Document
+from mmif.serialize.annotation import Annotation, Document, canonicalize_prop_name
 from mmif.serialize.model import PRMTV_TYPES, MmifObject, DataList, DataDict
 from mmif.vocabulary.base_types import AnnotationTypesBase
 
@@ -197,8 +197,6 @@ class View(MmifObject):
         self._set_ann_id(new_annotation, aid)
         for propk, propv in properties.items():
             new_annotation.add_property(propk, propv)
-        for propk, propv in self.metadata.contains.get(at_type, {}).items():
-            new_annotation._props_ephemeral[propk] = propv
         return self.add_annotation(new_annotation, overwrite)
 
     def add_annotation(self, annotation: 'Annotation', overwrite=False) -> 'Annotation':
@@ -222,6 +220,7 @@ class View(MmifObject):
             annotation.id = f"{self.id}{self.id_delimiter}{annotation.id}"
         self.annotations.append(annotation, overwrite)
         self.new_contain(annotation.at_type)
+        annotation._add_ephemeral_defaults(self.metadata.contains.get(annotation.at_type, {}))
         if annotation.at_type == AnnotationTypes.Alignment:
             self._parent_mmif._cache_alignment(annotation)
         return annotation
@@ -280,13 +279,14 @@ class View(MmifObject):
         must match. Note that annotation type metadata are specified in the `contains` view metadata, not in individual \
         annotation objects.
         """
-        def prop_check(k, v, *props):
-            return any(k in prop and prop[k] == v for prop in props)
+        def prop_check(k, v, annotation, at_type_metadata):
+            k = canonicalize_prop_name(annotation.at_type, k)
+            return any(k in prop and prop[k] == v for prop in (annotation.properties, at_type_metadata))
 
         for annotation in self.annotations:
             at_type_metadata = self.metadata.contains.get(annotation.at_type, {})
             if not at_type or (at_type and annotation.at_type == at_type):
-                if all(map(lambda kv: prop_check(kv[0], kv[1], annotation.properties, at_type_metadata), 
+                if all(map(lambda kv: prop_check(kv[0], kv[1], annotation, at_type_metadata), 
                            properties.items())):
                     yield annotation
     
@@ -485,7 +485,7 @@ class ViewMetadata(MmifObject):
             at_type = ThingTypesBase.from_str(at_type)
             
         if at_type not in self.contains:
-            new_contain = Contain(contains_metadata)
+            new_contain = Contain._for_type(at_type, contains_metadata)
             self.add_contain(new_contain, at_type)
             return new_contain
     
@@ -563,6 +563,15 @@ class Contain(DataDict[str, str]):
     annotation type in the ``contains`` metadata of a MMIF view.
     """
 
+    @classmethod
+    def _for_type(cls, at_type: ThingTypesBase, contains_metadata: dict) -> 'Contain':
+        """
+        Builds a ``Contain`` for the given ``@type``, with property names
+        rewritten to their canonical spellings (see
+        :func:`mmif.serialize.annotation.canonicalize_prop_name`).
+        """
+        return cls({canonicalize_prop_name(at_type, k): v for k, v in contains_metadata.items()})
+
 
 class AnnotationsList(DataList[Union[Annotation, Document]]):
     """
@@ -608,7 +617,7 @@ class ContainsDict(DataDict[ThingTypesBase, Contain]):
         for key, value in input_dict.items():
             if isinstance(key, str):
                 key = ThingTypesBase.from_str(key)
-            self._items[key] = Contain(value)
+            self._items[key] = Contain._for_type(key, value)
 
     def update(self, other: Union[dict, 'ContainsDict'], overwrite=False):
         for k, v in other.items():
