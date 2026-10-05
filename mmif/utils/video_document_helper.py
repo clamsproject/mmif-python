@@ -1,6 +1,8 @@
 import contextvars
 import importlib
+import shlex
 import sys
+from contextlib import contextmanager
 from enum import Enum
 
 import math
@@ -26,6 +28,70 @@ _PTS_BUG_NOTICE = (
     'so the returned frame can be misaligned by however many frames that '
     'offset spans (see issue #379).'
 )
+
+_MEDIA_CHECK_HINT = (
+    'The file may be truncated or corrupted; container metadata does not '
+    'reveal this, so to verify the file run '
+    '`ffmpeg -v error -i {path} -map 0:v:0 -f null -` and treat any stderr '
+    'output as a problem (ffmpeg exits with 0 either way).'
+)
+
+
+def _media_check_hint(path: str) -> str:
+    """
+    Formats the "verify this file" hint for a resolved document path.
+
+    :param path: resolved local path of the video document
+    :returns: hint text, with the path quoted for shell use
+    :rtype: str
+    """
+    return _MEDIA_CHECK_HINT.format(path=shlex.quote(path))
+
+
+def _stream_rate(stream):
+    """
+    Resolves the frame rate of a video stream, as an exact fraction.
+
+    Prefers ffmpeg's guessed rate (``av_guess_frame_rate``), which falls back
+    to the stream's base rate (``r_frame_rate``) when the average rate
+    (``avg_frame_rate``) is unset. Matroska/webm commonly leave
+    ``average_rate`` as ``None`` (which would crash ``float()``) or 0, so it
+    cannot be used directly; both are falsy, so the chain yields the first
+    usable one. The result stays a ``Fraction`` for exact frame-count math.
+
+    :param stream: PyAV video stream
+    :returns: frame rate, or a falsy value when the stream reports none
+    """
+    return stream.guessed_rate or stream.average_rate or stream.base_rate
+
+
+@contextmanager
+def _ffmpeg_op(action: str, video_document: Document, path: str):
+    """
+    Turns a failed FFmpeg operation into an actionable ``RuntimeError``.
+
+    Any :py:class:`av.error.FFmpegError` (and the ``IndexError`` of a file
+    that opens but holds no video stream) is re-raised as a ``RuntimeError``
+    naming the document, the media check hint, and the original message. The
+    original message is repeated in the new one on purpose, because
+    downstream error reporting (e.g. ``clams-python``'s error view) records
+    only the outermost exception, so a chained cause would be dropped.
+
+    :param action: what was attempted, as a verb phrase (e.g. ``'open'``)
+    :param video_document: :py:class:`~mmif.serialize.annotation.Document`
+        holding the video document being read
+    :param path: resolved local path of the video document
+    :raises RuntimeError: if the wrapped operation fails
+    """
+    av = _check_cv_dep('av')
+    try:
+        yield
+    except (av.error.FFmpegError, IndexError) as e:
+        raise RuntimeError(
+            f'Cannot {action} video {video_document.id} ({path}). '
+            f'{_media_check_hint(path)} '
+            f'(original error: {type(e).__name__}: {e})'
+        ) from e
 
 
 def _check_cv_dep(dep):
@@ -88,21 +154,28 @@ def open_container(video_document: Document):
     :returns: open PyAV :py:class:`av.container.InputContainer`
     :rtype: av.container.InputContainer
     :raises ValueError: if ``video_document`` is missing or of the wrong type
+    :raises RuntimeError: if the file cannot be opened and read as a video,
+        for instance an mp4 whose ``moov`` atom is cut off, or a prefix too
+        short to hold a video stream
     """
     av = _check_cv_dep('av')
     if video_document is None or video_document.at_type != DocumentTypes.VideoDocument:
         raise ValueError(f'The document does not exist.')
 
-    container = av.open(video_document.location_path(nonexist_ok=False))
-    stream = container.streams.video[0]
+    path = video_document.location_path(nonexist_ok=False)
+    container = None
+    with _ffmpeg_op('open', video_document, path):
+        try:
+            container = av.open(path)
+            stream = container.streams.video[0]
+        except BaseException:
+            # a file can open and still hold no video stream, in which case
+            # the container must not be left dangling
+            if container is not None:
+                container.close()
+            raise
     time_base = float(stream.time_base)
-    # Frame rate: prefer ffmpeg's guessed rate (av_guess_frame_rate), which
-    # falls back to the stream's base rate (r_frame_rate) when the average
-    # rate (avg_frame_rate) is unset. Matroska/webm commonly leave
-    # `average_rate` as None (which would crash float()) or 0, so it cannot be
-    # used directly. `rate` stays a Fraction for exact frame-count math; both
-    # None and a zero rate are falsy, so the chain yields the first usable one.
-    rate = stream.guessed_rate or stream.average_rate or stream.base_rate
+    rate = _stream_rate(stream)
     fps = round(float(rate), 2) if rate else 0.0
     # Resolve duration (in seconds) from the most reliable source available.
     # `stream.duration` is exact for CFR H.264/MP4, but Matroska/webm leave it
@@ -121,13 +194,13 @@ def open_container(video_document: Document):
     if stream.frames > 0:
         frame_count = stream.frames
     elif duration_s is not None and rate:
-        frame_count = int(round(duration_s * float(rate)))
+        frame_count = round(duration_s * float(rate))
     else:
         frame_count = 0
     if duration_s is not None:
-        duration_ms = int(round(duration_s * 1000))
+        duration_ms = round(duration_s * 1000)
     elif frame_count > 0 and fps > 0:
-        duration_ms = int(round(frame_count / fps * 1000))
+        duration_ms = round(frame_count / fps * 1000)
     else:
         duration_ms = 0
     video_document.add_property(FPS_DOCPROP_KEY, fps)
@@ -161,6 +234,78 @@ def get_framerate(video_document: Document) -> float:
         container.close()
 
 
+def _decode_frames(container, stream, decode_errors: List[str]):
+    """
+    Iterates decoded frames of a video stream, stopping at the first error.
+
+    Decoding stops at the first :py:class:`av.error.FFmpegError`, which a
+    truncated or corrupted file can raise at any point, but the decoder is
+    flushed first so frames that are held back for reordering are not lost.
+    The error text is appended to ``decode_errors`` for the caller to report.
+
+    :param container: open PyAV :py:class:`av.container.InputContainer`
+    :param stream: video stream to decode
+    :param decode_errors: list that collects decoding error texts
+    :returns: generator of :py:class:`av.video.frame.VideoFrame`
+    """
+    av = _check_cv_dep('av')
+    try:
+        for frame in container.decode(stream):
+            yield frame
+    except av.error.FFmpegError as e:
+        decode_errors.append(f'{type(e).__name__}: {e}')
+        try:
+            for frame in stream.codec_context.decode(None):
+                yield frame
+        except av.error.FFmpegError as flush_e:
+            decode_errors.append(f'{type(flush_e).__name__}: {flush_e}')
+
+
+_MAX_LISTED_TIMEPOINTS = 5
+
+
+def _warn_missing_images(
+    video_document: Document,
+    path: str,
+    missing_ms: List[int],
+    n_missing_positions: int,
+    decode_errors: List[str],
+) -> None:
+    """
+    Issues a single warning for timepoints that have no image.
+
+    A missing timepoint that falls before the document's ``duration``, or a
+    decoding error, means the file holds fewer images than its container
+    metadata promises, hence the media check hint. Timepoints past a known
+    duration are simply out of range, and get no hint.
+
+    :param video_document: :py:class:`~mmif.serialize.annotation.Document`
+        holding a video document
+    :param path: resolved local path of the video document
+    :param missing_ms: sorted distinct timepoints (in ms) that have no image
+    :param n_missing_positions: number of positions in the returned list that
+        hold ``None``, which exceeds ``len(missing_ms)`` when timepoints repeat
+    :param decode_errors: decoding error texts collected while decoding
+    """
+    if len(missing_ms) <= _MAX_LISTED_TIMEPOINTS:
+        where = ', '.join(f'{ms}ms' for ms in missing_ms)
+    else:
+        where = (f'{len(missing_ms)} distinct timepoints between '
+                 f'{missing_ms[0]}ms and {missing_ms[-1]}ms')
+    msg = (f'No image is available for {n_missing_positions} timepoint(s) '
+           f'({where}) of video {video_document.id}; the returned list holds '
+           f'`None` at those positions.')
+    duration_ms = video_document.get_property(DURATION_DOCPROP_KEY)
+    # a zero duration means the container reports none at all, so the
+    # out-of-range test cannot be applied and the file stays suspect
+    if decode_errors or not duration_ms or missing_ms[0] < duration_ms:
+        msg += f' {_media_check_hint(path)}'
+        if decode_errors:
+            msg += f' (first decoding error: {decode_errors[0]})'
+    # helper -> public extraction function -> the caller to be pointed at
+    warnings.warn(msg, stacklevel=3)
+
+
 def extract_images_from_timepoints(
     video_document: Document,
     timepoints_ms: Iterable[int],
@@ -173,13 +318,20 @@ def extract_images_from_timepoints(
     presentation timestamp (PTS) is closest to it. Duplicate timepoints
     produce duplicate images at the same list positions as the input.
 
+    The returned list always has one entry per requested timepoint. An entry
+    is ``None`` when no image is available, namely when the timepoint is
+    more than one frame duration past the last decodable frame. This happens
+    for timepoints past the end of the video, and also within a truncated or
+    corrupted file, where decoding stops early. Such a call issues a single
+    warning naming the missing timepoints.
+
     :param video_document: :py:class:`~mmif.serialize.annotation.Document`
         holding a video document (``"@type": ".../VideoDocument/..."``)
     :param timepoints_ms: iterable of timepoint values in milliseconds
     :param as_PIL: return :py:class:`PIL.Image.Image` (RGB) instead of
         :py:class:`~numpy.ndarray` (BGR)
     :returns: images in the same order (and with the same multiplicity) as
-        ``timepoints_ms``
+        ``timepoints_ms``, with ``None`` where no image is available
     :rtype: list
     """
     original_timepoints = list(timepoints_ms)
@@ -190,17 +342,34 @@ def extract_images_from_timepoints(
     Image = _check_cv_dep('PIL.Image') if as_PIL else None
 
     container = open_container(video_document)
+    path = video_document.location_path()
     result_map = {}
+    decode_errors: List[str] = []
     try:
         stream = container.streams.video[0]
         time_base = float(stream.time_base)
+        rate = _stream_rate(stream)
+        # Tolerance for a target that falls outside the decoded frames. A
+        # frame covers the interval up to the next one, so a target within
+        # that span still belongs to it; this is the normal case for the last
+        # frame of a healthy video, whose header duration usually runs a
+        # frame longer than the frame's own PTS. `frame.duration` is used when
+        # the container provides it, with the stream rate as the fallback.
+        default_tolerance_ticks = (round(1 / float(rate) / time_base)
+                                   if rate else 0)
+
+        def _tolerance_ticks(frame):
+            return (getattr(frame, 'duration', None)
+                    or default_tolerance_ticks)
+
         # convert each target ms to stream ticks (PTS units)
-        target_ticks = [int(round(t_ms / 1000.0 / time_base))
+        target_ticks = [round(t_ms / 1000.0 / time_base)
                         for t_ms in unique_sorted_ms]
 
         # seek to the nearest keyframe at or before the earliest target
-        container.seek(target_ticks[0], backward=True, any_frame=False,
-                       stream=stream)
+        with _ffmpeg_op('seek in', video_document, path):
+            container.seek(target_ticks[0], backward=True, any_frame=False,
+                           stream=stream)
 
         targets = iter(zip(unique_sorted_ms, target_ticks))
         cur_ms, cur_pts = next(targets, (None, None))
@@ -211,13 +380,19 @@ def extract_images_from_timepoints(
             result_map[t_ms] = (frame.to_image() if as_PIL
                                 else frame.to_ndarray(format='bgr24'))
 
-        for frame in container.decode(stream):
+        for frame in _decode_frames(container, stream, decode_errors):
             if frame.pts is None:
                 continue
             pts = frame.pts
             while cur_ms is not None and pts >= cur_pts:
-                # pick whichever of (prev, current) is closer to target
-                if prev_pts is None or (pts - cur_pts) <= (cur_pts - prev_pts):
+                if prev_pts is None:
+                    # nothing decoded before the target, which happens when
+                    # the seek lands after it or the start of the stream is
+                    # missing; the same distance limit applies as at the end
+                    if pts - cur_pts <= _tolerance_ticks(frame):
+                        _emit(frame, cur_ms)
+                # otherwise pick whichever of (prev, current) is closer
+                elif (pts - cur_pts) <= (cur_pts - prev_pts):
                     _emit(frame, cur_ms)
                 else:
                     _emit(prev_frame, cur_ms)
@@ -227,24 +402,24 @@ def extract_images_from_timepoints(
             if cur_ms is None:
                 break
 
-        # targets past the last decoded frame: fall back to the last frame
+        # Targets past the last decoded frame belong to that frame only while
+        # they fall within its duration; anything further has no image, and is
+        # left out of `result_map` to become a `None` entry below.
         while cur_ms is not None:
-            if prev_frame is not None:
-                warnings.warn(
-                    f'Timepoint {cur_ms}ms is beyond the video duration; '
-                    f'returning the last decoded frame for {video_document.id}.'
-                )
+            if (prev_frame is not None
+                    and cur_pts - prev_pts <= _tolerance_ticks(prev_frame)):
                 _emit(prev_frame, cur_ms)
-            else:
-                warnings.warn(
-                    f'No frames decoded for timepoint {cur_ms}ms from '
-                    f'video {video_document.id}.'
-                )
             cur_ms, cur_pts = next(targets, (None, None))
     finally:
         container.close()
 
-    return [result_map[t] for t in original_timepoints if t in result_map]
+    missing_ms = [t for t in unique_sorted_ms if t not in result_map]
+    if missing_ms:
+        n_missing_positions = sum(1 for t in original_timepoints
+                                  if t not in result_map)
+        _warn_missing_images(video_document, path, missing_ms,
+                             n_missing_positions, decode_errors)
+    return [result_map.get(t) for t in original_timepoints]
 
 
 def _tp_ids_to_timepoints_ms(mmif: Mmif, tp_ids: List[str]) -> List[int]:
@@ -407,7 +582,9 @@ def extract_images_by_count_with_sources(
     :param as_PIL: return :py:class:`~PIL.Image.Image` instead of
         :py:class:`~numpy.ndarray`
     :return: tuple of (list of images, list of selected target TP IDs);
-        the two lists are parallel
+        the two lists are parallel, and an image is ``None`` when none is
+        available for that timepoint (see
+        :py:func:`extract_images_from_timepoints`)
     :rtype: tuple
     """
     if 'targets' not in annotation.properties:
@@ -460,7 +637,8 @@ def extract_images_by_count(
     :param fraction: fraction of targets to include (ideally)
     :param as_PIL: return :py:class:`~PIL.Image.Image` instead of
         :py:class:`~numpy.ndarray`
-    :return: list of images
+    :return: list of images, with ``None`` where none is available (see
+        :py:func:`extract_images_from_timepoints`)
     :rtype: list
     """
     images, _ = extract_images_by_count_with_sources(
@@ -496,8 +674,10 @@ def extract_images_by_mode_with_sources(
     :param as_PIL: return :py:class:`PIL.Image.Image` instead of
         :py:class:`~numpy.ndarray`
     :return: tuple of (list of images, list of sources); the two lists
-        are parallel. May be ``([], [])`` for ``REPRESENTATIVES`` mode
-        when no representatives exist.
+        are parallel, and an image is ``None`` when none is available for
+        that timepoint (see :py:func:`extract_images_from_timepoints`).
+        May be ``([], [])`` for ``REPRESENTATIVES`` mode when no
+        representatives exist.
     :rtype: tuple
     """
     if mode is None:
@@ -540,8 +720,9 @@ def extract_images_by_mode(
         default
     :param as_PIL: return :py:class:`PIL.Image.Image` instead of
         :py:class:`~numpy.ndarray`
-    :return: list of images (may be empty for ``REPRESENTATIVES`` mode
-        when no representatives exist)
+    :return: list of images, with ``None`` where none is available (see
+        :py:func:`extract_images_from_timepoints`); may be empty for
+        ``REPRESENTATIVES`` mode when no representatives exist
     :rtype: list
     """
     images, _ = extract_images_by_mode_with_sources(

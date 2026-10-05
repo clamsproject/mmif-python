@@ -3,6 +3,7 @@ import os
 import pathlib
 import tempfile
 import unittest
+import warnings
 from pathlib import Path
 from unittest import mock
 
@@ -13,6 +14,7 @@ from hypothesis import strategies as st
 from mmif import (
     AnnotationTypes, 
     Document, 
+    DocumentTypes,
     Mmif
 )
 from mmif.utils import sequence_helper as sqh
@@ -45,13 +47,14 @@ class TestTimeunitHelper(unittest.TestCase):
                 self.assertAlmostEqual(value, out_t, delta=1000/self.FPS)  # up to 1 frame error
 
 
+@pytest.mark.filterwarnings('ignore::DeprecationWarning')
 class TestVideoDocumentHelper(unittest.TestCase):
     def setUp(self):
         self.fps = 29.97
         self.mmif_obj = Mmif(validate=False)
         self.a_view = self.mmif_obj.new_view()
         self.video_doc = Document({
-            "@type": "http://mmif.clams.ai/vocabulary/VideoDocument/v1",
+            "@type": DocumentTypes.VideoDocument,
             "properties": {
                 "mime": "video",
                 "id": "d1",
@@ -61,7 +64,7 @@ class TestVideoDocumentHelper(unittest.TestCase):
         self.video_doc.add_property('fps', self.fps)
         self.mmif_obj.add_document(self.video_doc)
 
-    def test_extract_mid_frame(self):
+    def test_get_mid_framenum(self):
         tf = self.a_view.new_annotation(AnnotationTypes.TimeFrame, start=100, end=200, timeUnit='frame', document=self.video_doc.id)
         self.assertEqual(150, vdh.get_mid_framenum(self.mmif_obj, tf))
         tf = self.a_view.new_annotation(AnnotationTypes.TimeFrame, start=0, end=200, timeUnit='frame', document=self.video_doc.id)
@@ -69,8 +72,7 @@ class TestVideoDocumentHelper(unittest.TestCase):
         tf = self.a_view.new_annotation(AnnotationTypes.TimeFrame, start=0, end=3, timeUnit='seconds', document=self.video_doc.id)
         self.assertEqual(vdh.convert(1.5, 's', 'f', self.fps), vdh.get_mid_framenum(self.mmif_obj, tf))
 
-    @pytest.mark.filterwarnings('ignore::DeprecationWarning')
-    def test_extract_representative_frame(self):
+    def test_get_representative_framenum(self):
         tp = self.a_view.new_annotation(AnnotationTypes.TimePoint, timePoint=1500, timeUnit='milliseconds', document=self.video_doc.id)
         tf = self.a_view.new_annotation(AnnotationTypes.TimeFrame, start=1000, end=2000, timeUnit='milliseconds', document=self.video_doc.id)
         tf.add_property('representatives', [tp.id])
@@ -88,23 +90,26 @@ class TestVideoDocumentHelper(unittest.TestCase):
     def test_get_framerate(self):
         self.assertAlmostEqual(29.97, vdh.get_framerate(self.video_doc), places=0)
 
-    @pytest.mark.filterwarnings('ignore::DeprecationWarning')
-    def test_frames_to_seconds(self):
-        self.assertAlmostEqual(3.337, vdh.framenum_to_second(self.video_doc, 100), places=0)
+    def test_get_framerate_without_cached_property(self):
+        # without an fps-like property, the rate comes from the container
+        fixture = pathlib.Path(__file__).parent / 'black-2997fps.mp4'
+        vd = Document({
+            "@type": DocumentTypes.VideoDocument,
+            "properties": {"mime": "video", "id": "r1",
+                           "location": f"file://{fixture}"},
+        })
+        self.assertAlmostEqual(29.97, vdh.get_framerate(vd), places=1)
+        # any of the accepted spellings is honored without opening the file
+        for key in ('frameRate', 'frames_per_second', 'frame-per-second'):
+            with self.subTest(key=key):
+                aliased = Document({
+                    "@type": DocumentTypes.VideoDocument,
+                    "properties": {"mime": "video", "id": "r2",
+                                   "location": "file:///nonexistent.mp4",
+                                   key: 12.5},
+                })
+                self.assertEqual(12.5, vdh.get_framerate(aliased))
 
-    @pytest.mark.filterwarnings('ignore::DeprecationWarning')
-    def test_frames_to_milliseconds(self):
-        self.assertAlmostEqual(3337.0, vdh.framenum_to_millisecond(self.video_doc, 100), places=0)
-
-    @pytest.mark.filterwarnings('ignore::DeprecationWarning')
-    def test_seconds_to_frames(self):
-        self.assertAlmostEqual(100, vdh.second_to_framenum(self.video_doc, 3.337), places=0)
-
-    @pytest.mark.filterwarnings('ignore::DeprecationWarning')
-    def test_milliseconds_to_frames(self):
-        self.assertAlmostEqual(100, vdh.millisecond_to_framenum(self.video_doc, 3337.0), places=0)
-
-    @pytest.mark.filterwarnings('ignore::DeprecationWarning')
     def test_convert_roundtrip(self):
         # ms for 1 frame
         tolerance = 1000 / self.video_doc.get_property('fps')
@@ -113,7 +118,6 @@ class TestVideoDocumentHelper(unittest.TestCase):
             m2f2m = vdh.framenum_to_millisecond(self.video_doc, m2f)
             self.assertAlmostEqual(ms, m2f2m, delta=tolerance)
 
-    @pytest.mark.filterwarnings('ignore::DeprecationWarning')
     def test_sample_frames(self):
         s_frame = vdh.second_to_framenum(self.video_doc, 3)
         e_frame = vdh.second_to_framenum(self.video_doc, 5.5)
@@ -147,7 +151,6 @@ class TestVideoDocumentHelper(unittest.TestCase):
         for times in zip((3.337, 6.674), vdh.convert_timeframe(self.mmif_obj, timeframe_ann, 's')):
             self.assertAlmostEqual(*times, places=0)
 
-    @pytest.mark.filterwarnings('ignore::DeprecationWarning')
     def test_extract_frames_as_images(self):
         frame_list = [5, 10, 15]
         target_images = vdh.extract_frames_as_images(self.video_doc, frame_list, as_PIL=False)
@@ -163,45 +166,79 @@ class TestVideoDocumentHelper(unittest.TestCase):
         frame_list.append(tot_fcount + 1)
         new_target_images = vdh.extract_frames_as_images(self.video_doc, frame_list, as_PIL=False)
         self.assertEqual(4, len(frame_list))
+        # the deprecated cv2 path keeps dropping unavailable frames, so its
+        # list shortens where the current API would hold a `None` instead
         self.assertEqual(3, len(new_target_images))
 
-    def test_open_container(self):
-        # open_container sets fps/frameCount/duration as informational props
+    def test_deprecated_capture(self):
+        fixture = pathlib.Path(__file__).parent / 'black-2997fps.mp4'
         vd = Document({
-            "@type": "http://mmif.clams.ai/vocabulary/VideoDocument/v1",
-            "properties": {
-                "mime": "video",
-                "id": "o1",
-                "location": f"file://{pathlib.Path(__file__).parent}/black-2997fps.mp4",
-            }
+            "@type": DocumentTypes.VideoDocument,
+            "properties": {"mime": "video", "id": "c1",
+                           "location": f"file://{fixture}"},
         })
-        c = vdh.open_container(vd)
+        with pytest.warns(DeprecationWarning, match='open_container'):
+            capture = vdh.capture(vd)
         try:
             self.assertAlmostEqual(29.97, vd.get_property('fps'), places=1)
-            self.assertGreater(vd.get_property('frameCount'), 0)
             self.assertGreater(vd.get_property('duration'), 0)
         finally:
-            c.close()
+            capture.release()
 
-    def test_open_container_matroska(self):
-        # regression for issue #390: Matroska/webm leave the per-stream
-        # `frames`/`duration` fields unset, so open_container must fall back to
-        # the container-level duration instead of caching frameCount/duration 0.
+    def test_deprecated_frame_extractors(self):
+        tp = self.a_view.new_annotation(
+            AnnotationTypes.TimePoint, timePoint=1500,
+            timeUnit='milliseconds', document=self.video_doc.id)
+        tf = self.a_view.new_annotation(
+            AnnotationTypes.TimeFrame, start=1000, end=2000,
+            timeUnit='milliseconds', document=self.video_doc.id)
+        tf.add_property('representatives', [tp.id])
+        self.assertIsNotNone(vdh.extract_mid_frame(self.mmif_obj, tf))
+        self.assertIsNotNone(
+            vdh.extract_representative_frame(self.mmif_obj, tf))
+        self.assertEqual(
+            [vdh.millisecond_to_framenum(self.video_doc, 1500)],
+            vdh.get_representative_framenums(self.mmif_obj, tf))
+
+    def test_open_container(self):
+        # open_container sets fps/frameCount/duration as informational props.
+        # The webm case is a regression for issue #390: Matroska leaves the
+        # per-stream `frames`/`duration` fields unset, so open_container must
+        # fall back to the container-level duration instead of caching 0.
+        for fixture in ('black-2997fps.mp4', 'black-2997fps.webm'):
+            with self.subTest(fixture=fixture):
+                path = pathlib.Path(__file__).parent / fixture
+                vd = Document({
+                    "@type": DocumentTypes.VideoDocument,
+                    "properties": {"mime": "video", "id": "o1",
+                                   "location": f"file://{path}"},
+                })
+                c = vdh.open_container(vd)
+                try:
+                    self.assertAlmostEqual(29.97, vd.get_property('fps'),
+                                           places=1)
+                    self.assertGreater(vd.get_property('frameCount'), 0)
+                    self.assertGreater(vd.get_property('duration'), 0)
+                finally:
+                    c.close()
+
+    def test_open_container_rejects_non_video(self):
+        for bad_doc in (None, Document({
+                "@type": "http://mmif.clams.ai/vocabulary/TextDocument/v1",
+                "properties": {"mime": "text", "id": "t1"}})):
+            with self.subTest(doc=bad_doc):
+                with pytest.raises(ValueError):
+                    vdh.open_container(bad_doc)
+
+    def test_open_container_missing_file(self):
+        # a missing file is not a broken file, and must stay distinguishable
         vd = Document({
-            "@type": "http://mmif.clams.ai/vocabulary/VideoDocument/v1",
-            "properties": {
-                "mime": "video",
-                "id": "o1",
-                "location": f"file://{pathlib.Path(__file__).parent}/black-2997fps.webm",
-            }
+            "@type": DocumentTypes.VideoDocument,
+            "properties": {"mime": "video", "id": "m1",
+                           "location": "file:///nonexistent-video.mp4"},
         })
-        c = vdh.open_container(vd)
-        try:
-            self.assertAlmostEqual(29.97, vd.get_property('fps'), places=1)
-            self.assertGreater(vd.get_property('frameCount'), 0)
-            self.assertGreater(vd.get_property('duration'), 0)
-        finally:
-            c.close()
+        with pytest.raises(FileNotFoundError):
+            vdh.open_container(vd)
 
     def test_sample_timepoints(self):
         # half-open interval; step in ms
@@ -216,18 +253,31 @@ class TestVideoDocumentHelper(unittest.TestCase):
             vdh.sample_timepoints(0, 100, -10)
 
     def test_extract_images_from_timepoints(self):
-        # basic: three distinct timepoints
+        # in-range timepoints all yield an image, and nothing is reported
         ms_list = [1000, 2000, 3000]
-        imgs = vdh.extract_images_from_timepoints(
-            self.video_doc, ms_list, as_PIL=False)
-        self.assertEqual(3, len(imgs))
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter('always')
+            imgs = vdh.extract_images_from_timepoints(
+                self.video_doc, ms_list, as_PIL=False)
+        self.assertEqual(len(ms_list), len(imgs))
+        self.assertTrue(all(img is not None for img in imgs))
+        self.assertEqual([], [w for w in caught
+                              if 'No image is available' in str(w.message)])
         # empty input
         self.assertEqual(
             [], vdh.extract_images_from_timepoints(self.video_doc, []))
-        # duplicates preserved in input order
+        # duplicates yield the same image object at each repeated position
         dup_ms = [500, 250, 500, 750, 250]
         dup_imgs = vdh.extract_images_from_timepoints(self.video_doc, dup_ms)
-        self.assertEqual(5, len(dup_imgs))
+        self.assertEqual(len(dup_ms), len(dup_imgs))
+        self.assertIs(dup_imgs[0], dup_imgs[2])
+        self.assertIs(dup_imgs[1], dup_imgs[4])
+
+    def test_extract_images_as_PIL(self):
+        Image = pytest.importorskip('PIL.Image')
+        imgs = vdh.extract_images_from_timepoints(
+            self.video_doc, [1000], as_PIL=True)
+        self.assertIsInstance(imgs[0], Image.Image)
 
     def _make_timepoints(self, count):
         # Explicit aid avoids a pre-existing clams-vocabulary / mmif-python
@@ -418,7 +468,7 @@ class TestVideoDocumentHelper(unittest.TestCase):
         import av
         fixture = pathlib.Path(__file__).parent / 'testsrc-2997fps-ptsoffset.mp4'
         vd = Document({
-            "@type": "http://mmif.clams.ai/vocabulary/VideoDocument/v1",
+            "@type": DocumentTypes.VideoDocument,
             "properties": {
                 "mime": "video",
                 "id": "p1",
@@ -461,6 +511,303 @@ class TestVideoDocumentHelper(unittest.TestCase):
         self.assertNotEqual(got_pts, old_pts,
                             'cv2 and PyAV paths should disagree on '
                             'PTS-offset videos')
+
+
+class TestBrokenVideoDocument(unittest.TestCase):
+    """
+    Covers videos that hold fewer images than their container metadata
+    promises (issue #400). A byte-truncated file surfaces differently per
+    container and per cut position, so each path gets its own fixture.
+    """
+
+    fixtures_dir = pathlib.Path(__file__).parent
+
+    @classmethod
+    def setUpClass(cls):
+        # fixtures are byte-identical for every test, so they are built once
+        cls.tmpdir = tempfile.TemporaryDirectory()
+        cls.addClassCleanup(cls.tmpdir.cleanup)
+        tmp = pathlib.Path(cls.tmpdir.name)
+        healthy_mp4 = cls.fixtures_dir / 'black-2997fps.mp4'
+        faststart = tmp / 'faststart.mp4'
+        cls._remux_faststart(healthy_mp4, faststart)
+        cls.cuts = {
+            # cut mid-packet: the mp4 demuxer hands the partial packet to the
+            # decoder, which raises
+            'unclean.mp4': (cls._truncate(faststart, tmp / 'unclean.mp4'),
+                            True),
+            # cut at a packet boundary: a clean EOF, indistinguishable from
+            # the end of a healthy video
+            'clean.mp4': (cls._truncate(faststart, tmp / 'clean.mp4',
+                                        cls._clean_cut_offset(faststart)),
+                          False),
+            # Matroska drops the incomplete block, so any cut is clean
+            'cut.webm': (cls._truncate(cls.fixtures_dir / 'black-2997fps.webm',
+                                       tmp / 'cut.webm'),
+                         False),
+        }
+        # `moov` sits at the end of the shipped fixtures, so a cut copy of the
+        # original cannot be opened at all
+        cls.trailing_moov = cls._truncate(healthy_mp4, tmp / 'moovend.mp4')
+        # too short to hold a video stream, yet still openable
+        cls.tiny = cls._truncate(faststart, tmp / 'tiny.mp4', 200)
+        cls.healthy = healthy_mp4
+
+    @staticmethod
+    def _doc(path, aid='d1'):
+        return Document({
+            "@type": DocumentTypes.VideoDocument,
+            "properties": {"mime": "video", "id": aid,
+                           "location": f"file://{path}"}
+        })
+
+    @staticmethod
+    def _remux_faststart(src, dst):
+        # a cut copy of an mp4 is only decodable at all when the `moov` atom
+        # sits at the front; the shipped fixtures carry it at the end
+        import av
+        faststart = {'movflags': 'faststart'}
+        with av.open(str(src)) as inp, \
+                av.open(str(dst), 'w', options=faststart) as out:
+            in_stream = inp.streams.video[0]
+            try:
+                out_stream = out.add_stream_from_template(in_stream)
+            except AttributeError:  # PyAV < 14
+                out_stream = out.add_stream(template=in_stream)
+            for packet in inp.demux(in_stream):
+                if packet.dts is None:
+                    continue
+                packet.stream = out_stream
+                out.mux(packet)
+
+    @staticmethod
+    def _truncate(src, dst, nbytes=None):
+        data = pathlib.Path(src).read_bytes()
+        dst.write_bytes(data[:nbytes if nbytes else len(data) // 2])
+        return dst
+
+    @staticmethod
+    def _clean_cut_offset(path):
+        # end of the last complete packet before the halfway point
+        import av
+        half = pathlib.Path(path).stat().st_size // 2
+        with av.open(str(path)) as container:
+            stream = container.streams.video[0]
+            return next(p.pos for p in container.demux(stream)
+                        if p.pos is not None and p.pos >= half)
+
+    @staticmethod
+    def _last_decodable_ms(path):
+        # ground truth for the assertions below, computed without vdh; the
+        # decoder is flushed after an error, as vdh does, so that frames held
+        # back for reordering count here too
+        import av
+        last = None
+
+        def frames(container, stream):
+            try:
+                for packet in container.demux(stream):
+                    yield from packet.decode()
+            except av.error.FFmpegError:
+                try:
+                    yield from stream.codec_context.decode(None)
+                except av.error.FFmpegError:
+                    pass
+
+        with av.open(str(path)) as container:
+            stream = container.streams.video[0]
+            for frame in frames(container, stream):
+                if frame.pts is not None:
+                    pts_ms = round(frame.pts * stream.time_base * 1000)
+                    last = max(last or 0, pts_ms)
+        return last
+
+    @staticmethod
+    def _missing_image_warnings(caught):
+        # the module also emits unrelated warnings (e.g. vocabulary version
+        # mismatches), and a single call must report missing images once
+        return [str(w.message) for w in caught
+                if 'No image is available' in str(w.message)]
+
+    def _extract(self, doc, timepoints, **kwargs):
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter('always')
+            images = vdh.extract_images_from_timepoints(
+                doc, timepoints, **kwargs)
+        return images, self._missing_image_warnings(caught)
+
+    def _frame_ms(self, doc):
+        return int(1000 / vdh.get_framerate(doc))
+
+    def test_truncated_file_yields_none_past_last_frame(self):
+        import av
+        for name, (path, expect_decode_error) in self.cuts.items():
+            with self.subTest(fixture=name):
+                doc = self._doc(path)
+                last_ok = self._last_decodable_ms(path)
+                self.assertIsNotNone(last_ok,
+                                     'fixture should decode at least once')
+                frame_ms = self._frame_ms(doc)
+                # the last decodable frame covers one frame duration, and
+                # nothing beyond it; 2ms of slack absorbs ms/tick rounding
+                timepoints = [0, last_ok, last_ok + frame_ms - 2,
+                              last_ok + frame_ms + 2, 59000]
+                images, messages = self._extract(doc, timepoints)
+                self.assertEqual(len(timepoints), len(images))
+                for i in (0, 1, 2):
+                    self.assertIsNotNone(images[i], f'position {i}')
+                self.assertIsNone(images[3])
+                self.assertIsNone(images[4])
+                # within the tolerance, the last frame itself is reused
+                self.assertEqual(images[1].tobytes(), images[2].tobytes())
+                self.assertEqual(1, len(messages))
+                self.assertIn(vdh._media_check_hint(str(path)), messages[0])
+                self.assertEqual(
+                    expect_decode_error,
+                    av.error.InvalidDataError.__name__ in messages[0])
+                self.assertEqual(expect_decode_error,
+                                 'first decoding error:' in messages[0])
+
+    def test_missing_only_past_duration_is_not_flagged(self):
+        # a file that merely ends is not suspect, even after a clean cut
+        path, _ = self.cuts['cut.webm']
+        doc = self._doc(path)
+        vdh.open_container(doc).close()
+        duration = doc.get_property('duration')
+        images, messages = self._extract(doc, [duration + 10000])
+        self.assertEqual([None], images)
+        self.assertEqual(1, len(messages))
+        self.assertNotIn(vdh._media_check_hint(str(path)), messages[0])
+
+    def test_missing_before_and_past_duration_is_flagged(self):
+        # the earliest missing timepoint decides, and both are listed
+        path, _ = self.cuts['cut.webm']
+        doc = self._doc(path)
+        vdh.open_container(doc).close()
+        duration = doc.get_property('duration')
+        last_ok = self._last_decodable_ms(path)
+        timepoints = [last_ok + 5000, duration + 10000]
+        images, messages = self._extract(doc, timepoints)
+        self.assertEqual([None, None], images)
+        self.assertEqual(1, len(messages))
+        self.assertIn(vdh._media_check_hint(str(path)), messages[0])
+        self.assertIn(f'{timepoints[0]}ms, {timepoints[1]}ms', messages[0])
+
+    def test_repeated_missing_timepoint_counts_positions(self):
+        path, _ = self.cuts['cut.webm']
+        images, messages = self._extract(self._doc(path), [59000] * 3)
+        self.assertEqual([None, None, None], images)
+        self.assertIn('for 3 timepoint(s)', messages[0])
+
+    def test_missing_entry_with_as_PIL(self):
+        Image = pytest.importorskip('PIL.Image')
+        path, _ = self.cuts['cut.webm']
+        images, _ = self._extract(self._doc(path), [0, 59000], as_PIL=True)
+        self.assertIsInstance(images[0], Image.Image)
+        self.assertIsNone(images[1])
+
+    def test_tolerance_falls_back_to_stream_rate(self):
+        # `frame.duration` only exists in PyAV >= 15; older versions must get
+        # the same tolerance from the stream frame rate
+        class _NoDuration:
+            def __init__(self, frame):
+                self._frame = frame
+                self.duration = None
+
+            def __getattr__(self, name):
+                return getattr(self._frame, name)
+
+        real_decode_frames = vdh._decode_frames
+
+        def stripped(container, stream, decode_errors):
+            for frame in real_decode_frames(container, stream, decode_errors):
+                yield _NoDuration(frame)
+
+        doc = self._doc(self.healthy)
+        vdh.open_container(doc).close()
+        duration = doc.get_property('duration')
+        with mock.patch.object(vdh, '_decode_frames', stripped):
+            images, messages = self._extract(doc, [duration - 1])
+        self.assertIsNotNone(images[0])
+        self.assertEqual([], messages)
+
+    def test_unopenable_files_raise_with_hint(self):
+        cases = {'trailing moov': self.trailing_moov, 'tiny prefix': self.tiny}
+        for label, path in cases.items():
+            with self.subTest(case=label):
+                with pytest.raises(RuntimeError) as excinfo:
+                    vdh.open_container(self._doc(path))
+                self.assertIn(vdh._media_check_hint(str(path)),
+                              str(excinfo.value))
+        # get_framerate goes through open_container, so it reports the same way
+        with pytest.raises(RuntimeError):
+            vdh.get_framerate(self._doc(self.trailing_moov))
+
+    def test_failed_seek_raises_with_hint(self):
+        # PyAV containers are immutable extension types, so the failure is
+        # injected through a proxy around the real container
+        import av
+        path, _ = self.cuts['cut.webm']
+        doc = self._doc(path)
+
+        class _SeekFails:
+            def __init__(self, container):
+                self._container = container
+
+            def __getattr__(self, name):
+                return getattr(self._container, name)
+
+            def seek(self, *args, **kwargs):
+                raise av.error.InvalidDataError(1094995529, 'seek failed')
+
+        real_open_container = vdh.open_container
+
+        def wrapped(video_document):
+            return _SeekFails(real_open_container(video_document))
+
+        with mock.patch.object(vdh, 'open_container', wrapped):
+            with pytest.raises(RuntimeError) as excinfo:
+                vdh.extract_images_from_timepoints(doc, [1000])
+        self.assertIn(vdh._media_check_hint(str(path)), str(excinfo.value))
+        self.assertIn('seek failed', str(excinfo.value))
+
+    def test_empty_request_never_opens_the_file(self):
+        doc = self._doc(self.trailing_moov)
+        self.assertEqual([], vdh.extract_images_from_timepoints(doc, []))
+
+    def test_none_stays_parallel_with_sources(self):
+        # the breakage that motivated issue #400: apps pair images with
+        # timepoints by list index
+        mmif_obj = Mmif(validate=False)
+        doc = self._doc(self.healthy)
+        mmif_obj.add_document(doc)
+        vdh.open_container(doc).close()
+        duration = doc.get_property('duration')
+        view = mmif_obj.new_view()
+        tp_ids = []
+        for i, ms in enumerate([1000, duration + 10000, duration + 20000]):
+            tp = view.new_annotation(
+                AnnotationTypes.TimePoint, aid=f'tp_{i}', timePoint=ms,
+                timeUnit='milliseconds', document=doc.id)
+            tp_ids.append(tp.id)
+        time_frame = view.new_annotation(
+            AnnotationTypes.TimeFrame, aid='tf_0', document=doc.id,
+            timeUnit='milliseconds', start=1000, end=duration + 20000,
+            targets=tp_ids, representatives=tp_ids)
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore')
+            by_mode = vdh.extract_images_by_mode_with_sources(
+                mmif_obj, time_frame, mode=vdh.SamplingMode.REPRESENTATIVES)
+            by_count = vdh.extract_images_by_count_with_sources(
+                mmif_obj, time_frame, fraction=1.0)
+        for label, (images, sources) in {'by_mode': by_mode,
+                                         'by_count': by_count}.items():
+            with self.subTest(entrypoint=label):
+                self.assertEqual(tp_ids, list(sources))
+                self.assertEqual(len(sources), len(images))
+                self.assertIsNotNone(images[0])
+                self.assertIsNone(images[1])
+                self.assertIsNone(images[2])
 
 
 class TestSequenceHelper(unittest.TestCase):
