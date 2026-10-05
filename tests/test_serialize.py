@@ -594,20 +594,6 @@ class TestMmif(unittest.TestCase):
         self.assertTrue('v5' in mmif_obj)
         self.assertFalse('v432402' in mmif_obj)
     
-    def test_get_label(self):
-        v = View()
-        a = v.new_annotation(AnnotationTypes.TimeFrame, label="speech")
-        self.assertEqual(a._get_label(), "speech")
-        a = v.new_annotation(AnnotationTypes.TimeFrame, frameType="speech")
-        self.assertEqual(a._get_label(), "speech")
-        a = v.new_annotation(AnnotationTypes.BoundingBox, label="text")
-        self.assertEqual(a._get_label(), "text")
-        a = v.new_annotation(AnnotationTypes.BoundingBox, boxType="text")
-        self.assertEqual(a._get_label(), "text")
-        with self.assertRaises(KeyError):
-            a = v.new_annotation(AnnotationTypes.BoundingBox)
-            _ = a._get_label()
-
     def test_timestamp_uses_utc_with_z_suffix(self):
         """Test that timestamps are in UTC with 'Z' suffix to avoid ambiguity"""
         from datetime import timezone
@@ -883,8 +869,10 @@ class TestView(unittest.TestCase):
         self.view_obj.new_contain("http://vocab.lappsgrid.org/Token")
         # can add by obj at_type
         self.view_obj.new_contain(AnnotationTypes.TimePoint)
-        # can add details
-        self.view_obj.new_contain(AnnotationTypes.TimeFrame, **{"frameType": "speech"})
+        # can add details (to a type not yet in the view); a deprecated
+        # property spelling is stored under the canonical name
+        contain = View().new_contain(AnnotationTypes.TimeFrame, **{"frameType": "speech"})
+        self.assertEqual({"label": "speech"}, dict(contain.items()))
         with pytest.raises(ValueError):
             # empty at_type is not allowed
             self.view_obj.new_contain("")
@@ -895,6 +883,19 @@ class TestView(unittest.TestCase):
         self.view_obj.add_annotation(anno_obj)  # raise exception if this fails
         self.assertEqual(old_len+1, len(self.view_obj.annotations))
         self.assertIn('http://vocab.lappsgrid.org/NamedEntity', self.view_obj.metadata.contains)
+        # an added annotation picks up the view-level defaults of its type
+        # (as ephemeral properties, not as its own) ...
+        tf = Annotation({'@type': str(AnnotationTypes.TimeFrame), 'properties': {'id': 'tf_x', 'start': 0, 'end': 1}})
+        self.view_obj.add_annotation(tf)
+        self.assertEqual('m1', tf.get_property('document'))
+        self.assertNotIn('document', list(tf.properties))
+        # ... under canonical names, however the view spelled them
+        v = View()
+        v.new_contain(AnnotationTypes.TimeFrame, frameType='speech')
+        tf = v.add_annotation(Annotation({'@type': str(AnnotationTypes.TimeFrame),
+                                          'properties': {'id': 'tf_1', 'start': 0, 'end': 1}}))
+        self.assertEqual('speech', tf.get_property('label'))
+        self.assertEqual('speech', tf.get_property('frameType'))
         _ = self.view_obj.serialize()  # raise exception if this fails
         self.view_obj.new_annotation(AnnotationTypes.TimePoint)
         roundtrip = View(json.loads(self.view_obj.serialize()))
@@ -907,7 +908,7 @@ class TestView(unittest.TestCase):
         a2 = self.view_obj.new_annotation('TimeFrame')
         self.assertNotEqual(a1.id, a2.id)
         self.assertEqual(a1.id.rsplit('_', 1)[0], a2.id.rsplit('_', 1)[0])
-        a3 = self.view_obj.new_annotation('TimeFrame', frameType='speech', start=100, end=500)
+        a3 = self.view_obj.new_annotation('TimeFrame', label='speech', start=100, end=500)
         self.assertEqual(4, len(a3.properties))
 
     def test_new_textdocument(self):
@@ -964,6 +965,9 @@ class TestView(unittest.TestCase):
         self.assertEqual(len(annotations), 1)
         # just property
         annotations = list(mmif_obj['v3'].get_annotations(frameType='speech'))
+        self.assertEqual(len(annotations), 1)
+        # the same property, asked for by its canonical name
+        annotations = list(mmif_obj['v3'].get_annotations(AnnotationTypes.TimeFrame, label='speech'))
         self.assertEqual(len(annotations), 1)
         # at_type + annotation metadata
         annotations = list(mmif_obj['v3'].get_annotations(AnnotationTypes.TimeFrame, timeUnit='milliseconds'))
@@ -1057,8 +1061,11 @@ class TestAnnotation(unittest.TestCase):
     def test_annotation_properties_wrapper(self):
         ann_obj = Annotation(self.data['everything']['annotations'][0])
         props_json = self.data['everything']['annotations'][0]['properties']
-        props_obj = AnnotationProperties(props_json)
-        self.assertEqual(ann_obj.properties, props_obj)
+        # this annotation carries the deprecated `frameType` spelling; the
+        # wrapper holds the same properties, under canonical names
+        self.assertIn('frameType', props_json)
+        self.assertEqual(ann_obj.properties, AnnotationProperties(props_json, ann_obj))
+        self.assertNotIn('frameType', list(ann_obj.properties))
         ann_obj.add_property('new_prop', 'new_prop_value')
         self.assertEqual(ann_obj.properties['new_prop'], 'new_prop_value')
         for k in ann_obj.properties.keys():
@@ -1178,50 +1185,95 @@ class TestAnnotation(unittest.TestCase):
     def test_get_property_with_alias(self):
         v = View()
         tf1 = v.new_annotation(AnnotationTypes.TimeFrame, start=0, end=10, label="speech")
-        # tf3 = v.new_annotation(AnnotationTypes.TimeFrame, start=20, end=30, frameType="speech")
         self.assertEqual(tf1.get_property('label'), "speech")
         self.assertEqual(tf1.get_property('frameType'), "speech")
-        with warnings.catch_warnings(record=True) as caught_warnings:
-            # should throw a warning for alias collision
-            tf2 = v.new_annotation(AnnotationTypes.BoundingBox, start=10, end=20,
-                                   label="nonspeech", boxType="nonspeech")
-            # again, should throw a warning for alias collision for frameType and label, 
-            # but not for frameLabel
-            tf3 = v.new_annotation(AnnotationTypes.TimeFrame, start=10, end=20, 
-                                   frameType="nonspeech", label="nonspeech", frameLabel="speech")
-            self.assertEqual(2, len(caught_warnings))
-            self.assertTrue("nonspeech", tf3.get_property('frameType'))
-            self.assertTrue("nonspeech", tf3.get_property('label'))
-            self.assertTrue("speech", tf3.get_property('frameLabel'))
+        # for every alias group the vocabulary defines on these types: a
+        # deprecated spelling is stored under the canonical name (with a
+        # deprecation warning), and either spelling reads, tests membership,
+        # and deletes against that single key
+        for at_type in (AnnotationTypes.TimeFrame, AnnotationTypes.BoundingBox, AnnotationTypes.Token):
+            for canonical, group in at_type._property_aliases.items():
+                for alias in group - {canonical}:
+                    with warnings.catch_warnings(record=True) as caught_warnings:
+                        warnings.simplefilter("always")
+                        ann = v.new_annotation(at_type, **{alias: "x"})
+                    self.assertEqual(1, len([w for w in caught_warnings
+                                             if issubclass(w.category, DeprecationWarning)]))
+                    self.assertEqual([canonical], [k for k in ann.properties if k in (canonical, alias)])
+                    self.assertIn(alias, ann.properties)
+                    self.assertEqual("x", ann.properties[alias])
+                    self.assertEqual("x", ann.get_property(canonical))
+                    self.assertEqual("x", ann.get_property(alias))
+                    del ann.properties[alias]
+                    self.assertNotIn(canonical, ann.properties)
+        # setting one property twice under different spellings: the last
+        # write wins, as for any property; frameLabel is not an alias
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", DeprecationWarning)
+            tf3 = v.new_annotation(AnnotationTypes.TimeFrame, start=10, end=20,
+                                   label="speech", frameType="nonspeech", frameLabel="speech")
+        self.assertEqual("nonspeech", tf3.get_property('label'))
+        self.assertEqual("speech", tf3.get_property('frameLabel'))
 
     def test_alias_precedes_view_contains_default(self):
-        # An annotation that sets a property via a deprecated alias (frameType
-        # aliases label) provides an annotation-level value. A view-level
-        # `contains` default for the canonical name must NOT override it -- the
-        # annotation-level value takes precedence over the view-level default.
+        # An annotation-level value always wins over a view-level `contains`
+        # default for the same canonical property, and its alias name must
+        # resolve to that same annotation-level value, never to the
+        # `contains` default, regardless of whether the annotation supplied
+        # its value under the canonical name or one of its aliases. When
+        # there is no annotation-level value at all, a genuine view-level
+        # default applies and is queryable through both names.
         tf = "http://mmif.clams.ai/vocabulary/TimeFrame/v6"
-        raw = {
-            "metadata": {"mmif": "http://mmif.clams.ai/1.2.0"},
-            "documents": [{"@type": "http://mmif.clams.ai/vocabulary/VideoDocument/v1",
-                           "properties": {"id": "m1", "mime": "video/mp4",
-                                          "location": "file:///v.mp4"}}],
-            "views": [{"id": "v1",
-                       "metadata": {"app": "http://x/1", "contains": {tf: {"label": "X"}}},
-                       "annotations": [{"@type": tf,
-                                        "properties": {"id": "v1:a1", "start": 0,
-                                                       "end": 5, "frameType": "bars"}}]}]
-        }
-        mmif_obj = Mmif(json.dumps(raw), validate=False)
-        ann = mmif_obj['v1:a1']
-        # the annotation's own frameType (alias of label) wins over contains
+
+        def get_property_resolution(ann_props, contains_props):
+            raw = {
+                "metadata": {"mmif": "http://mmif.clams.ai/1.2.0"},
+                "documents": [{"@type": "http://mmif.clams.ai/vocabulary/VideoDocument/v1",
+                               "properties": {"id": "m1", "mime": "video/mp4",
+                                              "location": "file:///v.mp4"}}],
+                "views": [{"id": "v1",
+                           "metadata": {"app": "http://x/1", "contains": {tf: contains_props}},
+                           "annotations": [{"@type": tf,
+                                            "properties": {"id": "v1:a1", "start": 0,
+                                                           "end": 5, **ann_props}}]}]
+            }
+            return Mmif(json.dumps(raw), validate=False)['v1:a1']
+
+        # own value set via the deprecated alias (frameType); contains gives a
+        # default under the canonical name (label). The alias-set value wins.
+        ann = get_property_resolution({"frameType": "bars"}, {"label": "X"})
         self.assertEqual('bars', ann.get_property('label'))
         self.assertEqual('bars', ann.get_property('frameType'))
-        # a genuine view-level default (not shadowed by any annotation value)
-        # still applies
-        raw['views'][0]['metadata']['contains'][tf] = {"timeUnit": "milliseconds"}
-        raw['views'][0]['annotations'][0]['properties'] = {"id": "v1:a1", "start": 0, "end": 5}
-        ann = Mmif(json.dumps(raw), validate=False)['v1:a1']
-        self.assertEqual('milliseconds', ann.get_property('timeUnit'))
+
+        # own value set via the canonical name (label) itself; contains gives
+        # a default for that same canonical name. The annotation's own value
+        # still wins, and the alias (frameType) must resolve to it too, not
+        # to the contains default.
+        ann = get_property_resolution({"label": "bars"}, {"label": "credits"})
+        self.assertEqual('bars', ann.get_property('label'))
+        self.assertEqual('bars', ann.get_property('frameType'))
+
+        # no own value at all: the view-level default applies, and is
+        # queryable through both the canonical name and its alias.
+        ann = get_property_resolution({}, {"label": "bars"})
+        self.assertEqual('bars', ann.get_property('label'))
+        self.assertEqual('bars', ann.get_property('frameType'))
+
+        # the view-level default may itself use the deprecated spelling
+        ann = get_property_resolution({}, {"frameType": "bars"})
+        self.assertEqual('bars', ann.get_property('label'))
+        self.assertEqual('bars', ann.get_property('frameType'))
+        ann = get_property_resolution({"label": "own"}, {"frameType": "X"})
+        self.assertEqual('own', ann.get_property('label'))
+        self.assertEqual('own', ann.get_property('frameType'))
+
+        # both spellings on the annotation itself: the canonical one wins,
+        # with a warning, and only the canonical key remains
+        with self.assertWarns(UserWarning):
+            ann = get_property_resolution({"frameType": "B", "label": "A"}, {})
+        self.assertEqual('A', ann.get_property('label'))
+        self.assertEqual('A', ann.get_property('frameType'))
+        self.assertNotIn('frameType', list(ann.properties))
 
     def test_change_id(self):
         anno_obj: Annotation = self.data['everything']['mmif']['v5:bb1']
@@ -1274,6 +1326,13 @@ class TestDocument(unittest.TestCase):
         self.assertEqual(d.id, d.get_property('id'))
         self.assertEqual(d.location, d.get_property('location'))
         self.assertEqual('value1', d.get_property('prop1'))
+        # document types have no property aliases; a name that is an alias
+        # for annotation types (word) is stored as spelled, without a warning
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            d.properties['word'] = 'w'
+        self.assertIn('word', list(d.properties))
+        self.assertEqual('w', d.get_property('word'))
         d.id = 'v1:d1'
         self.assertEqual('v1:d1', d.long_id)
         self.assertEqual('v1:d1', d._short_id)
@@ -1532,35 +1591,45 @@ class TestDocument(unittest.TestCase):
         self.assertEqual({1709977.0, 1709975}, durations)
 
     def test_factor_out_shared_properties(self):
-        # A view-level metadata property (document/timeUnit/labelset) shared
+        # A view-level metadata property (document/timeUnit/label) shared
         # across all annotations of a type is factored up into the view's
-        # `contains` on serialize, while instance-level properties (label) and
-        # anchors stay on the annotations.
+        # `contains` on serialize, while an instance-level property that
+        # differs (note) stays on the annotations. The shared `label` is
+        # spelled by its alias (frameType) on one annotation, so this also
+        # covers factoring across spellings and round-tripping a factored-out
+        # value through its alias, not just its canonical name.
         m = Mmif(validate=False)
         v = m.new_view(); v.metadata.app = tester_appname
         v.new_annotation(AnnotationTypes.TimeFrame, document='m1', timeUnit='ms',
-                         start=0, end=5, label='bars')
-        v.new_annotation(AnnotationTypes.TimeFrame, document='m1', timeUnit='ms',
-                         start=5, end=9, label='slate')
+                         start=0, end=5, label='bars', note='first')
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", DeprecationWarning)
+            v.new_annotation(AnnotationTypes.TimeFrame, document='m1', timeUnit='ms',
+                             start=5, end=9, frameType='bars', note='second')
         out = json.loads(m.serialize())
         vout = out['views'][0]
         tf_key = next(k for k in vout['metadata']['contains'] if 'TimeFrame' in k)
         contains = vout['metadata']['contains'][tf_key]
-        # shared `document`/`timeUnit` are factored up ...
+        # shared `document`/`timeUnit`/`label` are factored up ...
         self.assertEqual('m1', contains.get('document'))
         self.assertEqual('ms', contains.get('timeUnit'))
+        self.assertEqual('bars', contains.get('label'))
         for a in vout['annotations']:
             # ... and removed from each annotation ...
             self.assertNotIn('document', a['properties'])
             self.assertNotIn('timeUnit', a['properties'])
-            # ... while anchors and the differing label stay per-annotation
+            self.assertNotIn('label', a['properties'])
+            # ... while anchors and the differing `note` stay per-annotation
             self.assertIn('start', a['properties'])
-            self.assertIn('label', a['properties'])
-        # round-trip: the factored values still resolve per annotation
+            self.assertIn('note', a['properties'])
+        # round-trip: the factored values still resolve per annotation,
+        # including through the `label` alias (`frameType`)
         m2 = Mmif(m.serialize())
         for a in m2.views[0].get_annotations(AnnotationTypes.TimeFrame):
             self.assertEqual('m1', a.get_property('document'))
             self.assertEqual('ms', a.get_property('timeUnit'))
+            self.assertEqual('bars', a.get_property('label'))
+            self.assertEqual('bars', a.get_property('frameType'))
 
     def test_factor_out_protects_listed_props_and_skips_singletons(self):
         # Blocklisted props (anchors/links) are never factored even when
