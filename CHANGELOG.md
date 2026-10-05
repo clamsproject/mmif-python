@@ -1,4 +1,19 @@
 
+## releasing 1.5.4 (2026-10-05)
+### Overview
+
+This patch fixes image extraction from truncated or otherwise incomplete video files, and the handling of deprecated annotation property names.
+
+### Changes
+
+* `video_document_helper`: image extraction no longer fails or returns wrong images on incomplete video files. Timepoints with no image now come back as `None`, with a warning that tells how to check the file (https://github.com/clamsproject/mmif-python/issues/400).
+    * *Note: apps that process every returned image must handle `None`.*
+    * `av` is now pinned to `>= 15` for `mmif-python[cv]` 
+* Deprecated property names (e.g., `frameType` for `label`) work again for values stored in a view's `contains` metadata, including in `mmif summarize` output (https://github.com/clamsproject/mmif-python/issues/401).
+
+
+
+
 ## releasing 1.5.3 (2026-07-08)
 ### Overview
 This patch includes improvements in automatic conversion between contains-metadata properties and annotation properties (#396) 
