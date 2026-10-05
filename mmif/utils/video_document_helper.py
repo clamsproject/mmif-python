@@ -359,8 +359,7 @@ def extract_images_from_timepoints(
                                    if rate else 0)
 
         def _tolerance_ticks(frame):
-            return (getattr(frame, 'duration', None)
-                    or default_tolerance_ticks)
+            return frame.duration or default_tolerance_ticks
 
         # convert each target ms to stream ticks (PTS units)
         target_ticks = [round(t_ms / 1000.0 / time_base)

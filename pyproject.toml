@@ -39,7 +39,7 @@ source = "https://github.com/clamsproject/mmif-python"
 mmif-spec = "https://mmif.clams.ai/1.2.0"
 
 [project.optional-dependencies]
-cv = ["pillow", "opencv-python", "ffmpeg-python", "wurlitzer", "av"]
+cv = ["pillow", "opencv-python", "ffmpeg-python", "wurlitzer", "av>=15"]
 seq = ["numpy"]
 docs = ["sphinx>=7.0,<8.0", "furo", "m2r2", "autodoc-pydantic"]
 test = [

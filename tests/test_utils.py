@@ -549,7 +549,9 @@ class TestBrokenVideoDocument(unittest.TestCase):
         # `moov` sits at the end of the shipped fixtures, so a cut copy of the
         # original cannot be opened at all
         cls.trailing_moov = cls._truncate(healthy_mp4, tmp / 'moovend.mp4')
-        # too short to hold a video stream, yet still openable
+        # opens fine, holds no video stream; the realistic case is an audio
+        # file registered as a VideoDocument, and a tiny prefix behaves alike
+        cls.audio_only = cls._write_audio_only(tmp / 'audio.wav')
         cls.tiny = cls._truncate(faststart, tmp / 'tiny.mp4', 200)
         cls.healthy = healthy_mp4
 
@@ -579,6 +581,23 @@ class TestBrokenVideoDocument(unittest.TestCase):
                     continue
                 packet.stream = out_stream
                 out.mux(packet)
+
+    @staticmethod
+    def _write_audio_only(dst):
+        import av
+        import numpy as np
+        rate = 8000
+        with av.open(str(dst), 'w') as out:
+            stream = out.add_stream('pcm_s16le', rate=rate, layout='mono')
+            frame = av.AudioFrame.from_ndarray(
+                np.zeros((1, rate), dtype='int16'), format='s16',
+                layout='mono')
+            frame.sample_rate = rate
+            for packet in stream.encode(frame):
+                out.mux(packet)
+            for packet in stream.encode(None):
+                out.mux(packet)
+        return dst
 
     @staticmethod
     def _truncate(src, dst, nbytes=None):
@@ -707,8 +726,8 @@ class TestBrokenVideoDocument(unittest.TestCase):
         self.assertIsNone(images[1])
 
     def test_tolerance_falls_back_to_stream_rate(self):
-        # `frame.duration` only exists in PyAV >= 15; older versions must get
-        # the same tolerance from the stream frame rate
+        # a frame may carry no duration of its own, in which case the same
+        # tolerance must come from the stream frame rate
         class _NoDuration:
             def __init__(self, frame):
                 self._frame = frame
@@ -732,7 +751,9 @@ class TestBrokenVideoDocument(unittest.TestCase):
         self.assertEqual([], messages)
 
     def test_unopenable_files_raise_with_hint(self):
-        cases = {'trailing moov': self.trailing_moov, 'tiny prefix': self.tiny}
+        cases = {'trailing moov': self.trailing_moov,
+                 'audio only': self.audio_only,
+                 'tiny prefix': self.tiny}
         for label, path in cases.items():
             with self.subTest(case=label):
                 with pytest.raises(RuntimeError) as excinfo:
