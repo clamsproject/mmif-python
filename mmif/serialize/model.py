@@ -134,13 +134,31 @@ class MmifObject(object):
         """
         Method to set values in _unnamed_attributes.
 
+        A key that matches a declared (named) attribute is stored in that
+        attribute instead, with a warning, so that a key never lives in both
+        places. A leading ``@`` in the key is read as the ``_`` prefix of
+        the attribute name, following the JSON-LD mapping used in
+        serialization.
+
         :param key: the attribute name
         :param value: the desired value
         :return: None
         :raise: AttributeError if additional properties are disallowed by :func:`disallow_additional_properties`
+        :raise: KeyError if the key is a reserved name
         """
+        attr = f'_{key[1:]}' if key.startswith('@') else key
         if self._unnamed_attributes is None:
-            raise AttributeError(f"Additional properties are disallowed by {self.__class__}")
+            hint = (f' "{key}" is a declared attribute; use obj["{attr}"] = value.'
+                    if attr in self._named_attributes() else '')
+            raise AttributeError(f"Additional properties are disallowed by {self.__class__}.{hint}")
+        if key in self.reserved_names or attr in self.reserved_names:
+            raise KeyError(f"can't set a reserved name: {key}")
+        if attr in self._named_attributes():
+            warnings.warn(f'"{key}" is a declared attribute of {type(self).__name__}; '
+                          f'storing it as the attribute, not as an additional property.',
+                          stacklevel=2)
+            self[attr] = value
+            return
         self._unnamed_attributes[key] = value  # pytype: disable=unsupported-operands
 
     def _named_attributes(self) -> Generator[str, None, None]:
