@@ -430,6 +430,7 @@ class ViewMetadata(MmifObject):
         self.document: str = ''
         self.timestamp: Optional[datetime] = None
         self.app: str = ''
+        self.appTags: List[str] = []
         self.contains: ContainsDict = ContainsDict()
         self.parameters: Dict[str, str] = {}
         self.appConfiguration: Dict[str, Union[PRMTV_TYPES, List[PRMTV_TYPES]]] = {}
