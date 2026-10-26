@@ -15,7 +15,7 @@ import math
 import warnings
 from collections import defaultdict
 from datetime import datetime, timezone
-from typing import Any, List, Union, Optional, Dict, cast, Iterator
+from typing import Any, List, Union, Optional, Dict, cast, Iterable, Iterator
 
 import jsonschema.validators
 
@@ -762,6 +762,43 @@ class Mmif(MmifObject):
                 if at_types in view.metadata.contains:
                     return view
         return None
+
+    def get_annotations_of_labels(
+            self, at_type: Union[ThingTypesBase, str],
+            include_labels: Iterable[str] = (),
+            exclude_labels: Iterable[str] = ()) -> Iterator[Annotation]:
+        """
+        Finds annotations of a type across all views, filtered by their
+        ``label`` property.
+
+        With both label lists empty (the default), every annotation of
+        ``at_type`` is returned, including annotations that have no
+        ``label``. A non-empty ``include_labels`` keeps only annotations
+        whose ``label`` is listed, so annotations without a ``label`` are
+        dropped. ``exclude_labels`` is applied after ``include_labels`` and
+        never drops annotations without a ``label``.
+
+        The ``label`` value is read with
+        :py:meth:`~mmif.serialize.annotation.Annotation.get_property`, so
+        the deprecated spellings of the property (``frameType`` on
+        ``TimeFrame``, ``boxType`` on ``BoundingBox``) are honored.
+
+        :param at_type: the type of the annotations to look for
+        :param include_labels: labels to keep; empty means no restriction
+        :param exclude_labels: labels to leave out
+        :return: an iterator of matching annotations, in view order and
+                 then in annotation order within each view
+        """
+        include = tuple(include_labels)
+        exclude = tuple(exclude_labels)
+        for view in self.get_all_views_contain(at_type):
+            for ann in view.get_annotations(at_type):
+                label = ann.get_property('label')
+                if include and label not in include:
+                    continue
+                if label is not None and label in exclude:
+                    continue
+                yield ann
 
     def _is_in_time_range(self, ann: Annotation, range_s: Union[int, float], range_e: Union[int, float]) -> bool:
         """

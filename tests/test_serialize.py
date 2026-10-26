@@ -405,6 +405,50 @@ class TestMmif(unittest.TestCase):
         self.assertEqual(e_view.id, f'{p}4')
         self.assertEqual(len(mmif_obj.views), 5)
 
+    def test_get_annotations_of_labels(self):
+        mmif_obj = Mmif(validate=False)
+        v1 = mmif_obj.new_view()
+        v1.new_contain(AnnotationTypes.TimeFrame, timeUnit='milliseconds')
+        shot = v1.new_annotation(AnnotationTypes.TimeFrame, aid='tf_1',
+                                 label='shot', start=0, end=10)
+        speech = v1.new_annotation(AnnotationTypes.TimeFrame, aid='tf_2',
+                                   label='speech', start=10, end=20)
+        unlabeled = v1.new_annotation(AnnotationTypes.TimeFrame, aid='tf_3',
+                                      start=20, end=30)
+        v2 = mmif_obj.new_view()
+        v2.new_contain(AnnotationTypes.TimeFrame, timeUnit='milliseconds')
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore')
+            legacy = v2.new_annotation(AnnotationTypes.TimeFrame, aid='tf_1',
+                                       frameType='shot', start=30, end=40)
+        v3 = mmif_obj.new_view()
+        v3.new_contain(AnnotationTypes.BoundingBox)
+        box = v3.new_annotation(AnnotationTypes.BoundingBox, aid='bb_1',
+                                label='shot')
+
+        def ids(*args, **kwargs):
+            return [a.id for a in
+                    mmif_obj.get_annotations_of_labels(*args, **kwargs)]
+
+        tf = AnnotationTypes.TimeFrame
+        # no filter: every TimeFrame across views, unlabeled included,
+        # in view order; other types never leak in
+        self.assertEqual(
+            [shot.id, speech.id, unlabeled.id, legacy.id], ids(tf))
+        # allow list drops unlabeled annotations and reads `frameType`
+        self.assertEqual([shot.id, legacy.id], ids(tf, ['shot']))
+        # ignore list keeps unlabeled annotations
+        self.assertEqual([speech.id, unlabeled.id],
+                         ids(tf, exclude_labels=['shot']))
+        # ignore list is applied after the allow list
+        self.assertEqual([], ids(tf, ['shot'], ['shot']))
+        # label filtering works for any annotation type
+        self.assertEqual([box.id],
+                         ids(AnnotationTypes.BoundingBox, ['shot']))
+        # any iterable works, and a type no view contains yields nothing
+        self.assertEqual([speech.id], ids(tf, iter(['speech'])))
+        self.assertEqual([], ids(AnnotationTypes.TimePoint))
+
     def test_get_annotations_between_time(self):
         token_type = "http://vocab.lappsgrid.org/Token"
         # Below tokens are obtained by 'jq' in CLI using command:
