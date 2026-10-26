@@ -122,11 +122,15 @@ class ViewsList(DataList[View]):
 
     def get_last_contentful_view(self) -> Optional[View]:
         """
-        Returns the last view that is contentful, i.e., has no error or warning .
+        Returns the last view that is contentful, i.e., has at least one
+        annotation (see :meth:`~mmif.serialize.view.View.has_content`).
+        Views with no annotations, including error and warning views, are
+        skipped.
         """
         for view in reversed(self._items.values()):
-            if 'error' not in view.metadata and 'warnings' not in view.metadata:
+            if view.has_content():
                 return view
+        return None
     
     def get_last_view(self) -> Optional[View]:
         """
@@ -336,7 +340,9 @@ class Mmif(MmifObject):
         behind this behavior and discussion.
         """
         # this view will be the default kitchen sink for all generated annotations.
-        last_view = self.views.get_last_contentful_view()
+        # this can be an empty view, from an app that only adds document properties
+        last_view = next((v for v in reversed(self.views)
+                          if not v.has_error() and not v.has_warnings()), None)
         
         # proceed only when there's at least one view
         if last_view:

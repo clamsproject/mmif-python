@@ -300,9 +300,17 @@ def describe_single_mmif(mmif_input: Union[str, Path, Mmif]) -> dict:
     """
     mmif = _read_mmif_from_path(mmif_input)
 
+    # view status is a property of each view, independent of grouping
     error_view_ids = []
     warning_view_ids = []
     empty_view_ids = []
+    for view in mmif.views:
+        if view.has_error():
+            error_view_ids.append(view.id)
+        elif view.has_warnings():
+            warning_view_ids.append(view.id)
+        elif not view.has_content():
+            empty_view_ids.append(view.id)
 
     # Generate the new "apps" list
     grouped_apps = []
@@ -313,8 +321,6 @@ def describe_single_mmif(mmif_input: Union[str, Path, Mmif]) -> dict:
 
         execution_ann_counter = Counter()
         for view in group:
-            if len(view.annotations) == 0:
-                empty_view_ids.append(view.id)
             execution_ann_counter.update(Counter(str(ann.at_type) for ann in view.annotations))
 
         execution_view_ids = [v.id for v in group]
@@ -336,19 +342,8 @@ def describe_single_mmif(mmif_input: Union[str, Path, Mmif]) -> dict:
             annotationCountByType=count_dict
         ))
 
-    # Handle unassigned and problematic views
-    all_view_ids = set(v.id for v in mmif.views)
-
-    for view in mmif.views:
-        if view.id not in processed_view_ids:
-            if view.has_error():
-                error_view_ids.append(view.id)
-            elif view.has_warnings():
-                warning_view_ids.append(view.id)
-            elif len(view.annotations) == 0:
-                empty_view_ids.append(view.id)
-
-    unassigned_view_ids = all_view_ids - processed_view_ids - set(error_view_ids) - set(warning_view_ids)
+    # views that cannot be grouped (no app or timestamp), whatever they hold
+    unassigned_view_ids = set(v.id for v in mmif.views) - processed_view_ids
 
     # Store app_count before potentially adding the special entry
     app_count = len(grouped_apps)

@@ -349,6 +349,42 @@ class TestMmif(unittest.TestCase):
         view = mmif_obj.get_view_contains(not_existing_attype)
         self.assertIsNone(view)
 
+    def _mmif_with_view_states(self):
+        mmif_obj = Mmif(MMIF_EXAMPLES['everything'])
+        states = {}
+        for state in ('contentful', 'empty', 'warnings', 'error'):
+            view = mmif_obj.new_view()
+            view.metadata.app = tester_appname
+            states[state] = view
+        states['contentful'].new_annotation(AnnotationTypes.TimeFrame)
+        states['warnings'].metadata.warnings = ['some warning']
+        states['error'].set_error('some error', 'some trace')
+        return mmif_obj, states
+
+    def test_view_has_content(self):
+        _, states = self._mmif_with_view_states()
+        self.assertEqual(
+            {state: view.has_content() for state, view in states.items()},
+            {'contentful': True, 'empty': False, 'warnings': False, 'error': False})
+
+    def test_get_last_contentful_view(self):
+        mmif_obj, states = self._mmif_with_view_states()
+        # empty, warnings, and error views appended later are all skipped
+        self.assertEqual(states['contentful'].id,
+                         mmif_obj.views.get_last_contentful_view().id)
+
+    def test_capital_annotations_go_to_empty_last_view(self):
+        # an app that only adds document properties leaves an empty view,
+        # which must still receive the generated Annotation
+        mmif_obj = Mmif(MMIF_EXAMPLES['everything'])
+        doc_props_view = mmif_obj.new_view()
+        doc_props_view.metadata.app = tester_appname
+        mmif_obj.documents[0].add_property('author', 'me')
+        roundtrip = Mmif(mmif_obj.serialize())
+        anns = list(roundtrip[doc_props_view.id].get_annotations(
+            AnnotationTypes.Annotation, author='me'))
+        self.assertEqual(1, len(anns))
+
     def test_get_views_for_document(self):
         mmif_obj = Mmif(MMIF_EXAMPLES['everything'])
         
@@ -1458,7 +1494,7 @@ class TestDocument(unittest.TestCase):
         self.assertEqual(2, len(doc1._props_pending))
         mmif_roundtrip2 = Mmif(mmif_roundtrip1.serialize())
         ## but not serialized
-        self.assertEqual(0, len(list(mmif_roundtrip2.views.get_last_contentful_view().get_annotations(AnnotationTypes.Annotation))))
+        self.assertEqual(0, len(list(mmif_roundtrip2[r1_vid].get_annotations(AnnotationTypes.Annotation))))
 
         # adding non-duplicate value should be serialized into a new Annotation object
         # even when there is a duplicate key in a previous view

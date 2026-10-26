@@ -418,6 +418,14 @@ class View(MmifObject):
     def has_warnings(self):
         return self.metadata.has_warnings()
 
+    def has_content(self) -> bool:
+        """
+        Returns True if the view has at least one annotation. Per the MMIF
+        specification, error views and warning views carry no annotations,
+        so a view with content has neither an error nor warnings.
+        """
+        return len(self.annotations) > 0
+
 
 class ViewMetadata(MmifObject):
     """
