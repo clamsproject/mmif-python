@@ -1210,9 +1210,69 @@ class TestWorkflowHelper(unittest.TestCase):
             result = wfh.describe_single_mmif(tmp_file)
             # Validate against Pydantic model
             validated = wfh.SingleMmifDesc.model_validate(result)
-            self.assertEqual(validated.stats.app_count, 0)
-            self.assertEqual(len(validated.apps), 0)
-            self.assertEqual(len(validated.stats.error_views), 1)
+            # a failed run is still an app execution
+            self.assertEqual(validated.stats.app_count, 1)
+            self.assertEqual(len(validated.apps), 1)
+            self.assertEqual(validated.stats.error_views, [view.id])
+            self.assertEqual(validated.stats.empty_views, [])
+        finally:
+            os.unlink(tmp_file)
+
+    def test_describe_single_mmif_warnings_only_view(self):
+        """Test describe_single_mmif with a run that produced only warnings."""
+        view = self.basic_mmif.new_view()
+        view.metadata.app = "http://apps.clams.ai/test-app/v1.0.0"
+        view.metadata.timestamp = "2024-01-01T12:00:00Z"
+        view.metadata.warnings = ["EmptyOutputWarning: no annotations"]
+        tmp_file = self.create_temp_mmif_file(self.basic_mmif)
+        try:
+            validated = wfh.SingleMmifDesc.model_validate(
+                wfh.describe_single_mmif(tmp_file))
+            self.assertEqual(validated.stats.app_count, 1)
+            self.assertEqual(validated.stats.warning_views, [view.id])
+            self.assertEqual(validated.stats.empty_views, [])
+        finally:
+            os.unlink(tmp_file)
+
+    def test_describe_single_mmif_annotations_and_warnings(self):
+        """Test describe_single_mmif with a run of a contentful view and a warnings view."""
+        contentful = self.basic_mmif.new_view()
+        contentful.metadata.app = "http://apps.clams.ai/test-app/v1.0.0"
+        contentful.metadata.timestamp = "2024-01-01T12:00:00Z"
+        contentful.new_annotation(AnnotationTypes.TimeFrame)
+        warning = self.basic_mmif.new_view()
+        warning.metadata.app = "http://apps.clams.ai/test-app/v1.0.0"
+        warning.metadata.timestamp = "2024-01-01T12:00:00Z"
+        warning.metadata.warnings = ["UserWarning: something odd"]
+        tmp_file = self.create_temp_mmif_file(self.basic_mmif)
+        try:
+            validated = wfh.SingleMmifDesc.model_validate(
+                wfh.describe_single_mmif(tmp_file))
+            self.assertEqual(validated.stats.app_count, 1)
+            self.assertEqual(validated.apps[0].view_ids,
+                             [contentful.id, warning.id])
+            self.assertEqual(validated.stats.warning_views, [warning.id])
+            self.assertEqual(validated.stats.error_views, [])
+            self.assertEqual(validated.stats.empty_views, [])
+        finally:
+            os.unlink(tmp_file)
+
+    def test_describe_single_mmif_empty_view(self):
+        """
+        Test describe_single_mmif with an empty view. clams-python 1.7.4 and
+        later never emit one, so this covers older files and other producers.
+        """
+        view = self.basic_mmif.new_view()
+        view.metadata.app = "http://apps.clams.ai/test-app/v1.0.0"
+        view.metadata.timestamp = "2024-01-01T12:00:00Z"
+        tmp_file = self.create_temp_mmif_file(self.basic_mmif)
+        try:
+            validated = wfh.SingleMmifDesc.model_validate(
+                wfh.describe_single_mmif(tmp_file))
+            self.assertEqual(validated.stats.app_count, 1)
+            self.assertEqual(validated.stats.empty_views, [view.id])
+            self.assertEqual(validated.stats.warning_views, [])
+            self.assertEqual(validated.stats.error_views, [])
         finally:
             os.unlink(tmp_file)
 
