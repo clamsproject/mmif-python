@@ -362,18 +362,12 @@ class Mmif(MmifObject):
             # new properties to record in the current serialization call
             anns_to_write = defaultdict(dict)
             for view in self.views:
-                doc_id = None
-                if AnnotationTypes.Annotation in view.metadata.contains:
-                    if 'document' in view.metadata.contains[AnnotationTypes.Annotation]:
-                        doc_id = view.metadata.contains[AnnotationTypes.Annotation]['document']
-                    for ann in view.get_annotations(AnnotationTypes.Annotation):
-                        if doc_id is None:
-                            # note that in the input MMIF that generated with old implementation,
-                            # this value can be in the "short" form, i.e., without view ID prefix
-                            # however, after deserialization, all document IDs should have the 
-                            # view ID prefix, at least within in-memory representation.
-                            doc_id = ann.get_property('document')
-                        existing_anns[doc_id].update(ann.properties.items())
+                for ann in view.get_annotations(AnnotationTypes.Annotation):
+                    # view-level `contains` defaults are exposed on each
+                    # annotation as ephemeral properties; in MMIF made by old
+                    # SDKs, the id may be in the short form (no view prefix)
+                    existing_anns[ann.get_property('document')].update(
+                        ann.properties.items())
                 for doc in view.get_documents():
                     anns_to_write[doc.id].update(doc._props_pending.items())
             for doc in self.documents:

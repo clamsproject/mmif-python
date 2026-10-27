@@ -385,6 +385,44 @@ class TestMmif(unittest.TestCase):
             AnnotationTypes.Annotation, author='me'))
         self.assertEqual(1, len(anns))
 
+    def _mmif_with_two_documents(self) -> Mmif:
+        mmif_obj = Mmif(MMIF_EXAMPLES['everything'])
+        doc2 = Document()
+        doc2.at_type = DocumentTypes.TextDocument
+        doc2.id = 'doc2'
+        doc2.location = 'aScheme:///data/doc2.txt'
+        mmif_obj.add_document(doc2)
+        return mmif_obj
+
+    def test_capital_annotations_repeated_generation(self):
+        # pending props stay after conversion, so converting again must not
+        # write them twice, also when a view holds several documents' props
+        mmif_obj = self._mmif_with_two_documents()
+        view = mmif_obj.new_view()
+        view.metadata.app = tester_appname
+        mmif_obj['m1'].add_property('author', 'me')
+        mmif_obj['doc2'].add_property('author', 'you')
+        mmif_obj.generate_capital_annotations()
+        roundtrip = Mmif(mmif_obj.serialize())
+        anns = list(roundtrip[view.id].get_annotations(AnnotationTypes.Annotation))
+        self.assertEqual(2, len(anns))
+
+    def test_capital_annotations_skip_value_in_multi_document_view(self):
+        # a value already recorded for a document is skipped, even when the
+        # earlier view also holds Annotations for other documents
+        mmif_obj = self._mmif_with_two_documents()
+        earlier = mmif_obj.new_view()
+        earlier.metadata.app = tester_appname
+        earlier.new_annotation(AnnotationTypes.Annotation, document='m1', author='me')
+        earlier.new_annotation(AnnotationTypes.Annotation, document='doc2', author='you')
+        mmif_obj = Mmif(mmif_obj.serialize())
+        current = mmif_obj.new_view()
+        current.metadata.app = tester_appname
+        mmif_obj['m1'].add_property('author', 'me')
+        roundtrip = Mmif(mmif_obj.serialize())
+        anns = list(roundtrip[current.id].get_annotations(AnnotationTypes.Annotation))
+        self.assertEqual(0, len(anns))
+
     def test_get_views_for_document(self):
         mmif_obj = Mmif(MMIF_EXAMPLES['everything'])
         
