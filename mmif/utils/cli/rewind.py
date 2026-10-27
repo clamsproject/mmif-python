@@ -31,11 +31,14 @@ def prompt_user(mmif_obj: mmif.Mmif) -> int:
 
 def rewind_mmif(mmif_obj: mmif.Mmif, choice: int, choice_is_viewnum: bool = True) -> mmif.Mmif:
     """
-    Rewind MMIF by deleting the last N views. 
-    The number of views to rewind is given as a number of "views", or number of "producer apps". 
-    By default, the number argument is interpreted as the number of "views". 
-    Note that when the same app is repeatedly run in a CLAMS workflow and produces multiple views in a row,
-    rewinding in "app" mode will rewind all those views at once.
+    Rewind MMIF by deleting the last N views.
+    The number of views to rewind is given as a number of "views", or number of "producer apps".
+    By default, the number argument is interpreted as the number of "views".
+    In "app" mode, one app is one app execution as grouped by
+    :func:`mmif.utils.workflow_helper.group_views_by_app`: all views that
+    share the same ``app`` and ``timestamp``, including warning and error
+    views. Rewinding one app removes the last execution only; earlier runs
+    of the same app are kept.
 
     :param mmif_obj: mmif object
     :param choice: number of views to rewind
@@ -59,7 +62,9 @@ def describe_argparser():
     oneliner = 'provides CLI to rewind a MMIF from a CLAMS workflow.'
     additional = textwrap.dedent("""
     MMIF rewinder rewinds a MMIF by deleting the last N views.
-    N can be specified as a number of views, or a number of producer apps. """)
+    N can be specified as a number of views, or a number of producer apps.
+    In app mode, one app is one app execution: all views that share the
+    same app and timestamp, including warning and error views. """)
     return oneliner, oneliner + '\n\n' + additional
 
 

@@ -15,7 +15,7 @@ from jsonschema import ValidationError
 import mmif as mmifpkg
 from mmif.serialize import *
 from mmif.serialize.model import *
-from mmif.serialize.view import ContainsDict, ErrorDict
+from mmif.serialize.view import ContainsDict, ErrorDict, ViewMetadata
 from mmif.vocabulary import AnnotationTypes, DocumentTypes, ThingType
 from tests.mmif_examples import *
 
@@ -349,6 +349,145 @@ class TestMmif(unittest.TestCase):
         view = mmif_obj.get_view_contains(not_existing_attype)
         self.assertIsNone(view)
 
+    def _mmif_with_view_states(self):
+        mmif_obj = Mmif(MMIF_EXAMPLES['everything'])
+        states = {}
+        for state in ('contentful', 'empty', 'warnings', 'error'):
+            view = mmif_obj.new_view()
+            view.metadata.app = tester_appname
+            states[state] = view
+        states['contentful'].new_annotation(AnnotationTypes.TimeFrame)
+        states['warnings'].metadata.warnings = ['some warning']
+        states['error'].set_error('some error', 'some trace')
+        return mmif_obj, states
+
+    def test_view_has_content(self):
+        _, states = self._mmif_with_view_states()
+        self.assertEqual(
+            {state: view.has_content() for state, view in states.items()},
+            {'contentful': True, 'empty': False, 'warnings': False, 'error': False})
+
+    def test_get_last_contentful_view(self):
+        mmif_obj, states = self._mmif_with_view_states()
+        # empty, warnings, and error views appended later are all skipped
+        self.assertEqual(states['contentful'].id,
+                         mmif_obj.views.get_last_contentful_view().id)
+
+    def test_capital_annotations_go_to_empty_last_view(self):
+        # an app that only adds document properties leaves an empty view,
+        # which must still receive the generated Annotation
+        mmif_obj = Mmif(MMIF_EXAMPLES['everything'])
+        doc_props_view = mmif_obj.new_view()
+        doc_props_view.metadata.app = tester_appname
+        mmif_obj.documents[0].add_property('author', 'me')
+        roundtrip = Mmif(mmif_obj.serialize())
+        anns = list(roundtrip[doc_props_view.id].get_annotations(
+            AnnotationTypes.Annotation, author='me'))
+        self.assertEqual(1, len(anns))
+
+    def _mmif_with_two_documents(self) -> Mmif:
+        mmif_obj = Mmif(MMIF_EXAMPLES['everything'])
+        doc2 = Document()
+        doc2.at_type = DocumentTypes.TextDocument
+        doc2.id = 'doc2'
+        doc2.location = 'aScheme:///data/doc2.txt'
+        mmif_obj.add_document(doc2)
+        return mmif_obj
+
+    def test_capital_annotations_repeated_generation(self):
+        # pending props stay after conversion, so converting again must not
+        # write them twice, also when a view holds several documents' props
+        mmif_obj = self._mmif_with_two_documents()
+        view = mmif_obj.new_view()
+        view.metadata.app = tester_appname
+        mmif_obj['m1'].add_property('author', 'me')
+        mmif_obj['doc2'].add_property('author', 'you')
+        mmif_obj.generate_capital_annotations()
+        roundtrip = Mmif(mmif_obj.serialize())
+        anns = list(roundtrip[view.id].get_annotations(AnnotationTypes.Annotation))
+        self.assertEqual(2, len(anns))
+
+    def test_capital_annotations_skip_value_in_multi_document_view(self):
+        # a value already recorded for a document is skipped, even when the
+        # earlier view also holds Annotations for other documents
+        mmif_obj = self._mmif_with_two_documents()
+        earlier = mmif_obj.new_view()
+        earlier.metadata.app = tester_appname
+        earlier.new_annotation(AnnotationTypes.Annotation, document='m1', author='me')
+        earlier.new_annotation(AnnotationTypes.Annotation, document='doc2', author='you')
+        mmif_obj = Mmif(mmif_obj.serialize())
+        current = mmif_obj.new_view()
+        current.metadata.app = tester_appname
+        mmif_obj['m1'].add_property('author', 'me')
+        roundtrip = Mmif(mmif_obj.serialize())
+        anns = list(roundtrip[current.id].get_annotations(AnnotationTypes.Annotation))
+        self.assertEqual(0, len(anns))
+
+    def _mmif_with_app_views(self) -> Mmif:
+        mmif_obj = Mmif(MMIF_EXAMPLES['everything'])
+        for app, tags in (
+                ('http://apps.clams.ai/swt-detection/v8.6', ['TemporalSegmentation']),
+                ('http://apps.clams.ai/swt-detection/v8.7', ['TemporalSegmentation', 'SceneRecognition']),
+                ('https://example.com/apps/foo/v1', []),
+                ('http://apps.clams.ai/swt-detection/v8.6', ['TemporalSegmentation']),
+        ):
+            view = mmif_obj.new_view()
+            view.metadata.app = app
+            view.metadata.appTags = tags
+        return mmif_obj
+
+    def test_view_metadata_apptags(self):
+        mmif_obj = self._mmif_with_app_views()
+        reloaded = Mmif(mmif_obj.serialize())
+        tagged, untagged = reloaded.views[-3], reloaded.views[-2]
+        self.assertEqual(tagged.metadata.appTags,
+                         ['TemporalSegmentation', 'SceneRecognition'])
+        self.assertEqual(untagged.metadata.appTags, [])
+        # an empty list is not serialized
+        raw = json.loads(reloaded.serialize())
+        self.assertNotIn('appTags', raw['views'][-2]['metadata'])
+
+    def test_get_all_views_by_app(self):
+        mmif_obj = self._mmif_with_app_views()
+        new_ids = [v.id for v in mmif_obj.views][-4:]
+        v86_a, v87, foo, v86_b = new_ids
+        by_full = mmif_obj.get_all_views_by_app('http://apps.clams.ai/swt-detection/v8.6')
+        self.assertEqual([v86_a, v86_b], [v.id for v in by_full])
+        # first-party shorthand expands to the same URI
+        by_short = mmif_obj.get_views_by_app('swt-detection/v8.6')
+        self.assertEqual([v86_a, v86_b], [v.id for v in by_short])
+        # several IDs are OR-ed, e.g. for a version range
+        by_range = mmif_obj.get_views_by_app('swt-detection/v8.6', 'swt-detection/v8.7')
+        self.assertEqual([v86_a, v87, v86_b], [v.id for v in by_range])
+        # no wildcard or prefix matching
+        self.assertEqual([], mmif_obj.get_views_by_app('swt-detection'))
+        # third-party apps need the full URI
+        self.assertEqual([], mmif_obj.get_views_by_app('foo/v1'))
+        by_third = mmif_obj.get_views_by_app('https://example.com/apps/foo/v1')
+        self.assertEqual([foo], [v.id for v in by_third])
+
+    def test_get_view_by_app(self):
+        mmif_obj = self._mmif_with_app_views()
+        last_id = [v.id for v in mmif_obj.views][-1]
+        self.assertEqual(last_id, mmif_obj.get_view_by_app('swt-detection/v8.6').id)
+        self.assertIsNone(mmif_obj.get_view_by_app('not-existing-app/v1'))
+
+    def test_get_all_views_by_apptag(self):
+        mmif_obj = self._mmif_with_app_views()
+        v86_a, v87, foo, v86_b = [v.id for v in mmif_obj.views][-4:]
+        by_tag = mmif_obj.get_all_views_by_apptag('TemporalSegmentation')
+        self.assertEqual([v86_a, v87, v86_b], [v.id for v in by_tag])
+        # several tags are OR-ed
+        by_tags = mmif_obj.get_views_by_apptag('SceneRecognition', 'NotATag')
+        self.assertEqual([v87], [v.id for v in by_tags])
+        self.assertEqual([], mmif_obj.get_views_by_apptag('NotATag'))
+
+    def test_get_view_by_apptag(self):
+        mmif_obj = self._mmif_with_app_views()
+        last_id = [v.id for v in mmif_obj.views][-1]
+        self.assertEqual(last_id, mmif_obj.get_view_by_apptag('TemporalSegmentation').id)
+        self.assertIsNone(mmif_obj.get_view_by_apptag('NotATag'))
+
     def test_get_views_for_document(self):
         mmif_obj = Mmif(MMIF_EXAMPLES['everything'])
         
@@ -404,6 +543,50 @@ class TestMmif(unittest.TestCase):
         e_view = mmif_obj.new_view()
         self.assertEqual(e_view.id, f'{p}4')
         self.assertEqual(len(mmif_obj.views), 5)
+
+    def test_get_annotations_of_labels(self):
+        mmif_obj = Mmif(validate=False)
+        v1 = mmif_obj.new_view()
+        v1.new_contain(AnnotationTypes.TimeFrame, timeUnit='milliseconds')
+        shot = v1.new_annotation(AnnotationTypes.TimeFrame, aid='tf_1',
+                                 label='shot', start=0, end=10)
+        speech = v1.new_annotation(AnnotationTypes.TimeFrame, aid='tf_2',
+                                   label='speech', start=10, end=20)
+        unlabeled = v1.new_annotation(AnnotationTypes.TimeFrame, aid='tf_3',
+                                      start=20, end=30)
+        v2 = mmif_obj.new_view()
+        v2.new_contain(AnnotationTypes.TimeFrame, timeUnit='milliseconds')
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore')
+            legacy = v2.new_annotation(AnnotationTypes.TimeFrame, aid='tf_1',
+                                       frameType='shot', start=30, end=40)
+        v3 = mmif_obj.new_view()
+        v3.new_contain(AnnotationTypes.BoundingBox)
+        box = v3.new_annotation(AnnotationTypes.BoundingBox, aid='bb_1',
+                                label='shot')
+
+        def ids(*args, **kwargs):
+            return [a.id for a in
+                    mmif_obj.get_annotations_of_labels(*args, **kwargs)]
+
+        tf = AnnotationTypes.TimeFrame
+        # no filter: every TimeFrame across views, unlabeled included,
+        # in view order; other types never leak in
+        self.assertEqual(
+            [shot.id, speech.id, unlabeled.id, legacy.id], ids(tf))
+        # allow list drops unlabeled annotations and reads `frameType`
+        self.assertEqual([shot.id, legacy.id], ids(tf, ['shot']))
+        # ignore list keeps unlabeled annotations
+        self.assertEqual([speech.id, unlabeled.id],
+                         ids(tf, exclude_labels=['shot']))
+        # ignore list is applied after the allow list
+        self.assertEqual([], ids(tf, ['shot'], ['shot']))
+        # label filtering works for any annotation type
+        self.assertEqual([box.id],
+                         ids(AnnotationTypes.BoundingBox, ['shot']))
+        # any iterable works, and a type no view contains yields nothing
+        self.assertEqual([speech.id], ids(tf, iter(['speech'])))
+        self.assertEqual([], ids(AnnotationTypes.TimePoint))
 
     def test_get_annotations_between_time(self):
         token_type = "http://vocab.lappsgrid.org/Token"
@@ -695,6 +878,57 @@ class TestMmifObject(unittest.TestCase):
         plain_json = json.loads(text.serialize())
         self.assertIn('@value', plain_json.keys())
         self.assertIn('@language', plain_json.keys())
+
+    def test_set_additional_property_undeclared(self):
+        metadata = ViewMetadata()
+        with warnings.catch_warnings():
+            warnings.simplefilter('error')
+            metadata.set_additional_property('someExtra', 1)
+        self.assertEqual(metadata._unnamed_attributes['someExtra'], 1)
+        self.assertEqual(metadata.get('someExtra'), 1)
+
+    def test_set_additional_property_declared(self):
+        # a declared key goes to the attribute, never to the side dict
+        metadata = ViewMetadata()
+        with self.assertWarns(UserWarning):
+            metadata.set_additional_property('appTags', ['A', 'B'])
+        self.assertEqual(metadata.appTags, ['A', 'B'])
+        self.assertEqual(metadata.get('appTags'), ['A', 'B'])
+        self.assertNotIn('appTags', metadata._unnamed_attributes)
+        # the value is converted to the declared attribute class
+        with self.assertWarns(UserWarning):
+            metadata.set_additional_property(
+                'error', {'message': 'm', 'stackTrace': 't'})
+        self.assertIsInstance(metadata.error, ErrorDict)
+
+    def test_set_additional_property_at_prefix(self):
+        class WithLdAttribute(MmifObject):
+            def __init__(self, *args):
+                self._value = ''
+                super().__init__(*args)
+
+        obj = WithLdAttribute()
+        with self.assertWarns(UserWarning):
+            obj.set_additional_property('@value', 'v')
+        self.assertEqual(obj._value, 'v')
+        self.assertNotIn('@value', obj._unnamed_attributes)
+
+    def test_set_additional_property_disallowed(self):
+        # classes without additional properties refuse every key,
+        # pointing to item assignment for declared ones
+        text = Text()
+        with self.assertRaisesRegex(AttributeError, 'declared attribute'):
+            text.set_additional_property('@value', 'v')
+        with self.assertRaises(AttributeError) as cm:
+            text.set_additional_property('someExtra', 'v')
+        self.assertNotIn('declared attribute', str(cm.exception))
+        self.assertEqual(text.value, '')
+
+    def test_set_additional_property_reserved(self):
+        metadata = ViewMetadata()
+        for name in ('reserved_names', '_unnamed_attributes'):
+            with self.assertRaises(KeyError):
+                metadata.set_additional_property(name, None)
 
     @pytest.mark.skip("TODO: does not work with text examples that are a mixture of old (short-id) and new (long-id) annotations")
     def test_print_mmif(self):
@@ -1458,7 +1692,7 @@ class TestDocument(unittest.TestCase):
         self.assertEqual(2, len(doc1._props_pending))
         mmif_roundtrip2 = Mmif(mmif_roundtrip1.serialize())
         ## but not serialized
-        self.assertEqual(0, len(list(mmif_roundtrip2.views.get_last_contentful_view().get_annotations(AnnotationTypes.Annotation))))
+        self.assertEqual(0, len(list(mmif_roundtrip2[r1_vid].get_annotations(AnnotationTypes.Annotation))))
 
         # adding non-duplicate value should be serialized into a new Annotation object
         # even when there is a duplicate key in a previous view

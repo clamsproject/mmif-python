@@ -15,7 +15,8 @@ import math
 import warnings
 from collections import defaultdict
 from datetime import datetime, timezone
-from typing import Any, List, Union, Optional, Dict, cast, Iterator
+from typing import Any, List, Union, Optional, Dict, cast, Iterable, Iterator
+from urllib.parse import urlparse
 
 import jsonschema.validators
 
@@ -27,6 +28,10 @@ from mmif.serialize.view import View
 from mmif.vocabulary import AnnotationTypes, DocumentTypesBase
 
 __all__ = ['Mmif']
+
+# base URL of first-party CLAMS app identifiers
+# (e.g., ``http://apps.clams.ai/swt-detection/v8.6``)
+app_directory_baseurl = "http://apps.clams.ai"
 
 
 class MmifMetadata(MmifObject):
@@ -122,11 +127,15 @@ class ViewsList(DataList[View]):
 
     def get_last_contentful_view(self) -> Optional[View]:
         """
-        Returns the last view that is contentful, i.e., has no error or warning .
+        Returns the last view that is contentful, i.e., has at least one
+        annotation (see :meth:`~mmif.serialize.view.View.has_content`).
+        Views with no annotations, including error and warning views, are
+        skipped.
         """
         for view in reversed(self._items.values()):
-            if 'error' not in view.metadata and 'warnings' not in view.metadata:
+            if view.has_content():
                 return view
+        return None
     
     def get_last_view(self) -> Optional[View]:
         """
@@ -336,7 +345,9 @@ class Mmif(MmifObject):
         behind this behavior and discussion.
         """
         # this view will be the default kitchen sink for all generated annotations.
-        last_view = self.views.get_last_contentful_view()
+        # this can be an empty view, from an app that only adds document properties
+        last_view = next((v for v in reversed(self.views)
+                          if not v.has_error() and not v.has_warnings()), None)
         
         # proceed only when there's at least one view
         if last_view:
@@ -356,18 +367,12 @@ class Mmif(MmifObject):
             # new properties to record in the current serialization call
             anns_to_write = defaultdict(dict)
             for view in self.views:
-                doc_id = None
-                if AnnotationTypes.Annotation in view.metadata.contains:
-                    if 'document' in view.metadata.contains[AnnotationTypes.Annotation]:
-                        doc_id = view.metadata.contains[AnnotationTypes.Annotation]['document']
-                    for ann in view.get_annotations(AnnotationTypes.Annotation):
-                        if doc_id is None:
-                            # note that in the input MMIF that generated with old implementation,
-                            # this value can be in the "short" form, i.e., without view ID prefix
-                            # however, after deserialization, all document IDs should have the 
-                            # view ID prefix, at least within in-memory representation.
-                            doc_id = ann.get_property('document')
-                        existing_anns[doc_id].update(ann.properties.items())
+                for ann in view.get_annotations(AnnotationTypes.Annotation):
+                    # view-level `contains` defaults are exposed on each
+                    # annotation as ephemeral properties; in MMIF made by old
+                    # SDKs, the id may be in the short form (no view prefix)
+                    existing_anns[ann.get_property('document')].update(
+                        ann.properties.items())
                 for doc in view.get_documents():
                     anns_to_write[doc.id].update(doc._props_pending.items())
             for doc in self.documents:
@@ -762,6 +767,111 @@ class Mmif(MmifObject):
                 if at_types in view.metadata.contains:
                     return view
         return None
+
+    @staticmethod
+    def _full_app_id(app_id: str) -> str:
+        """
+        Expands a first-party app ID shorthand (e.g.,
+        ``swt-detection/v8.6``) into a full URI under
+        :data:`app_directory_baseurl`. An ``http(s)`` URL is returned as is.
+        """
+        if urlparse(app_id).scheme in ('http', 'https'):
+            return app_id
+        return f"{app_directory_baseurl}/{app_id.strip('/')}"
+
+    def get_all_views_by_app(self, *app_ids: str) -> List[View]:
+        """
+        Returns the list of all views produced by any of the given apps.
+
+        Each app ID is either a full app URI (required for third-party
+        apps) or a first-party shorthand such as ``swt-detection/v8.6``,
+        which is expanded under :data:`app_directory_baseurl`. Matching is
+        exact: an ID without a version matches no view, and there are no
+        wildcards, so list every version to cover a version range. To group
+        views into app runs instead, see
+        :func:`mmif.utils.workflow_helper.group_views_by_app`.
+
+        :param app_ids: one or more app IDs; a view matches if it was
+            produced by any of them
+        :return: the list of matching views
+        """
+        full_ids = {self._full_app_id(app_id) for app_id in app_ids}
+        return [view for view in self.views if view.metadata.app in full_ids]
+
+    get_views_by_app = get_all_views_by_app
+
+    def get_view_by_app(self, *app_ids: str) -> Optional[View]:
+        """
+        Returns the last view appended that was produced by any of the given
+        apps. App IDs are matched as in :meth:`get_all_views_by_app`.
+
+        :param app_ids: one or more app IDs
+        :return: the view, or None if no view matches
+        """
+        matches = self.get_all_views_by_app(*app_ids)
+        return matches[-1] if matches else None
+
+    def get_all_views_by_apptag(self, *tags: str) -> List[View]:
+        """
+        Returns the list of all views whose ``appTags`` metadata contains
+        any of the given tags.
+
+        :param tags: one or more tags; a view matches if it carries any of
+            them
+        :return: the list of matching views
+        """
+        return [view for view in self.views
+                if any(tag in view.metadata.appTags for tag in tags)]
+
+    get_views_by_apptag = get_all_views_by_apptag
+
+    def get_view_by_apptag(self, *tags: str) -> Optional[View]:
+        """
+        Returns the last view appended whose ``appTags`` metadata contains
+        any of the given tags.
+
+        :param tags: one or more tags
+        :return: the view, or None if no view matches
+        """
+        matches = self.get_all_views_by_apptag(*tags)
+        return matches[-1] if matches else None
+
+    def get_annotations_of_labels(
+            self, at_type: Union[ThingTypesBase, str],
+            include_labels: Iterable[str] = (),
+            exclude_labels: Iterable[str] = ()) -> Iterator[Annotation]:
+        """
+        Finds annotations of a type across all views, filtered by their
+        ``label`` property.
+
+        With both label lists empty (the default), every annotation of
+        ``at_type`` is returned, including annotations that have no
+        ``label``. A non-empty ``include_labels`` keeps only annotations
+        whose ``label`` is listed, so annotations without a ``label`` are
+        dropped. ``exclude_labels`` is applied after ``include_labels`` and
+        never drops annotations without a ``label``.
+
+        The ``label`` value is read with
+        :py:meth:`~mmif.serialize.annotation.Annotation.get_property`, so
+        the deprecated spellings of the property (``frameType`` on
+        ``TimeFrame``, ``boxType`` on ``BoundingBox``) are honored.
+
+        :param at_type: the type of the annotations to look for
+        :param include_labels: labels to keep; empty means no restriction
+        :param exclude_labels: labels to leave out
+        :return: an iterator of matching annotations, in view order and
+                 then in annotation order within each view
+        """
+        include = tuple(include_labels)
+        exclude = tuple(exclude_labels)
+        for view in self.get_all_views_contain(at_type):
+            for ann in view.get_annotations(at_type):
+                label = ann.get_property('label')
+                if include and label not in include:
+                    continue
+                if label is not None and label in exclude:
+                    continue
+                yield ann
 
     def _is_in_time_range(self, ann: Annotation, range_s: Union[int, float], range_e: Union[int, float]) -> bool:
         """
