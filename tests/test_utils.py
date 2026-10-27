@@ -443,6 +443,79 @@ class TestVideoDocumentHelper(unittest.TestCase):
         # the sources match the sampled ms values
         self.assertEqual(sorted(sources), sources)
 
+    def test_to_timepoints(self):
+        out_view = self.mmif_obj.new_view()
+        # existing TimePoint ids pass through, nothing is created
+        self.assertEqual(['v_0:tp_1', 'v_0:tp_2'], vdh._to_timepoints(
+            out_view, self.video_doc, ['v_0:tp_1', 'v_0:tp_2']))
+        self.assertEqual(0, len(out_view.annotations))
+        self.assertNotIn(AnnotationTypes.TimePoint,
+                         out_view.metadata.contains)
+        # a millisecond source gets a new TimePoint in the output view,
+        # and order follows the input
+        ids = vdh._to_timepoints(out_view, self.video_doc,
+                                 ['v_0:tp_1', 300])
+        self.assertEqual('v_0:tp_1', ids[0])
+        minted = self.mmif_obj[ids[1]]
+        self.assertEqual(out_view.id, minted.parent)
+        self.assertEqual(300, minted.get_property('timePoint'))
+        self.assertEqual(self.video_doc.id, minted.get_property('document'))
+        self.assertIn(AnnotationTypes.TimePoint, out_view.metadata.contains)
+
+    def test_iter_timeframe_images_representatives(self):
+        tps = self._make_timepoints(10)
+        reps = [tps[2].id, tps[5].id]
+        tf = self.a_view.new_annotation(
+            AnnotationTypes.TimeFrame, aid='tf_0', label='shot',
+            targets=[tp.id for tp in tps], representatives=reps)
+        out_view = self.mmif_obj.new_view()
+        results = list(vdh.iter_timeframe_images(
+            self.mmif_obj, out_view, mode=vdh.SamplingMode.REPRESENTATIVES))
+        self.assertEqual(1, len(results))
+        time_frame, images, tp_ids = results[0]
+        self.assertEqual(tf.id, time_frame.id)
+        self.assertEqual(2, len(images))
+        self.assertEqual(reps, tp_ids)
+        # every image is backed by an existing TimePoint
+        self.assertEqual(0, len(out_view.annotations))
+
+    def test_iter_timeframe_images_single_fallback(self):
+        self.a_view.new_annotation(
+            AnnotationTypes.TimeFrame, aid='tf_0', label='shot',
+            start=100, end=500, timeUnit='milliseconds',
+            document=self.video_doc.id)
+        out_view = self.mmif_obj.new_view()
+        results = list(vdh.iter_timeframe_images(
+            self.mmif_obj, out_view, mode=vdh.SamplingMode.SINGLE,
+            as_PIL=True))
+        self.assertEqual(1, len(results))
+        _, images, tp_ids = results[0]
+        self.assertEqual(1, len(images))
+        self.assertTrue(hasattr(images[0], 'size'))
+        minted = self.mmif_obj[tp_ids[0]]
+        self.assertEqual(out_view.id, minted.parent)
+        self.assertEqual(300, minted.get_property('timePoint'))
+
+    def test_iter_timeframe_images_labels(self):
+        for i, label in enumerate(['shot', 'credits', None]):
+            props = dict(start=100 + i * 1000, end=500 + i * 1000,
+                         timeUnit='milliseconds', document=self.video_doc.id)
+            if label is not None:
+                props['label'] = label
+            self.a_view.new_annotation(
+                AnnotationTypes.TimeFrame, aid=f'tf_{i}', **props)
+        out_view = self.mmif_obj.new_view()
+
+        def labels(**kwargs):
+            return [tf.get_property('label') for tf, _, _ in
+                    vdh.iter_timeframe_images(
+                        self.mmif_obj, out_view,
+                        mode=vdh.SamplingMode.SINGLE, **kwargs)]
+
+        self.assertEqual(['shot', 'credits', None], labels())
+        self.assertEqual(['shot'], labels(include_labels=['shot']))
+        self.assertEqual(['shot', None], labels(exclude_labels=['credits']))
+
     def test_renamed_helpers_emit_deprecation_warnings(self):
         # The three pre-rename names live as deprecation aliases that
         # delegate to the new names.
@@ -829,6 +902,42 @@ class TestBrokenVideoDocument(unittest.TestCase):
                 self.assertIsNotNone(images[0])
                 self.assertIsNone(images[1])
                 self.assertIsNone(images[2])
+
+    def test_iter_timeframe_images_drops_unreadable(self):
+        mmif_obj = Mmif(validate=False)
+        doc = self._doc(self.healthy)
+        mmif_obj.add_document(doc)
+        vdh.open_container(doc).close()
+        duration = doc.get_property('duration')
+        view = mmif_obj.new_view()
+        tp_ids = []
+        for i, ms in enumerate([1000, duration + 10000]):
+            tp = view.new_annotation(
+                AnnotationTypes.TimePoint, aid=f'tp_{i}', timePoint=ms,
+                timeUnit='milliseconds', document=doc.id)
+            tp_ids.append(tp.id)
+        # one TimeFrame with a readable and an unreadable image, one with
+        # only an unreadable image
+        view.new_annotation(
+            AnnotationTypes.TimeFrame, aid='tf_0', document=doc.id,
+            timeUnit='milliseconds', start=1000, end=duration + 10000,
+            targets=tp_ids, representatives=tp_ids)
+        view.new_annotation(
+            AnnotationTypes.TimeFrame, aid='tf_1', document=doc.id,
+            timeUnit='milliseconds', start=duration + 10000,
+            end=duration + 20000, targets=[tp_ids[1]],
+            representatives=[tp_ids[1]])
+        out_view = mmif_obj.new_view()
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore')
+            results = list(vdh.iter_timeframe_images(
+                mmif_obj, out_view, mode=vdh.SamplingMode.REPRESENTATIVES))
+        self.assertEqual(1, len(results))
+        time_frame, images, origins = results[0]
+        self.assertEqual(f'{view.id}:tf_0', time_frame.id)
+        self.assertEqual([tp_ids[0]], origins)
+        self.assertEqual(1, len(images))
+        self.assertIsNotNone(images[0])
 
 
 class TestSequenceHelper(unittest.TestCase):

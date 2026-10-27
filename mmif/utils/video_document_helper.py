@@ -9,12 +9,12 @@ import math
 import warnings
 from io import StringIO
 from typing import Iterable  # todo: replace with collections.abc.Iterable in Python 3.9
-from typing import List, Optional, Union, Tuple
+from typing import Iterator, List, Optional, Union, Tuple
 
 import mmif
-from mmif import Annotation, Document, Mmif
+from mmif import Annotation, Document, Mmif, View
 from mmif.utils.timeunit_helper import convert
-from mmif.vocabulary import DocumentTypes
+from mmif.vocabulary import AnnotationTypes, DocumentTypes
 
 _CV_DEPS = ('av', 'cv2', 'PIL', 'wurlitzer')
 _cv_import_warning = (
@@ -697,6 +697,95 @@ def extract_images_by_mode_with_sources(
     images = extract_images_from_timepoints(
         video_doc, timepoints_ms, as_PIL=as_PIL)
     return images, sources
+
+
+def _to_timepoints(
+    output_view: View,
+    video_document: Document,
+    sources: List[Union[str, int]],
+) -> List[str]:
+    """
+    Turns per-image sources, as returned by
+    :py:func:`extract_images_by_mode_with_sources`, into ``TimePoint``
+    annotation ids, parallel to ``sources``.
+
+    A ``str`` source is the id of an existing ``TimePoint`` and is passed
+    through. An ``int`` source is a timepoint in milliseconds that no
+    ``TimePoint`` backs; a new ``TimePoint`` is created for it in
+    ``output_view`` and its id is used. No lookup for an existing
+    ``TimePoint`` at the same time is done, so two calls on the same
+    fallback timepoint create two annotations.
+
+    :param output_view: the view new ``TimePoint`` annotations are added to
+    :param video_document: the video the timepoints belong to
+    :param sources: per-image sources
+    :return: ``TimePoint`` ids, parallel to ``sources``
+    """
+    ids: List[str] = []
+    for source in sources:
+        if isinstance(source, str):
+            ids.append(source)
+        else:
+            tp = output_view.new_annotation(
+                AnnotationTypes.TimePoint, document=video_document.id,
+                timePoint=int(source), timeUnit='milliseconds')
+            ids.append(tp.id)
+    return ids
+
+
+def iter_timeframe_images(
+    mmif: Mmif,
+    output_view: View,
+    include_labels: Iterable[str] = (),
+    exclude_labels: Iterable[str] = (),
+    mode: Union[SamplingMode, None] = None,
+    as_PIL: bool = False,
+) -> Iterator[Tuple[Annotation, List, List[str]]]:
+    """
+    Samples images from every ``TimeFrame`` in the MMIF, filtered by label,
+    and yields them with the ``TimePoint`` each image was taken from.
+
+    ``TimeFrame`` annotations are selected with
+    :py:meth:`~mmif.serialize.mmif.Mmif.get_annotations_of_labels`, and
+    images are sampled from each with
+    :py:func:`extract_images_by_mode_with_sources`. Images that cannot be
+    read from the video (``None`` in that function's result, already
+    reported there in a warning) are left out together with their sources.
+    A ``TimeFrame`` with no readable image is skipped.
+
+    Every image comes with the id of a ``TimePoint``. When an image was
+    sampled at a time no ``TimePoint`` backs (``tfSamplingMode`` fallback),
+    a new ``TimePoint`` is created in ``output_view`` as a side effect of
+    iterating, so pass the view the calling app writes its own output into.
+    The ids are meant for the ``origins`` of whatever the app derives from
+    the images.
+
+    :param mmif: :py:class:`~mmif.serialize.mmif.Mmif` instance
+    :param output_view: the view new ``TimePoint`` annotations are added to
+    :param include_labels: ``TimeFrame`` labels to keep; empty means all
+    :param exclude_labels: ``TimeFrame`` labels to leave out
+    :param mode: :py:class:`SamplingMode`, or None to use the context
+        default (the ``tfSamplingMode`` runtime parameter in CLAMS apps)
+    :param as_PIL: return :py:class:`PIL.Image.Image` instead of
+        :py:class:`~numpy.ndarray`
+    :return: an iterator of ``(time_frame, images, timepoint_ids)``, where
+        ``images`` and ``timepoint_ids`` are parallel, non-empty lists
+    """
+    # select first, so TimePoints added to ``output_view`` while iterating
+    # never interfere with the views being read
+    time_frames = list(mmif.get_annotations_of_labels(
+        AnnotationTypes.TimeFrame, include_labels, exclude_labels))
+    for time_frame in time_frames:
+        images, sources = extract_images_by_mode_with_sources(
+            mmif, time_frame, mode=mode, as_PIL=as_PIL)
+        readable = [(image, source) for image, source in zip(images, sources)
+                    if image is not None]
+        if not readable:
+            continue
+        video_document = _resolve_video_document(mmif, time_frame)
+        timepoint_ids = _to_timepoints(
+            output_view, video_document, [source for _, source in readable])
+        yield time_frame, [image for image, _ in readable], timepoint_ids
 
 
 def extract_images_by_mode(
