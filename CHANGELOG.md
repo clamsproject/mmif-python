@@ -1,4 +1,23 @@
 
+## releasing 1.6.0  (2026-10-27)
+### Overview
+
+This version adds many small but meaningful pieces that helps new family of LLM-based apps, with one bugfix in MMIF workflow summarization. 
+
+### Additions
+
+* `appTags`: new view metadata field, with `Mmif.get_all_views_by_app()`, `Mmif.get_all_views_by_apptag()`, and their `get_view_by_*` counterparts, to query views by app ID or by tag (https://github.com/clamsproject/mmif-python/issues/375)
+* `Mmif.get_annotations_of_labels()` and `video_document_helper.iter_timeframe_images()`: select annotations by `label`, and iterate over `TimeFrame`s with their sampled images and the `TimePoint` each image came from. Both are promoted from the `clams-python` app template (https://github.com/clamsproject/mmif-python/issues/406)
+
+### Changes
+
+* Workflow identifiers, `mmif describe`, and `mmif rewind` in app mode: every app execution now counts, including executions that produced only warnings or an error. They used to be skipped (https://github.com/clamsproject/mmif-python/issues/405)
+    * *Note: the workflow identifier of a MMIF file that has such views changes from earlier versions.*
+* `get_last_contentful_view()`: now also skips views that have no annotations, not only error and warning views (https://github.com/clamsproject/mmif-python/pull/408)
+* Setting an additional property under the name of a declared attribute now updates that attribute, with a warning, instead of keeping the same key in two places (https://github.com/clamsproject/mmif-python/pull/409)
+
+
+
 ## releasing 1.5.4 (2026-10-05)
 ### Overview
 
