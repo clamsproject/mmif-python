@@ -83,10 +83,15 @@ class Annotation(MmifObject):
 
     def __init__(self, anno_obj: Optional[Union[bytes, str, dict]] = None, *_) -> None:
         self._type: ThingTypesBase = ThingTypesBase('')
-        # to store the parent view ID
+        # values that are not stored on the annotation itself but cached at
+        # load time: properties recorded by capital `Annotation`s (on
+        # documents) and computed `start`/`end` (on `targets` annotations)
         self._props_ephemeral: AnnotationProperties = AnnotationProperties(None, self)
+        # the view holding this annotation; backs `parent` and the lookup of
+        # view-level `contains` defaults
+        self._parent_view = None
         self._alignments = {}  # to hold alignment information (Alignment anno long_id -> aligned anno long_id)
-        self.reserved_names.update(('_props_ephemeral', '_alignments'))
+        self.reserved_names.update(('_props_ephemeral', '_parent_view', '_alignments'))
         if not hasattr(self, 'properties'):  # don't overwrite DocumentProperties on super() call
             self.properties: AnnotationProperties = AnnotationProperties(None, self)
             self._attribute_classes = {'properties': AnnotationProperties}
@@ -140,20 +145,41 @@ class Annotation(MmifObject):
             yield aligned
         
         
-    def _add_ephemeral_defaults(self, defaults: typing.Mapping[str, typing.Any]) -> None:
+    def _get_view_default(self, prop_name: str):
         """
-        Distributes view-level defaults (from the ``contains`` metadata of the
-        parent view) to this annotation as ephemeral properties, under their
-        canonical names. An annotation-level value takes precedence over a
-        view-level default, so a default is skipped when the annotation
-        carries the property itself.
+        Looks up a view-level default for this annotation's ``@type`` in the
+        ``contains`` metadata of the parent view, at read time. Deprecated
+        spellings in ``contains`` are matched by their canonical name.
 
-        :param defaults: property defaults for this annotation's ``@type``
+        :param prop_name: a canonical property name
+        :return: the default value
+        :raises KeyError: if there is no parent view or no such default
         """
-        for name, value in defaults.items():
-            name = canonicalize_prop_name(self._type, name)
-            if name not in self.properties:
-                self._props_ephemeral[name] = value
+        if self._parent_view is not None:
+            defaults = self._parent_view.metadata.contains.get(self._type)
+            if defaults:
+                for name, value in defaults.items():
+                    if canonicalize_prop_name(self._type, name) == prop_name:
+                        return value
+        raise KeyError(prop_name)
+
+    def _resolved_properties(self) -> typing.Dict[str, typing.Any]:
+        """
+        Returns the properties of this annotation as a reader sees them:
+        view-level defaults from the parent view's ``contains``, overridden by
+        the values stored on the annotation itself. Values cached at load time
+        are not included.
+
+        :return: a new dict of canonical property names to values
+        """
+        resolved = {}
+        if self._parent_view is not None:
+            defaults = self._parent_view.metadata.contains.get(self._type)
+            if defaults:
+                for name, value in defaults.items():
+                    resolved[canonicalize_prop_name(self._type, name)] = value
+        resolved.update(self.properties.items())
+        return resolved
 
     def is_type(self, at_type: Union[str, ThingTypesBase]) -> bool:
         """
@@ -187,6 +213,13 @@ class Annotation(MmifObject):
 
     @property
     def parent(self) -> str:
+        """
+        The ID of the view that holds this annotation. Taken from the view
+        itself once the annotation is added to one, otherwise parsed from the
+        view-prefixed annotation ID.
+        """
+        if self._parent_view is not None:
+            return self._parent_view.id
         if self.id_delimiter in self.properties.id:
             id_split = self.properties.id.split(self.id_delimiter)
             if len(id_split) == 2:
@@ -289,7 +322,9 @@ class Annotation(MmifObject):
             return self.properties[prop_name]
         elif prop_name in self._props_ephemeral:
             return self._props_ephemeral[prop_name]
-        else:
+        try:
+            return self._get_view_default(prop_name)
+        except KeyError:
             raise KeyError(f"Property {prop_name} does not exist in this annotation.")
 
     def get(self, prop_name: str, default=None):
@@ -300,9 +335,13 @@ class Annotation(MmifObject):
         or a default value if not found. This method searches in multiple
         locations with the following priority:
 
-        1. Direct properties (in ``annotation.properties``)
-        2. Ephemeral properties (view-level metadata from ``contains``)
-        3. Special fields (``@type``, ``properties``)
+        1. Special fields (``@type``, ``properties``)
+        2. Direct properties (in ``annotation.properties``)
+        3. Values cached at load time (properties recorded by capital
+           ``Annotation`` objects, on documents; computed ``start``/``end``,
+           on ``targets`` annotations)
+        4. View-level defaults (the parent view's ``contains`` metadata for
+           this annotation's ``@type``)
 
         This allows convenient access to properties without explicitly
         checking the ``properties`` object or view-level metadata. A
@@ -469,9 +508,10 @@ class Document(Annotation):
             return self._props_pending[prop_name]
         else:
             # Delegates to Annotation.__getitem__(), which checks
-            # self.properties (_props_original) before _props_ephemeral.
-            # This gives annotation-level properties precedence over
-            # view-level contains defaults (MMIF spec >= 1.1.1).
+            # self.properties, then values recorded by capital `Annotation`s
+            # (_props_ephemeral), then the parent view's `contains` defaults.
+            # Annotation-level properties take precedence over view-level
+            # defaults (MMIF spec >= 1.1.1).
             return super().__getitem__(prop_name)
 
     def get(self, prop_name, default=None):

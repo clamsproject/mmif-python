@@ -287,15 +287,12 @@ class Mmif(MmifObject):
             view._parent_mmif = self
             for ann in view.get_annotations():
                 ## for "capital" Annotation properties
-                # first, distribute view-level defaults from `contains` metadata
-                # to the Annotation objects as "ephemeral" properties
-                ann._add_ephemeral_defaults(view.metadata.contains.get(ann.at_type, {}))
-                # then, do the same to associated Document objects. Note that, 
-                # in a view, it is guaranteed that all Annotation objects are not duplicates
+                # copy the recorded properties onto the associated Document
+                # objects; view-level defaults resolve through the parent view
                 if ann.at_type == AnnotationTypes.Annotation:
                     doc_id = ann.get_property('document')
                     try:
-                        for prop_key, prop_value in ann.properties.items():
+                        for prop_key, prop_value in ann._resolved_properties().items():
                             doc = cast(Document, self.__getitem__(doc_id))
                             if not isinstance(doc, Document):
                                 raise KeyError
@@ -368,11 +365,11 @@ class Mmif(MmifObject):
             anns_to_write = defaultdict(dict)
             for view in self.views:
                 for ann in view.get_annotations(AnnotationTypes.Annotation):
-                    # view-level `contains` defaults are exposed on each
-                    # annotation as ephemeral properties; in MMIF made by old
-                    # SDKs, the id may be in the short form (no view prefix)
+                    # values recorded at view level (`contains`) count too;
+                    # in MMIF made by old SDKs, the id may be in the short
+                    # form (no view prefix)
                     existing_anns[ann.get_property('document')].update(
-                        ann.properties.items())
+                        ann._resolved_properties())
                 for doc in view.get_documents():
                     anns_to_write[doc.id].update(doc._props_pending.items())
             for doc in self.documents:

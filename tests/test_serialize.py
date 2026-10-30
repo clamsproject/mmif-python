@@ -423,6 +423,31 @@ class TestMmif(unittest.TestCase):
         anns = list(roundtrip[current.id].get_annotations(AnnotationTypes.Annotation))
         self.assertEqual(0, len(anns))
 
+    def test_capital_annotations_shared_value(self):
+        # a value shared by two documents is factored out into the view's
+        # `contains` on serialization; it must be neither written twice
+        # (`sanitize=True` converts pending props a second time) nor lost
+        # on reload
+        mmif_obj = self._mmif_with_two_documents()
+        view = mmif_obj.new_view()
+        view.metadata.app = tester_appname
+        mmif_obj['m1'].add_property('fps', 29.97)
+        mmif_obj['doc2'].add_property('fps', 29.97)
+        roundtrip = Mmif(mmif_obj.serialize(sanitize=True))
+        anns = list(roundtrip[view.id].get_annotations(AnnotationTypes.Annotation))
+        self.assertEqual(2, len(anns))
+        contain = roundtrip[view.id].metadata.contains.get(AnnotationTypes.Annotation)
+        self.assertEqual(29.97, contain.get('fps'))
+        for doc_id in ('m1', 'doc2'):
+            self.assertEqual(29.97, roundtrip[doc_id].get_property('fps'))
+        # a later app recording the same value again writes nothing
+        later = roundtrip.new_view()
+        later.metadata.app = tester_appname
+        roundtrip['m1'].add_property('fps', 29.97)
+        again = Mmif(roundtrip.serialize(sanitize=True))
+        self.assertEqual(
+            0, len(list(again[later.id].get_annotations(AnnotationTypes.Annotation))))
+
     def _mmif_with_app_views(self) -> Mmif:
         mmif_obj = Mmif(MMIF_EXAMPLES['everything'])
         for app, tags in (
@@ -1367,11 +1392,14 @@ class TestAnnotation(unittest.TestCase):
         self.assertEqual(a_roundtrip.get_property('empty_lst_prop'), [])
         self.assertEqual(4, len(a.properties.keys()))
 
-    def test_annotation_ephemeral_properties(self):
+    def test_annotation_view_level_defaults(self):
+        # `document` is set in the view's `contains`, not on the annotation;
+        # it resolves through the parent view at read time
         mmif = self.data['everything']['mmif']
         first_view_first_ann = mmif['v1']['v1:s1']
         self.assertFalse('document' in first_view_first_ann.properties.keys())
-        self.assertTrue('document' in first_view_first_ann._props_ephemeral.keys())
+        self.assertFalse('document' in first_view_first_ann._props_ephemeral.keys())
+        self.assertTrue('document' in first_view_first_ann)
         self.assertEqual('m1', first_view_first_ann.get_property('document'))
 
     def test_annotation_ephemeral_start_end_props(self):

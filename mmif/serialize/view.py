@@ -81,6 +81,8 @@ class View(MmifObject):
         }
         self._required_attributes = ["id", "metadata", "annotations"]
         super().__init__(view_obj)
+        for annotation in self.annotations:
+            annotation._parent_view = self
         self._fix_old_short_ids()
         self._rebuild_id_counts()
 
@@ -220,7 +222,7 @@ class View(MmifObject):
             annotation.id = f"{self.id}{self.id_delimiter}{annotation.id}"
         self.annotations.append(annotation, overwrite)
         self.new_contain(annotation.at_type)
-        annotation._add_ephemeral_defaults(self.metadata.contains.get(annotation.at_type, {}))
+        annotation._parent_view = self
         if annotation.at_type == AnnotationTypes.Alignment:
             self._parent_mmif._cache_alignment(annotation)
         return annotation
