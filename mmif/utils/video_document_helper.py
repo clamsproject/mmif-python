@@ -438,30 +438,6 @@ def _tp_ids_to_timepoints_ms(mmif: Mmif, tp_ids: List[str]) -> List[int]:
             for tp_id in tp_ids]
 
 
-def _resolve_video_document(mmif: Mmif, time_frame: Annotation):
-    """
-    Resolves the video document associated with a TimeFrame.
-    Checks the TimeFrame's own ``document`` property first,
-    then falls back to the ``document`` property of the first
-    target timepoint.
-
-    :param mmif: :py:class:`~mmif.serialize.mmif.Mmif` instance
-    :param time_frame: :py:class:`~mmif.serialize.annotation.Annotation`
-        instance of a TimeFrame
-    :return: :py:class:`~mmif.serialize.annotation.Document`
-    """
-    if 'document' in time_frame.properties:
-        return mmif[time_frame.get_property('document')]
-    if 'targets' in time_frame.properties:
-        targets = time_frame.get_property('targets')
-        if targets:
-            tp = mmif[targets[0]]
-            return mmif[tp.get_property('document')]
-    raise ValueError(
-        f'Cannot resolve video document for TimeFrame '
-        f'{time_frame.id}.')
-
-
 def _timeframe_to_timepoint_range_ms(
     mmif: Mmif, time_frame: Annotation
 ) -> Tuple[int, int]:
@@ -495,12 +471,12 @@ def _sample_all_timepoint_pairs_ms(
         the point came from interval sampling rather than a TP
     :rtype: list
     """
-    if 'targets' in time_frame.properties:
+    if 'targets' in time_frame:
         target_ids = time_frame.get_property('targets')
         ms_list = _tp_ids_to_timepoints_ms(mmif, target_ids)
         return list(zip(ms_list, target_ids))
     start_ms, end_ms = _timeframe_to_timepoint_range_ms(mmif, time_frame)
-    video_document = _resolve_video_document(mmif, time_frame)
+    video_document = mmif[time_frame.get_property('document')]
     fps = get_framerate(video_document)
     step_ms = 1000.0 / fps
     return [(t, None) for t in sample_timepoints(start_ms, end_ms, step_ms)]
@@ -520,7 +496,7 @@ def _sample_representatives_timepoint_pairs_ms(
     :return: list of (ms, rep_id) pairs (empty if no representatives)
     :rtype: list
     """
-    if 'representatives' in time_frame.properties:
+    if 'representatives' in time_frame:
         reps = time_frame.get_property('representatives')
         if reps:
             ms_list = _tp_ids_to_timepoints_ms(mmif, reps)
@@ -544,7 +520,7 @@ def _sample_single_timepoint_pair_ms(
         ``None`` when the point came from the interval midpoint fallback
     :rtype: list
     """
-    if 'representatives' in time_frame.properties:
+    if 'representatives' in time_frame:
         reps = time_frame.get_property('representatives')
         if reps:
             mid = reps[len(reps) // 2]
@@ -586,7 +562,7 @@ def extract_images_by_count_with_sources(
         :py:func:`extract_images_from_timepoints`)
     :rtype: tuple
     """
-    if 'targets' not in annotation.properties:
+    if 'targets' not in annotation:
         raise ValueError(
             f'Annotation {annotation.id} does not have a "targets" property.')
 
@@ -608,7 +584,7 @@ def extract_images_by_count_with_sources(
 
     selected_target_ids = [targets[i] for i in indices]
     timepoints_ms = _tp_ids_to_timepoints_ms(mmif, selected_target_ids)
-    video_doc = _resolve_video_document(mmif, annotation)
+    video_doc = mmif[annotation.get_property('document')]
     images = extract_images_from_timepoints(
         video_doc, timepoints_ms, as_PIL=as_PIL)
     return images, selected_target_ids
@@ -693,7 +669,7 @@ def extract_images_by_mode_with_sources(
     sources: List[Union[str, int]] = [
         tp_id if tp_id is not None else ms for ms, tp_id in pairs
     ]
-    video_doc = _resolve_video_document(mmif, time_frame)
+    video_doc = mmif[time_frame.get_property('document')]
     images = extract_images_from_timepoints(
         video_doc, timepoints_ms, as_PIL=as_PIL)
     return images, sources
@@ -782,7 +758,7 @@ def iter_timeframe_images(
                     if image is not None]
         if not readable:
             continue
-        video_document = _resolve_video_document(mmif, time_frame)
+        video_document = mmif[time_frame.get_property('document')]
         timepoint_ids = _to_timepoints(
             output_view, video_document, [source for _, source in readable])
         yield time_frame, [image for image, _ in readable], timepoint_ids
@@ -1028,7 +1004,7 @@ def get_representative_framenums(mmif: Mmif, time_frame: Annotation) -> List[int
     :return: representative frame number as an integer
     """
     warnings.warn('This function is deprecated. Use ``extract_frames_by_mode()`` instead.', DeprecationWarning, stacklevel=2)
-    if 'representatives' not in time_frame.properties:
+    if 'representatives' not in time_frame:
         return [_get_mid_framenum(mmif, time_frame)]
     timeunit = time_frame.get_property('timeUnit')
     video_document = mmif[time_frame.get_property('document')]

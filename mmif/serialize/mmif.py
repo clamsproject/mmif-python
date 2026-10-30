@@ -934,7 +934,7 @@ class Mmif(MmifObject):
         :return: the anchor point of the annotation. 1d for linear regions (time, text)
         """
         props = ann.properties
-        if 'timePoint' in props:
+        if 'timePoint' in ann:
             return ann.get_property('timePoint')
         elif 'targets' in props:
             if 'start' in props or 'end' in props:

@@ -588,6 +588,21 @@ class TestMmif(unittest.TestCase):
         self.assertEqual([speech.id], ids(tf, iter(['speech'])))
         self.assertEqual([], ids(AnnotationTypes.TimePoint))
 
+    def test_anchor_point_from_view_level_default(self):
+        # TimePoints that share one `timePoint` get it factored out into the
+        # view's `contains` on serialization
+        mmif_obj = Mmif(validate=False)
+        view = mmif_obj.new_view()
+        view.new_contain(AnnotationTypes.TimePoint, timeUnit='milliseconds')
+        for i in range(2):
+            view.new_annotation(AnnotationTypes.TimePoint, aid=f'tp_{i}',
+                                timePoint=1500, label=f'l{i}')
+        reloaded = Mmif(mmif_obj.serialize(), validate=False)
+        tp = reloaded[f'{view.id}:tp_0']
+        self.assertNotIn('timePoint', tp.properties)
+        self.assertEqual(1500, reloaded.get_start(tp))
+        self.assertEqual(1500, reloaded.get_end(tp))
+
     def test_get_annotations_between_time(self):
         token_type = "http://vocab.lappsgrid.org/Token"
         # Below tokens are obtained by 'jq' in CLI using command:
