@@ -407,12 +407,13 @@ class Document(Annotation):
         # around the use of these three dictionaries
         # (names changed since, `existing` >> `ephemeral` and `temporary` >> `pending`)
         self._props_original: DocumentProperties = DocumentProperties(None, self)
-        # pending props are never cleared: every `Mmif.serialize()` call
-        # converts them into `Annotation`s again, and
-        # `Mmif.generate_capital_annotations()` relies on its duplicate check
-        # to skip values already written. Calling it more than once (e.g.,
-        # early in clams-python's `ClamsApp.annotate()`) is safe only while
-        # that check holds.
+        # properties added to a document that are recorded as capital
+        # `Annotation`s. This dict is never cleared. `Mmif.serialize()` writes
+        # the records into its output only, so repeated serialization gives
+        # the same records. `Mmif.generate_capital_annotations()` writes them
+        # into the views, and calling it more than once (e.g., early in
+        # clams-python's `ClamsApp.annotate()`) relies on its duplicate check
+        # to skip values already written.
         self._props_pending: AnnotationProperties = AnnotationProperties(None, self)
         self.reserved_names.update(('_props_original', '_props_pending'))
         

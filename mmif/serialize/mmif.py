@@ -14,8 +14,9 @@ import json
 import math
 import warnings
 from collections import defaultdict
+from collections.abc import Iterable, Iterator
 from datetime import datetime, timezone
-from typing import Any, List, Union, Optional, Dict, cast, Iterable, Iterator
+from typing import Any, Dict, List, Optional, Tuple, Union, cast
 from urllib.parse import urlparse
 
 import jsonschema.validators
@@ -23,7 +24,7 @@ import jsonschema.validators
 import mmif
 from mmif import ThingTypesBase
 from mmif.serialize.annotation import Annotation, Document
-from mmif.serialize.model import MmifObject, DataList
+from mmif.serialize.model import DataList, MmifObject, MmifObjectEncoder
 from mmif.serialize.view import View
 from mmif.vocabulary import AnnotationTypes, DocumentTypesBase
 
@@ -238,32 +239,143 @@ class Mmif(MmifObject):
         """
         Serializes the MMIF object to a JSON string.
 
+        The output is built once, and capital ``Annotation`` records,
+        factored properties, and sanitization apply to that output only. The
+        in-memory ``Mmif`` object itself never change, so calling this 
+        method repeatedly gives the same records.
+
         :param pretty: If True, returns the string with indentation.
         :param include_context: If False, excludes contextual attributes (e.g.
             runtime timestamps) from serialization.
-        :param sanitize: If True, performs some sanitization of before returning
-            the JSON string. See :meth:`sanitize` for details.
-        :param autogenerate_capital_annotations: If True, automatically convert
-            any "pending" temporary properties from `Document` objects to
-            `Annotation` objects. See :meth:`generate_capital_annotations` for
-            details.
+        :param sanitize: If True, removes ``contains`` entries of types with
+            no annotations from the output, and validates the output against
+            the MMIF JSON schema.
+        :param autogenerate_capital_annotations: If True, write any "pending"
+            properties of `Document` objects as `Annotation` objects in the
+            output. See :meth:`generate_capital_annotations` for the rules.
         :param factor_out_shared_properties: If True, lift properties shared
             (same value) across all annotations of a type in a view into the
-            view's ``contains`` metadata. See
-            :meth:`factor_out_shared_properties` for details. Independent of
+            view's ``contains`` metadata in the output. See
+            :meth:`factor_out_shared_properties` for the rules. Independent of
             ``autogenerate_capital_annotations``, but runs after it (so
             freshly-materialized pending properties are included) when both are
             enabled.
         :return: JSON string of the MMIF object.
         """
+        output = self._serialize(include_context=include_context)
+        views_out = output['views']
         if autogenerate_capital_annotations:
-            self.generate_capital_annotations()
+            self._write_capital_annotations(views_out, include_context)
         if factor_out_shared_properties:
-            self.factor_out_shared_properties()
+            self._factor_out_in_output(views_out)
         # sanitization should be done after `Annotation` annotations are generated
         if sanitize:
-            self.sanitize()
-        return super().serialize(pretty=pretty, include_context=include_context)
+            self._prune_contains_in_output(views_out)
+        serialized = json.dumps(output, indent=2 if pretty else None,
+                                cls=MmifObjectEncoder)
+        if sanitize:
+            self.validate(serialized)
+        return serialized
+
+    def _write_capital_annotations(self, views_out: List[dict],
+                                   include_context: bool) -> None:
+        """
+        Writes the capital ``Annotation`` records planned by
+        :meth:`_plan_capital_annotations` into the serialized views.
+
+        :param views_out: serialized views, changed in place
+        :param include_context: See :meth:`serialize` for details.
+        """
+        views_by_id = {view_out['id']: view_out for view_out in views_out}
+        last_nums = {}
+        for view, doc_id, props, in_place in self._plan_capital_annotations():
+            view_out = views_by_id[view.id]
+            if in_place:
+                doc_out = next(ann_out for ann_out in view_out['annotations']
+                               if ann_out['properties']['id'] == doc_id)
+                doc_out['properties'].update(props)
+                continue
+            record = Annotation()
+            record.at_type = AnnotationTypes.Annotation
+            prefix = record.at_type.get_prefix()
+            if view.id not in last_nums:
+                last_nums[view.id] = self._last_annotation_num(
+                    view, view_out, prefix)
+            last_nums[view.id] += 1
+            record.id = f'{view.id}{self.id_delimiter}{prefix}_{last_nums[view.id]}'
+            for key, value in props.items():
+                record.add_property(key, value)
+            record.add_property('document', doc_id)
+            view_out['annotations'].append(
+                record._serialize(include_context=include_context))
+            view_out['metadata'].setdefault('contains', {}).setdefault(
+                str(record.at_type), {})
+
+    def _last_annotation_num(self, view: View, view_out: dict,
+                             prefix: str) -> int:
+        """
+        Finds the largest number used in the IDs of a view's annotations with
+        the given prefix. Annotations added with an explicit ID are not
+        counted in ``View._id_counts``, so the serialized view is scanned too.
+
+        :param view: the view
+        :param view_out: the serialized view
+        :param prefix: an annotation ID prefix
+        :return: the largest number, 0 when there is none
+        """
+        last_num = view._id_counts.get(prefix, 0)
+        for ann_out in view_out['annotations']:
+            local_id = ann_out['properties']['id'].split(self.id_delimiter)[-1]
+            ann_prefix, _, num = local_id.rpartition('_')
+            if ann_prefix == prefix and num.isdigit():
+                last_num = max(last_num, int(num))
+        return last_num
+
+    def _factor_out_in_output(self, views_out: List[dict]) -> None:
+        """
+        Applies the rules of :meth:`factor_out_shared_properties` to the
+        serialized views.
+
+        :param views_out: serialized views, changed in place
+        """
+        for view_out in views_out:
+            props_by_type = defaultdict(list)
+            for ann_out in view_out['annotations']:
+                props_by_type[str(ann_out['@type'])].append(ann_out['properties'])
+            for at_type, props_list in props_by_type.items():
+                if len(props_list) < 2:
+                    continue
+                shared = {key: value for key, value in props_list[0].items()
+                          if key not in self._NON_FACTORABLE_PROPS
+                          and all(key in props and props[key] == value
+                                  for props in props_list)}
+                if not shared:
+                    continue
+                contain = view_out['metadata'].setdefault(
+                    'contains', {}).setdefault(at_type, {})
+                for key, value in shared.items():
+                    contain[key] = value
+                    for props in props_list:
+                        del props[key]
+
+    @staticmethod
+    def _prune_contains_in_output(views_out: List[dict]) -> None:
+        """
+        Removes ``contains`` entries of types that have no annotations in a
+        serialized view. A view with an error or warnings drops an empty
+        ``contains``; any other view keeps it, as the schema requires.
+
+        :param views_out: serialized views, changed in place
+        """
+        for view_out in views_out:
+            metadata = view_out['metadata']
+            contains = metadata.get('contains', {})
+            existing_at_types = {str(ann_out['@type'])
+                                 for ann_out in view_out['annotations']}
+            for at_type in set(contains) - existing_at_types:
+                del contains[at_type]
+            if not contains and ('error' in metadata or 'warnings' in metadata):
+                metadata.pop('contains', None)
 
     def _deserialize(self, input_dict: dict) -> None:
         """
@@ -335,11 +447,29 @@ class Mmif(MmifObject):
     def generate_capital_annotations(self):
         """
         Automatically convert any "pending" temporary properties from 
-        `Document` objects to `Annotation` objects . The generated `Annotation` 
-        objects are then added to the last `View` in the views lists. 
+        `Document` objects to `Annotation` objects, and add them to the views 
+        of this object. :meth:`serialize` applies the same rules to its output
+        without calling this method, and leaves the views unchanged.
         
         See https://github.com/clamsproject/mmif-python/issues/226 for rationale
         behind this behavior and discussion.
+        """
+        for view, doc_id, props, in_place in self._plan_capital_annotations():
+            if in_place:
+                view[doc_id].properties.update(props)
+            else:
+                view.new_annotation(AnnotationTypes.Annotation,
+                                    **{**props, 'document': doc_id})
+
+    def _plan_capital_annotations(self) -> List[Tuple[View, str, dict, bool]]:
+        """
+        Decides where the "pending" properties of `Document` objects are 
+        recorded. Values that are already recorded for the document are left
+        out, and this method changes nothing.
+
+        :return: a list of (view to write to, document ID, properties to
+            record, whether the properties go into the document itself, which
+            is in that view, rather than into a new `Annotation`)
         """
         # this view will be the default kitchen sink for all generated annotations.
         # this can be an empty view, from an app that only adds document properties
@@ -347,64 +477,64 @@ class Mmif(MmifObject):
                           if not v.has_error() and not v.has_warnings()), None)
         
         # proceed only when there's at least one view
-        if last_view:
-            
-            # this app name is used to check a view is generated by the "currently running" app.
-            # knowing the currently running app is important so that properties of `Document` objects generated by the 
-            # current app can be properly recorded inside the `Document` objects (since they are "writable" to the 
-            # current app), instead of being recorded in a separate `Annotation` object.
-            current_app = last_view.metadata.app
+        if last_view is None:
+            return []
 
-            # to avoid duplicate property recording, this will be populated with
-            # existing Annotation objects from all existing views
-            existing_anns = defaultdict(lambda: defaultdict(dict))
-            # ideally, if we can "de-duplicate" props at `add_property()` time, that'd be more efficient, 
-            # but that is impossible without looking for the target `document` across other views and top documents list
-            
-            # new properties to record in the current serialization call
-            anns_to_write = defaultdict(dict)
-            for view in self.views:
-                for ann in view.get_annotations(AnnotationTypes.Annotation):
-                    # values recorded at view level (`contains`) count too;
-                    # in MMIF made by old SDKs, the id may be in the short
-                    # form (no view prefix)
-                    existing_anns[ann.get_property('document')].update(
-                        ann._resolved_properties())
-                for doc in view.get_documents():
-                    anns_to_write[doc.id].update(doc._props_pending.items())
-            for doc in self.documents:
+        # this app name is used to check a view is generated by the "currently running" app.
+        # knowing the currently running app is important so that properties of `Document` objects generated by the 
+        # current app can be properly recorded inside the `Document` objects (since they are "writable" to the 
+        # current app), instead of being recorded in a separate `Annotation` object.
+        current_app = last_view.metadata.app
+
+        # to avoid duplicate property recording, this will be populated with
+        # existing Annotation objects from all existing views
+        existing_anns = defaultdict(lambda: defaultdict(dict))
+        # ideally, if we can "de-duplicate" props at `add_property()` time, that'd be more efficient, 
+        # but that is impossible without looking for the target `document` across other views and top documents list
+        
+        # new properties to record in the current serialization call
+        anns_to_write = defaultdict(dict)
+        for view in self.views:
+            for ann in view.get_annotations(AnnotationTypes.Annotation):
+                # values recorded at view level (`contains`) count too;
+                # in MMIF made by old SDKs, the id may be in the short
+                # form (no view prefix)
+                existing_anns[ann.get_property('document')].update(
+                    ann._resolved_properties())
+            for doc in view.get_documents():
                 anns_to_write[doc.id].update(doc._props_pending.items())
-            # additional iteration of views, to find a proper view to add the 
-            # generated annotations. If none found, use the last view as the kitchen sink
-            last_view_for_docs = defaultdict(lambda: last_view)
-            doc_ids = set(anns_to_write.keys())
-            for doc_id in doc_ids:
-                if len(last_view.annotations) == 0:
-                    # meaning, this new app didn't generate any annotation except for these document properties
-                    # thus, we should add capital annotations to the last (empty) view
-                    last_view_for_docs[doc_id] = last_view
+        for doc in self.documents:
+            anns_to_write[doc.id].update(doc._props_pending.items())
+        # additional iteration of views, to find a proper view to add the 
+        # generated annotations. If none found, use the last view as the kitchen sink
+        last_view_for_docs = defaultdict(lambda: last_view)
+        doc_ids = set(anns_to_write.keys())
+        for doc_id in doc_ids:
+            if len(last_view.annotations) == 0:
+                # meaning, this new app didn't generate any annotation except for these document properties
+                # thus, we should add capital annotations to the last (empty) view
+                last_view_for_docs[doc_id] = last_view
+                break
+            for view in reversed(self.views):
+                if any(view.get_annotations(document=doc_id)):
+                    last_view_for_docs[doc_id] = view 
                     break
-                for view in reversed(self.views):
-                    if any(view.get_annotations(document=doc_id)):
-                        last_view_for_docs[doc_id] = view 
-                        break
-            for doc_id, found_props in anns_to_write.items():
-                # ignore the "empty" id property from temporary dict 
-                # `id` is "required" attribute for `AnnotationProperty` class 
-                # thus will always be present in `props` dict as a key with emtpy value
-                # also ignore duplicate k-v pairs
-                props = {}
-                for k, v in found_props.items():
-                    if k != 'id' and existing_anns[doc_id][k] != v:
-                        props[k] = v
-                if props:
-                    view_to_write = last_view_for_docs[doc_id]
-                    if view_to_write.metadata.app == current_app and doc_id in view_to_write.annotations:
-                        view_to_write[doc_id].properties.update(props)
-                    else:
-                        props['document'] = doc_id
-                        view_to_write.new_annotation(AnnotationTypes.Annotation, **props)
-
+        plan = []
+        for doc_id, found_props in anns_to_write.items():
+            # ignore the "empty" id property from temporary dict 
+            # `id` is "required" attribute for `AnnotationProperty` class 
+            # thus will always be present in `props` dict as a key with emtpy value
+            # also ignore duplicate k-v pairs
+            props = {}
+            for k, v in found_props.items():
+                if k != 'id' and existing_anns[doc_id][k] != v:
+                    props[k] = v
+            if props:
+                view_to_write = last_view_for_docs[doc_id]
+                in_place = (view_to_write.metadata.app == current_app
+                            and doc_id in view_to_write.annotations)
+                plan.append((view_to_write, doc_id, props, in_place))
+        return plan
 
     def factor_out_shared_properties(self):
         """
@@ -417,9 +547,10 @@ class Mmif(MmifObject):
         **every** annotation of a given ``@type`` in the view, there are at
         least two such annotations (so the value is genuinely shared), and the
         key is not in the :attr:`_NON_FACTORABLE_PROPS` protection list.
-        Factored values are mirrored into each annotation's ephemeral props at
-        deserialization time, so in-memory access is unchanged, while the 
-        serialized output carries the value once, in ``contains``.
+        Factored values resolve through the view at read time, so
+        ``get_property`` is unchanged, while the view carries the value once,
+        in ``contains``. :meth:`serialize` applies the same rules to its
+        output without calling this method, and leaves the views unchanged.
         """
         for view in self.views:
             by_type = defaultdict(list)
@@ -445,16 +576,17 @@ class Mmif(MmifObject):
                     contain[key] = value
                     for a in anns:
                         del a.properties[key]
-                        a._props_ephemeral[key] = value
 
     def sanitize(self):
         """
-        Sanitizes a Mmif object by running some safeguards.
-        Concretely, it performs the following before returning the JSON string.
-        
-        #. validating output using built-in MMIF jsonschema
+        Sanitizes this Mmif object by running some safeguards.
+        Concretely, it performs the following.
+
         #. remove non-existing annotation types from ``contains`` metadata
-    
+        #. validating the serialized object using built-in MMIF jsonschema
+
+        ``serialize(sanitize=True)`` applies the same safeguards to its output
+        without calling this method, and leaves the views unchanged.
         """
         for view in self.views:
             existing_at_types = set(annotation.at_type for annotation in view.annotations)
