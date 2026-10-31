@@ -23,19 +23,19 @@ This module defines two main collection types:
 
 import json
 import warnings
-from datetime import datetime
-from typing import Union, Any, Dict, Optional, TypeVar, Generic, Generator, Iterator, Type, Set, ClassVar, List
+from collections.abc import Generator, Iterator
+from typing import Any, ClassVar, Generic, Optional, TypeVar, Union
 
 T = TypeVar('T')
 S = TypeVar('S')
-PRMTV_TYPES: Type = Union[str, int, float, bool, None]
+PRMTV_TYPES: type = Union[str, int, float, bool, None]  # noqa: UP007
 
 __all__ = [
-    'MmifObject',
-    'MmifObjectEncoder',
-    'DataList',
+    'PRMTV_TYPES',
     'DataDict',
-    'PRMTV_TYPES'
+    'DataList',
+    'MmifObject',
+    'MmifObjectEncoder'
 ]
 
 
@@ -96,7 +96,7 @@ class MmifObject(object):
 
     # these are the reserved names that cannot be used as attribute names, and 
     # they won't be serialized
-    reserved_names: Set[str] = {
+    reserved_names: set[str] = {
         'reserved_names',
         '_unnamed_attributes',
         '_attribute_classes',
@@ -105,9 +105,9 @@ class MmifObject(object):
         '_contextual_attributes'
     }
     _unnamed_attributes: Optional[dict]
-    _exclude_from_diff: Set[str]
-    _contextual_attributes: Set[str]
-    _attribute_classes: Dict[str, Type] = {}  # Mapping: str -> Type
+    _exclude_from_diff: set[str]
+    _contextual_attributes: set[str]
+    _attribute_classes: dict[str, type] = {}  # Mapping: str -> Type
 
     def __init__(self, mmif_obj: Optional[Union[bytes, str, dict]] = None, *_) -> None:
         if isinstance(mmif_obj, bytes):
@@ -183,7 +183,7 @@ class MmifObject(object):
         """
         return json.dumps(self._serialize(include_context=include_context), indent=2 if pretty else None, cls=MmifObjectEncoder)
 
-    def _serialize(self, alt_container: Optional[Dict] = None, include_context: bool = True) -> dict:
+    def _serialize(self, alt_container: Optional[dict] = None, include_context: bool = True) -> dict:
         """
         Maps a MMIF object to a plain python dict object,
         rewriting internal keys that start with '_' to
@@ -259,7 +259,7 @@ class MmifObject(object):
         :param json_str: the JSON data to load and process
         :return: the mapped data as a dict
         """
-        def from_atsign(d: Dict[str, Any]) -> dict:
+        def from_atsign(d: dict[str, Any]) -> dict:
             for k in list(d.keys()):
                 if k.startswith('@'):
                     d[f'_{k[1:]}'] = d.pop(k)
@@ -298,9 +298,9 @@ class MmifObject(object):
         If a subclass needs a special treatment during the mapping, it needs to
         override this method.
 
-        This default method won't work for generic types (e.g. List[X], Dict[X, Y]).
+        This default method won't work for generic types (e.g. list[X], dict[X, Y]).
         For now, lists are abstracted as DataList and dicts are abstracted as XXXMetadata classes.
-        However, if an attribute uses a generic type (e.g. view_metadata.contains: Dict[str, Contain])
+        However, if an attribute uses a generic type (e.g. view_metadata.contains: dict[str, Contain])
         that class should override _deserialize of its own.
 
         :param input_dict: the prepared JSON data that defines the object
@@ -452,7 +452,7 @@ class DataList(MmifObject, Generic[T]):
     """
     def __init__(self, mmif_obj: Optional[Union[bytes, str, list]] = None, *_):
         self.reserved_names.add('_items')
-        self._items: Dict[str, T] = dict()
+        self._items: dict[str, T] = dict()
         self.disallow_additional_properties()
         if mmif_obj is None:
             mmif_obj = []
@@ -549,7 +549,7 @@ class DataList(MmifObject, Generic[T]):
     def append(self, value, overwrite):
         raise NotImplementedError()
 
-    def __getitem__(self, key: Union[int, slice]) -> Union[T, List[T]]:
+    def __getitem__(self, key: Union[int, slice]) -> Union[T, list[T]]:
         """
         List-style positional access using integers or slices.
 
@@ -615,7 +615,7 @@ class DataList(MmifObject, Generic[T]):
 class DataDict(MmifObject, Generic[T, S]):
     def __init__(self, mmif_obj: Optional[Union[bytes, str, dict]] = None, *_):
         self.reserved_names.add('_items')
-        self._items: Dict[T, S] = dict()
+        self._items: dict[T, S] = dict()
         self.disallow_additional_properties()
         if mmif_obj is None:
             mmif_obj = {}

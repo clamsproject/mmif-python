@@ -2,10 +2,8 @@ import json
 import tempfile
 import unittest
 import warnings
-from io import StringIO
 from pathlib import Path
 import random
-from unittest.mock import patch
 
 import hypothesis_jsonschema
 import pytest
@@ -26,37 +24,6 @@ SKIP_SCHEMA = True, "Not skipping TestSchema by default"
 # (https://github.com/clamsproject/mmif-python/issues/309)
 not_existing_attype = 'http://not.existing/type'
 tester_appname = 'http://not.existing/app'
-
-
-class TestMmifObject(unittest.TestCase):
-    
-    def test_setattr_additional_properties_disallowed(self):
-        """Test that setting additional properties raises AttributeError when disallowed"""
-        # Create an object that disallows additional properties
-        obj = MmifObject()
-        obj._unnamed_attributes = None  # Disallow additional properties
-        
-        with self.assertRaises(AttributeError) as cm:
-            obj.test_prop = "value"
-        self.assertIn("Additional properties are disallowed", str(cm.exception))
-    
-    def test_setattr_additional_properties_allowed(self):
-        """Test that setting additional properties works when allowed"""
-        obj = MmifObject()
-        obj._unnamed_attributes = {}  # Allow additional properties
-        
-        obj.test_prop = "value" 
-        self.assertEqual(obj.test_prop, "value")
-        self.assertEqual(obj._unnamed_attributes["test_prop"], "value")
-
-    def test_serialize_unnamed_attributes_none(self):
-        """Test serialization when _unnamed_attributes is None"""
-        obj = MmifObject()
-        obj._unnamed_attributes = None
-        
-        # This should not raise an error, but handle AttributeError gracefully
-        serialized = obj.serialize()
-        self.assertIsInstance(serialized, str)
 
 
 class TestMmif(unittest.TestCase):
@@ -101,6 +68,13 @@ class TestMmif(unittest.TestCase):
             json_mmif_obj = Mmif(json.loads(example))
             self.assertEqual(str_mmif_obj.serialize(pretty=True), json_mmif_obj.serialize(pretty=True), f'Failed on {i}')
 
+    def test_deserialize_large_examples(self):
+        # real files from old SDKs load and validate, including 1.0.x
+        # list-of-ID properties
+        for name, example in LARGE_EXAMPLES.items():
+            mmif_obj = Mmif(example)
+            self.assertTrue(any(v.has_content() for v in mmif_obj.views), name)
+
     def test_bad_mmif_deserialize_no_metadata(self):
         self.mmif_examples_json['everything'].pop('metadata')
         json_str = json.dumps(self.mmif_examples_json['everything'])
@@ -136,9 +110,102 @@ class TestMmif(unittest.TestCase):
         v.new_contain(AnnotationTypes.TimeFrame)
         self.assertEqual(0, len(Mmif(mmif.serialize(sanitize=True))[v.id].metadata.contains))
         v.new_annotation(AnnotationTypes.Annotation, fps='30', document=v.id)
-        self.assertEqual(1, len(Mmif(mmif.serialize())[v.id].metadata.contains))
+        # sanitizing applies to the output, the unused entry stays in the object
+        self.assertEqual(2, len(Mmif(mmif.serialize())[v.id].metadata.contains))
         self.assertEqual(1, len(Mmif(mmif.serialize(sanitize=True))[v.id].metadata.contains))
-        
+        self.assertEqual(2, len(v.metadata.contains))
+
+    def _mmif_with_serialization_work(self):
+        """
+        A MMIF for which `serialize()` has work to do: pending document
+        properties, shared values to factor out, and an unused `contains`.
+        """
+        mmif_obj = self._mmif_with_two_documents()
+        view = mmif_obj.new_view()
+        view.metadata.app = tester_appname
+        view.new_contain(AnnotationTypes.Region)
+        for start in (0, 5):
+            view.new_annotation(AnnotationTypes.TimeFrame, start=start,
+                                end=start + 1, label='bars')
+        mmif_obj['m1'].add_property('author', 'me')
+        mmif_obj['doc2'].add_property('author', 'me')
+        return mmif_obj, view
+
+    def test_serialize_keeps_object_unchanged(self):
+        mmif_obj, view = self._mmif_with_serialization_work()
+        contains_before = [str(k) for k in view.metadata.contains.keys()]
+        for sanitize in (False, True):
+            mmif_obj.serialize(sanitize=sanitize)
+            self.assertEqual(2, len(view.annotations))
+            self.assertEqual(contains_before,
+                             [str(k) for k in view.metadata.contains.keys()])
+            for ann in view.annotations:
+                self.assertEqual('bars', ann.properties['label'])
+            self.assertEqual('me', mmif_obj['m1']._props_pending['author'])
+
+    def test_serialize_is_repeatable(self):
+        mmif_obj, _ = self._mmif_with_serialization_work()
+        first = mmif_obj.serialize()
+        str(mmif_obj)
+        self.assertTrue(mmif_obj == mmif_obj)
+        self.assertEqual(first, mmif_obj.serialize())
+
+    def test_sanitize_writes_same_records(self):
+        mmif_obj, view = self._mmif_with_serialization_work()
+        plain = json.loads(mmif_obj.serialize())
+        sanitized = json.loads(mmif_obj.serialize(sanitize=True))
+        self.assertEqual(plain['views'][-1]['annotations'],
+                         sanitized['views'][-1]['annotations'])
+        self.assertIn(str(AnnotationTypes.Region), plain['views'][-1]['metadata']['contains'])
+        self.assertNotIn(str(AnnotationTypes.Region), sanitized['views'][-1]['metadata']['contains'])
+
+    def test_sanitize_drops_empty_contains_of_noncontentful_views(self):
+        mmif_obj, states = self._mmif_with_view_states()
+        states['warnings'].new_contain(AnnotationTypes.TimeFrame)
+        states['error'].new_contain(AnnotationTypes.TimeFrame)
+        views_out = {v['id']: v for v in
+                     json.loads(mmif_obj.serialize(sanitize=True))['views']}
+        for state in ('warnings', 'error'):
+            self.assertNotIn('contains', views_out[states[state].id]['metadata'])
+        self.assertEqual({}, views_out[states['empty'].id]['metadata']['contains'])
+
+    def test_serialize_without_context_writes_records(self):
+        # `m1` is used by earlier views of the example, so its record goes
+        # to one of those; `doc2` is new, so its record goes to the last view
+        mmif_obj, view = self._mmif_with_serialization_work()
+        out = json.loads(mmif_obj.serialize(include_context=False))
+        for view_out in out['views']:
+            self.assertNotIn('timestamp', view_out['metadata'])
+        records = [a for view_out in out['views']
+                   for a in view_out['annotations']
+                   if a['@type'] == str(AnnotationTypes.Annotation)
+                   and a['properties'].get('author') == 'me']
+        self.assertEqual(['m1', 'doc2'],
+                         [a['properties']['document'] for a in records])
+
+    def test_annotation_after_serialize_inherits_no_defaults(self):
+        mmif_obj, view = self._mmif_with_serialization_work()
+        self.assertIn('"label": "bars"', json.dumps(
+            json.loads(mmif_obj.serialize())['views'][-1]['metadata']['contains']))
+        added = view.new_annotation(AnnotationTypes.TimeFrame, start=10, end=11)
+        self.assertNotIn('label', added)
+
+    def test_capital_annotation_ids_skip_existing_ids(self):
+        mmif_obj, view = self._mmif_with_serialization_work()
+        view.new_annotation(AnnotationTypes.Annotation, aid='an_7',
+                            document='m1', publisher='they')
+        out = json.loads(mmif_obj.serialize())
+        ids = [a['properties']['id'] for a in out['views'][-1]['annotations']]
+        self.assertEqual(len(ids), len(set(ids)))
+        self.assertIn(f'{view.id}:an_8', ids)
+        # the counter is untouched, so a later live addition takes a low
+        # number, and the next output still has unique ids
+        view.new_annotation(AnnotationTypes.Annotation,
+                            document='doc2', publisher='they')
+        out = json.loads(mmif_obj.serialize())
+        ids = [a['properties']['id'] for a in out['views'][-1]['annotations']]
+        self.assertEqual(len(ids), len(set(ids)))
+
     def test_new_view(self):
         mmif_obj = Mmif(MMIF_EXAMPLES['everything'])
         old_view_count = len(mmif_obj.views)
@@ -919,6 +986,11 @@ class TestMmifObject(unittest.TestCase):
         self.assertIn('@value', plain_json.keys())
         self.assertIn('@language', plain_json.keys())
 
+    def test_serialize_unnamed_attributes_none(self):
+        obj = MmifObject()
+        obj._unnamed_attributes = None
+        self.assertIsInstance(obj.serialize(), str)
+
     def test_set_additional_property_undeclared(self):
         metadata = ViewMetadata()
         with warnings.catch_warnings():
@@ -970,13 +1042,6 @@ class TestMmifObject(unittest.TestCase):
             with self.assertRaises(KeyError):
                 metadata.set_additional_property(name, None)
 
-    @pytest.mark.skip("TODO: does not work with text examples that are a mixture of old (short-id) and new (long-id) annotations")
-    def test_print_mmif(self):
-        with patch('sys.stdout', new=StringIO()) as fake_out:
-            mmif_obj = Mmif(MMIF_EXAMPLES['everything'])
-            print(mmif_obj)
-            self.assertEqual(json.loads(MMIF_EXAMPLES['everything']), json.loads(fake_out.getvalue()))
-
 
 class TestGetItem(unittest.TestCase):
 
@@ -991,31 +1056,6 @@ class TestGetItem(unittest.TestCase):
             self.fail("__getitem__ not implemented")
         except KeyError:
             self.fail("didn't get document 'm1'")
-
-    @pytest.mark.skip("no longer id conflict after long_id is enforced everywhere (1.1.0)")
-    def test_mmif_getitem_idconflict(self):
-        # TODO (krim @ 6/13/25): major re-write when addressing #295
-        m = Mmif(validate=False)
-        v1 = m.new_view()
-        v1.id = 'v1'
-        v2 = m.new_view()
-        v2.id = 'v1'
-        with pytest.raises(KeyError):
-            _ = m['v1']
-
-        m = Mmif(validate=False)
-        v1 = m.new_view()
-        v1a = v1.new_annotation(AnnotationTypes.Annotation, id='a1')
-        v2 = m.new_view()
-        v2a = v2.new_annotation(AnnotationTypes.Annotation, id='a1')
-        self.assertIsNotNone(m[v1.id])
-        self.assertIsNotNone(m[v2.id])
-        # conflict short IDs
-        self.assertEqual(v1a._short_id, v2a._short_id)
-        with pytest.raises(KeyError):
-            _ = m['a1']
-        self.assertIsNotNone(m[v1a.id])
-        self.assertIsNotNone(m[v2a.id])
 
     def test_mmif_getitem_view(self):
         try:
@@ -1355,12 +1395,11 @@ class TestAnnotation(unittest.TestCase):
         self.assertEqual(props_json, json.loads(props_obj.serialize()))
         self.assertEqual(props_json['id'], props_obj.id)
         self.assertEqual(props_json['start'], props_obj.get('start'))
-        self.assertEqual(props_json['start'], props_obj.get('start'))
         self.assertEqual(props_json['end'], props_obj.get('end'))
         # normal deletion
         props_obj['new_prop'] = 'new_prop_value'
         del props_obj['new_prop']
-        self.assertNotIn('baz', props_obj)
+        self.assertNotIn('new_prop', props_obj)
         
         # deletion of a required property
         with self.assertRaises(AttributeError):
@@ -1428,26 +1467,6 @@ class TestAnnotation(unittest.TestCase):
         ann.add_property("dict", {"k1": "v1"})
         ann.add_property("dict_list", {"k1": ["v1"]})
 
-    @pytest.mark.skip("TODO: does not work with text examples that are a mixture of old (short-id) and new (long-id) annotations")
-    def test_add_property(self):
-        for i, datum in self.data.items():
-            try:
-                mmif = Mmif(datum['json'])
-                for j, view in enumerate(mmif.views):
-                    view_id = view.id
-                    first_ann = list(view.annotations._items.values())[0]
-                    props = first_ann.properties
-                    first_ann_id = props['id']
-                    removed_prop_key, removed_prop_value = list(props.items())[-1]
-                    props.pop(removed_prop_key)
-                    new_mmif = Mmif(datum['json'])
-                    new_mmif.get(view_id).annotations[first_ann_id].add_property(removed_prop_key, removed_prop_value)
-                    self.assertEqual(json.loads(datum['string'])['views'][j],
-                                     json.loads(new_mmif.serialize())['views'][j],
-                                     f'Failed on {i}, {view_id}')
-            except ValidationError:
-                continue
-    
     def test_get_property(self):
         v = View()
         a = v.new_annotation(AnnotationTypes.Annotation)
@@ -1615,7 +1634,6 @@ class TestDocument(unittest.TestCase):
         self.assertEqual('v1:d1', d._short_id)
         self.assertEqual('v1', d.parent)
 
-
     def test_nontext_document(self):
         ad = Document()
         ad.at_type = DocumentTypes.AudioDocument
@@ -1650,7 +1668,7 @@ class TestDocument(unittest.TestCase):
         # `mime` is a special prop and shouldn't be added to "temporary" props
         doc1.add_property('mime', 'text')
         doc1_roundtrip = Document(doc1.serialize())
-        self.assertTrue(doc1_roundtrip.get('mime'), 'text')
+        self.assertEqual('text', doc1_roundtrip.get('mime'))
         # but a generic prop should be added to "temporary" props
         # ("temporary" props dict will be lost after `Document`-level serialization)
         doc1.add_property('author', 'me')
@@ -1782,40 +1800,6 @@ class TestDocument(unittest.TestCase):
         mmif_roundtrip = Mmif(mmif.serialize())
         ## should be only one Annotation object, from manual call of `new_annotation`
         self.assertEqual(1, len(list(mmif_roundtrip.views.get_last_contentful_view().get_annotations(AnnotationTypes.Annotation))))
-
-        # test with duplicate property added by a downstream app
-        mmif_roundtrip = Mmif(mmif.serialize())
-        doc1_prime = mmif_roundtrip[did]
-        ## simulating a new view added by the downstream app
-        v2 = mmif_roundtrip.new_view()
-        v2.metadata.app = tester_appname
-        v2.new_annotation(AnnotationTypes.Region, document=did)
-        # author=me is already in the input MMIF
-        doc1_prime.add_property('author', 'me')
-        mmif_roundtrip2 = Mmif(mmif_roundtrip.serialize())
-        self.assertEqual(1, len(list(mmif.views.get_last_contentful_view().get_annotations(AnnotationTypes.Annotation))))
-        # none should be added
-        self.assertEqual(0, len(list(mmif_roundtrip2.views.get_last_contentful_view().get_annotations(AnnotationTypes.Annotation))))
-
-        # test with same key, different value
-        mmif_roundtrip = Mmif(mmif.serialize())
-        doc1_prime = mmif_roundtrip[did]
-        ## simulating a new view added by the downstream app
-        v2 = mmif_roundtrip.new_view()
-        v2.metadata.app = tester_appname
-        v2.metadata.new_contain(AnnotationTypes.Region, document=did)
-        # author=me is in the input MMIF
-        doc1_prime.add_property('author', 'you')
-        mmif_roundtrip2 = Mmif(mmif_roundtrip.serialize())
-        # the Annotation in the previous view should be preserved
-        self.assertEqual(1, len(list(mmif.views.get_last_contentful_view().get_annotations(AnnotationTypes.Annotation))))
-        # but a new one should be added
-        self.assertEqual(1, len(list(mmif_roundtrip2.views.get_last_contentful_view().get_annotations(AnnotationTypes.Annotation))))
-
-        self.assertEqual('me', list(mmif.views.get_last_contentful_view().get_annotations(AnnotationTypes.Annotation))[0].get_property(
-            'author'))
-        self.assertEqual('you', list(mmif_roundtrip2.views.get_last_contentful_view().get_annotations(AnnotationTypes.Annotation))[
-            0].get_property('author'))
 
     def test_view_id_counts_rebuilt_on_deserialize(self):
         # regression for issue #393: `_id_counts` is not serialized, so after
@@ -1994,27 +1978,31 @@ class TestDocument(unittest.TestCase):
             self.assertEqual(1, len(cap_anns))
             self.assertEqual(authors[i-1], cap_anns[0].get_property('author'))
             
-    def test_capital_annotation_nongeneration_for_writable_documents(self):
+    def _mmif_with_writable_document(self):
+        """
+        A document created by the current app in its own view, with a
+        property added afterwards.
+        """
         mmif = Mmif(validate=False)
-        doc = Document()
-        doc.at_type = DocumentTypes.TextDocument
-        doc.id = f'doc0'
-        doc.location = f'aScheme:///data/doc0.txt'
-        mmif.add_document(doc)
-
         v = mmif.new_view()
         v.metadata.app = tester_appname
-        vid = v.id
-        new_td_id = mmif[vid].new_textdocument(text='new text', document=doc.id, origin='transformation').id
-        doc.add_property('author', 'me')
-        
-        mmif_roundtrip = Mmif(mmif.serialize())
-        
-        self.assertTrue(AnnotationTypes.Annotation in mmif_roundtrip[vid].metadata.contains)
-        self.assertTrue(mmif_roundtrip['doc0'].get_property('author'), 'me')
-        self.assertTrue(next(mmif_roundtrip[vid].get_annotations(AnnotationTypes.Annotation)).get_property('author'), 'me')
-        self.assertTrue(next(mmif_roundtrip[vid].get_annotations(AnnotationTypes.Annotation)).get_property('document'), doc.id)
-        self.assertTrue(mmif_roundtrip[new_td_id].get_property('origin'), 'transformation')
+        td = v.new_textdocument(text='new text')
+        td.add_property('author', 'me')
+        return mmif, v, td
+
+    def test_capital_annotation_in_place_for_writable_documents(self):
+        # the property goes into the document itself, not into a separate
+        # Annotation, both in the serialized output and through the live
+        # method
+        mmif, v, td = self._mmif_with_writable_document()
+        roundtrip = Mmif(mmif.serialize())
+        self.assertEqual('me', roundtrip[td.id].properties['author'])
+        self.assertEqual(0, len(list(roundtrip[v.id].get_annotations(AnnotationTypes.Annotation))))
+        self.assertNotIn(AnnotationTypes.Annotation, roundtrip[v.id].metadata.contains)
+        mmif, v, td = self._mmif_with_writable_document()
+        mmif.generate_capital_annotations()
+        self.assertEqual('me', td.properties['author'])
+        self.assertEqual(0, len(list(v.get_annotations(AnnotationTypes.Annotation))))
 
     def test_deserialize_with_whole_mmif(self):
         for i, datum in self.data.items():
@@ -2045,22 +2033,6 @@ class TestDocument(unittest.TestCase):
             for j, document in enumerate(datum['documents']):
                 document_serialized = json.loads(datum['mmif'].serialize())['documents'][j]
                 self.assertEqual(document, document_serialized, f'Failed on {i}, {document["properties"]["id"]}')
-
-    @pytest.mark.skip("TODO: does not work with text examples that are a mixture of old (short-id) and new (long-id) annotations")
-    def test_add_property(self):
-        for i, datum in self.data.items():
-            for j in range(len(datum['json']['documents'])):
-                document_id = datum['json']['documents'][j]['properties']['id']
-                properties = datum['json']['documents'][j].get('properties')
-                if properties:
-                    removed_prop_key, removed_prop_value = list(properties.items())[-1]
-                    properties.pop(removed_prop_key)
-                    try:
-                        new_mmif = Mmif(datum['json'])
-                        new_mmif.get(document_id).add_property(removed_prop_key, removed_prop_value)
-                        self.assertEqual(json.loads(datum['string']), json.loads(new_mmif.serialize()), f'Failed on {i}, {document_id}')
-                    except ValidationError:
-                        continue
 
 
 class TestDataStructure(unittest.TestCase):

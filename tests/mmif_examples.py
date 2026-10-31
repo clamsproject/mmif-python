@@ -8,8 +8,9 @@ from mmif.vocabulary import AnnotationTypes, DocumentTypes
 __all__ = [
     'ATTYPE_PREFIX',
     'EVERYTHING_JSON',
-    'MMIF_EXAMPLES',
     'FRACTIONAL_EXAMPLES',
+    'LARGE_EXAMPLES',
+    'MMIF_EXAMPLES',
 ]
 
 # Canonical URI prefix for vocabulary types (e.g.,
@@ -42,6 +43,12 @@ MMIF_EXAMPLES = {
     # Historical fixture: 1.0.5-era types, already hardcoded inline.
     # Do NOT run template substitution on this file.
     'mmif_old_shortid': OLD_SHORTID_JSON,
+}
+
+# Real, large files (tens of MB). Kept out of ``MMIF_EXAMPLES`` so that
+# per-test fixtures stay fast; load these only in tests that need them.
+LARGE_EXAMPLES = {
+    # 1.0.x file with list-of-ID properties
     'mmif_swt_1_0': SWT_1_0_JSON,
 }
 

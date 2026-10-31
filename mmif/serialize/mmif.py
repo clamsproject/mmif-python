@@ -16,7 +16,7 @@ import warnings
 from collections import defaultdict
 from collections.abc import Iterable, Iterator
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional, Tuple, Union, cast
+from typing import Optional, Union, cast
 from urllib.parse import urlparse
 
 import jsonschema.validators
@@ -54,7 +54,7 @@ class DocumentsList(DataList[Document]):
     DocumentsList object that implements :class:`mmif.serialize.model.DataList`
     for :class:`mmif.serialize.document.Document`.
     """
-    _items: Dict[str, Document]
+    _items: dict[str, Document]
 
     def _deserialize(self, input_list: list) -> None:  # pytype: disable=signature-mismatch
         """
@@ -90,7 +90,7 @@ class ViewsList(DataList[View]):
     ViewsList object that implements :class:`mmif.serialize.model.DataList`
     for :class:`mmif.serialize.view.View`.
     """
-    _items: Dict[str, View]
+    _items: dict[str, View]
 
     def __init__(self, mmif_obj: Optional[Union[bytes, str, list]] = None, parent_mmif=None, *_):
         self._parent_mmif = parent_mmif
@@ -277,7 +277,7 @@ class Mmif(MmifObject):
             self.validate(serialized)
         return serialized
 
-    def _write_capital_annotations(self, views_out: List[dict],
+    def _write_capital_annotations(self, views_out: list[dict],
                                    include_context: bool) -> None:
         """
         Writes the capital ``Annotation`` records planned by
@@ -331,7 +331,7 @@ class Mmif(MmifObject):
                 last_num = max(last_num, int(num))
         return last_num
 
-    def _factor_out_in_output(self, views_out: List[dict]) -> None:
+    def _factor_out_in_output(self, views_out: list[dict]) -> None:
         """
         Applies the rules of :meth:`factor_out_shared_properties` to the
         serialized views.
@@ -359,7 +359,7 @@ class Mmif(MmifObject):
                         del props[key]
 
     @staticmethod
-    def _prune_contains_in_output(views_out: List[dict]) -> None:
+    def _prune_contains_in_output(views_out: list[dict]) -> None:
         """
         Removes ``contains`` entries of types that have no annotations in a
         serialized view. A view with an error or warnings drops an empty
@@ -461,7 +461,7 @@ class Mmif(MmifObject):
                 view.new_annotation(AnnotationTypes.Annotation,
                                     **{**props, 'document': doc_id})
 
-    def _plan_capital_annotations(self) -> List[Tuple[View, str, dict, bool]]:
+    def _plan_capital_annotations(self) -> list[tuple[View, str, dict, bool]]:
         """
         Decides where the "pending" properties of `Document` objects are 
         recorded. Values that are already recorded for the document are left
@@ -661,7 +661,7 @@ class Mmif(MmifObject):
             raise KeyError(f"{document.id} already exists in the views list. ")
         self.documents.append(document, overwrite)
 
-    def get_documents_in_view(self, vid: Optional[str] = None) -> List[Document]:
+    def get_documents_in_view(self, vid: Optional[str] = None) -> list[Document]:
         """
         Method to get all documents object queries by a view id.
 
@@ -674,7 +674,7 @@ class Mmif(MmifObject):
         else:
             return []
 
-    def get_documents_by_type(self, doc_type: DocumentTypesBase) -> List[Document]:
+    def get_documents_by_type(self, doc_type: DocumentTypesBase) -> list[Document]:
         """
         Method to get all documents where the type matches a particular document type, which should be one of the CLAMS document types.
 
@@ -688,7 +688,7 @@ class Mmif(MmifObject):
         docs.extend([document for document in self.documents if document.is_type(doc_type)])
         return docs
 
-    def get_documents_by_app(self, app_id: str) -> List[Document]:
+    def get_documents_by_app(self, app_id: str) -> list[Document]:
         """
         Method to get all documents object queries by its originated app name.
 
@@ -701,7 +701,7 @@ class Mmif(MmifObject):
                 docs.extend(view.get_documents())
         return docs
 
-    def get_documents_by_property(self, prop_key: str, prop_value: str) -> List[Document]:
+    def get_documents_by_property(self, prop_key: str, prop_value: str) -> list[Document]:
         """
         Method to retrieve documents by an arbitrary key-value pair in the document properties objects.
 
@@ -717,7 +717,7 @@ class Mmif(MmifObject):
         docs.extend([document for document in self.documents if document[prop_key] == prop_value])
         return docs
 
-    def get_documents_locations(self, m_type: Union[DocumentTypesBase, str], path_only=False) -> List[Union[str, None]]:
+    def get_documents_locations(self, m_type: Union[DocumentTypesBase, str], path_only=False) -> list[Optional[str]]:
         """
         This method returns the file paths of documents of given type.
         Only top-level documents have locations, so we only check them.
@@ -786,7 +786,7 @@ class Mmif(MmifObject):
             raise KeyError(f"View with ID {view_id} not found in the MMIF object.")
         return cast(View, view_found)
 
-    def get_alignments(self, at_type1: Union[str, ThingTypesBase], at_type2: Union[str, ThingTypesBase]) -> Dict[str, List[Annotation]]:
+    def get_alignments(self, at_type1: Union[str, ThingTypesBase], at_type2: Union[str, ThingTypesBase]) -> dict[str, list[Annotation]]:
         """
         Finds views where alignments between two given annotation types occurred.
 
@@ -819,7 +819,7 @@ class Mmif(MmifObject):
                 v_and_a[alignment_view.id] = alignments
         return v_and_a
 
-    def get_views_for_document(self, doc_id: str) -> List[View]:
+    def get_views_for_document(self, doc_id: str) -> list[View]:
         """
         Returns the list of all views that have annotations anchored on a particular document.
         Note that when the document is inside a view (generated during the workflow's running),
@@ -835,7 +835,7 @@ class Mmif(MmifObject):
                 pass
         return views
 
-    def get_all_views_with_error(self) -> List[View]:
+    def get_all_views_with_error(self) -> list[View]:
         """
         Returns the list of all views in the MMIF that have errors. 
         
@@ -845,7 +845,7 @@ class Mmif(MmifObject):
     
     get_views_with_error = get_all_views_with_error
             
-    def get_all_views_contain(self, *at_types: Union[ThingTypesBase, str]) -> List[View]:
+    def get_all_views_contain(self, *at_types: Union[ThingTypesBase, str]) -> list[View]:
         """
         Returns the list of all views in the MMIF if given types
         are present in that view's 'contains' metadata.
@@ -878,7 +878,7 @@ class Mmif(MmifObject):
         v = self.get_view_with_error()
         return v.get_error() if v is not None else None
 
-    def get_view_contains(self, at_types: Union[ThingTypesBase, str, List[Union[str, ThingTypesBase]]]) -> Optional[View]:
+    def get_view_contains(self, at_types: Union[ThingTypesBase, str, list[Union[str, ThingTypesBase]]]) -> Optional[View]:
         """
         Returns the last view appended that contains the given
         types in its 'contains' metadata.
@@ -908,7 +908,7 @@ class Mmif(MmifObject):
             return app_id
         return f"{app_directory_baseurl}/{app_id.strip('/')}"
 
-    def get_all_views_by_app(self, *app_ids: str) -> List[View]:
+    def get_all_views_by_app(self, *app_ids: str) -> list[View]:
         """
         Returns the list of all views produced by any of the given apps.
 
@@ -940,7 +940,7 @@ class Mmif(MmifObject):
         matches = self.get_all_views_by_app(*app_ids)
         return matches[-1] if matches else None
 
-    def get_all_views_by_apptag(self, *tags: str) -> List[View]:
+    def get_all_views_by_apptag(self, *tags: str) -> list[View]:
         """
         Returns the list of all views whose ``appTags`` metadata contains
         any of the given tags.
@@ -1016,7 +1016,7 @@ class Mmif(MmifObject):
         return (ann_s < range_s < ann_e) or (ann_s < range_e < ann_e) or (ann_s > range_s and ann_e < range_e)
 
     def get_annotations_between_time(self, start: Union[int, float], end: Union[int, float], time_unit: str = "ms",
-                                     at_types: List[Union[ThingTypesBase, str]] = []) -> Iterator[Annotation]:
+                                     at_types: list[Union[ThingTypesBase, str]] = []) -> Iterator[Annotation]:
         """
         Finds annotations that are anchored between the given time points.
 

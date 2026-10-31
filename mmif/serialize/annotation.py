@@ -15,21 +15,24 @@ import pkgutil
 import re
 import typing
 import warnings
-from typing import Union, Dict, Optional, Iterator, MutableMapping, TypeVar
+from collections.abc import Iterator, MutableMapping
+from typing import Optional, TypeVar, Union
 from urllib.parse import urlparse
 
-from mmif.vocabulary import ThingTypesBase, DocumentTypesBase
-from .model import MmifObject, PRMTV_TYPES
-from .. import DocumentTypes, AnnotationTypes
 import mmif_docloc_http
+
+from mmif.vocabulary import DocumentTypesBase, ThingTypesBase
+
+from .. import AnnotationTypes, DocumentTypes
+from .model import PRMTV_TYPES, MmifObject
 
 __all__ = ['Annotation', 'AnnotationProperties', 'Document', 'DocumentProperties', 'Text', 'canonicalize_prop_name']
 
 T = TypeVar('T')
-LIST_PRMTV = typing.List[PRMTV_TYPES]  # list of values (most cases for annotation props)
-LIST_LIST_PRMTV = typing.List[LIST_PRMTV]   # list of lists of values (e.g. for coordinates)
-DICT_PRMTV = typing.Dict[str, PRMTV_TYPES]  # dict of values (`text` prop of `TextDocument` and other complex props)
-DICT_LIST_PRMTV = typing.Dict[str, LIST_PRMTV]  # dict of list of values (even more complex props)
+LIST_PRMTV = list[PRMTV_TYPES]  # list of values (most cases for annotation props)
+LIST_LIST_PRMTV = list[LIST_PRMTV]   # list of lists of values (e.g. for coordinates)
+DICT_PRMTV = dict[str, PRMTV_TYPES]  # dict of values (`text` prop of `TextDocument` and other complex props)
+DICT_LIST_PRMTV = dict[str, LIST_PRMTV]  # dict of list of values (even more complex props)
 
 
 # some built-in document location helpers
@@ -43,7 +46,7 @@ discovered_docloc_plugins.update({
 
 
 @functools.lru_cache(maxsize=None)
-def _prop_alias_map(shortname: str) -> Dict[str, str]:
+def _prop_alias_map(shortname: str) -> dict[str, str]:
     """
     Maps every spelling of an aliased property of a type to the canonical
     name. The table is read from the latest version of the type in the
@@ -120,7 +123,7 @@ class Annotation(MmifObject):
         """
         self._alignments[alignment_ann] = alignedto_ann
     
-    def aligned_to_by(self, alignment: 'Annotation') -> Optional['Annotation']:
+    def aligned_to_by(self, alignment: 'Annotation') -> 'Optional[Annotation]':
         """
         Retrieves the other side of ``Alignment`` annotation that has this annotation on one side. 
         
@@ -163,7 +166,7 @@ class Annotation(MmifObject):
                         return value
         raise KeyError(prop_name)
 
-    def _resolved_properties(self) -> typing.Dict[str, typing.Any]:
+    def _resolved_properties(self) -> dict[str, typing.Any]:
         """
         Returns the properties of this annotation as a reader sees them:
         view-level defaults from the parent view's ``contains``, overridden by
@@ -688,7 +691,7 @@ class AnnotationProperties(MmifObject, MutableMapping[str, T]):
         super().__setitem__(canonical, value)
 
     def __init__(self, mmif_obj: Optional[Union[bytes, str, dict]] = None,
-                 parent: Optional['Annotation'] = None, *_) -> None:
+                 parent: 'Optional[Annotation]' = None, *_) -> None:
         self.id: str = ''
         # any individual at_type (subclassing this class) can have its own set of required attributes
         self._required_attributes = ["id"]
@@ -739,7 +742,7 @@ class DocumentProperties(AnnotationProperties):
     """
 
     def __init__(self, mmif_obj: Optional[Union[bytes, str, dict]] = None,
-                 parent: Optional['Annotation'] = None, *_) -> None:
+                 parent: 'Optional[Annotation]' = None, *_) -> None:
         self.mime: str = ''
         # note the trailing underscore here. I wanted to use the name `location`
         # for @property in this class and `Document` class, so had to use a diff
@@ -888,4 +891,3 @@ class Text(MmifObject):
     @value.setter
     def value(self, s: str) -> None:
         self._value = s
-
