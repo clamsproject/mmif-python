@@ -857,19 +857,19 @@ def convert_timeframe(mmif: Mmif, time_frame: Annotation, out_unit: str) -> tupl
 
 def capture(video_document: Document):
     """
-    .. deprecated::
-       Use :py:func:`open_container` instead. See issue #379.
+    .. deprecated:: 1.4.0
+       Will be removed in 2.0.0. Use :func:`open_container` instead. See issue
+       #379.
 
     Captures a video file using OpenCV and adds fps, frame count, and duration as properties to the document.
 
     :param video_document: :py:class:`~mmif.serialize.annotation.Document` instance that holds a video document (``"@type": ".../VideoDocument/..."``)
     :return: `OpenCV VideoCapture <https://docs.opencv.org/3.4/d8/dfe/classcv_1_1VideoCapture.html>`_ object
     """
-    warnings.warn(
-        f'capture() is deprecated; use open_container() instead. '
-        f'{_PTS_BUG_NOTICE}',
-        DeprecationWarning, stacklevel=2,
-    )
+    warnings.warn('capture() is deprecated and will be removed in 2.0.0. Use '
+                  'open_container() instead. '
+                  f'{_PTS_BUG_NOTICE}',
+                  DeprecationWarning, stacklevel=2)
     cv2 = _check_cv_dep('cv2')
     if video_document is None or video_document.at_type != DocumentTypes.VideoDocument:
         raise ValueError(f'The document does not exist.')
@@ -886,8 +886,9 @@ def capture(video_document: Document):
 
 def extract_frames_as_images(video_document: Document, framenums: Iterable[int], as_PIL: bool = False, record_ffmpeg_errors: bool = False):
     """
-    .. deprecated::
-       Use :py:func:`extract_images_from_timepoints` instead. See issue #379.
+    .. deprecated:: 1.4.0
+       Will be removed in 2.0.0. Use :func:`extract_images_from_timepoints`
+       instead. See issue #379.
 
     Extracts frames from a video document as a list of :py:class:`numpy.ndarray`.
     Use with :py:func:`sample_frames` function to get the list of frame numbers first.
@@ -898,11 +899,11 @@ def extract_frames_as_images(video_document: Document, framenums: Iterable[int],
     :param record_ffmpeg_errors: if True, records and warns about FFmpeg stderr output during extraction
     :return: frames as a list of :py:class:`~numpy.ndarray` or :py:class:`~PIL.Image.Image`
     """
-    warnings.warn(
-        f'extract_frames_as_images() is deprecated; use '
-        f'extract_images_from_timepoints() instead. {_PTS_BUG_NOTICE}',
-        DeprecationWarning, stacklevel=2,
-    )
+    warnings.warn('extract_frames_as_images() is deprecated and will be '
+                  'removed in 2.0.0. Use extract_images_from_timepoints() '
+                  'instead. '
+                  f'{_PTS_BUG_NOTICE}',
+                  DeprecationWarning, stacklevel=2)
     cv2 = _check_cv_dep('cv2')
     # deduplicate and sort frame numbers for extraction, then map back to original order
     original_framenums = list(framenums)
@@ -934,14 +935,22 @@ def extract_frames_as_images(video_document: Document, framenums: Iterable[int],
             if cur_f == next_target_f:
                 if not ret:
                     sec = convert(cur_f, 'f', 's', video_document.get_property(FPS_DOCPROP_KEY))
-                    warnings.warn(f'Frame #{cur_f} ({sec}s) could not be read from the video {video_document.id} @ {video_document.location} .')
+                    warnings.warn('extract_frames_as_images() is deprecated '
+                                  'and will be removed in 2.0.0. Use '
+                                  'extract_images_from_timepoints() instead. '
+                                  f'{_PTS_BUG_NOTICE}',
+                                  DeprecationWarning)
                 else:
                     unique_frames[cur_f] = Image.fromarray(frame[:, :, ::-1]) if as_PIL else frame
                 next_target_f = next(framenumi, None)
             cur_f += 1
     ffmpeg_err_str = ffmpeg_errs.getvalue()
     if ffmpeg_err_str and record_ffmpeg_errors:
-        warnings.warn(f'FFmpeg output during extracting frames: {ffmpeg_err_str}')
+        warnings.warn('extract_frames_as_images() is deprecated and will be '
+                      'removed in 2.0.0. Use extract_images_from_timepoints()'
+                      ' instead. '
+                      f'{_PTS_BUG_NOTICE}',
+                      DeprecationWarning)
     video.release()
     # return frames in original input order, duplicating where needed
     return [unique_frames[f] for f in original_framenums if f in unique_frames]
@@ -964,17 +973,19 @@ def _get_mid_framenum(mmif: Mmif, time_frame: Annotation) -> int:
 
 def get_mid_framenum(mmif: Mmif, time_frame: Annotation) -> int:
     """
-    .. deprecated::
-       Use :py:func:`extract_frames_by_mode` instead.
+    .. deprecated:: 1.3.0
+       Will be removed in 2.0.0. Use :func:`extract_images_by_mode` instead.
     """
-    warnings.warn('This function is deprecated. Use ``extract_frames_by_mode()`` instead.', DeprecationWarning, stacklevel=2)
+    warnings.warn('get_mid_framenum() is deprecated and will be removed in '
+                  '2.0.0. Use extract_images_by_mode() instead.',
+                  DeprecationWarning, stacklevel=2)
     return _get_mid_framenum(mmif, time_frame)
 
 
 def extract_mid_frame(mmif: Mmif, time_frame: Annotation, as_PIL: bool = False):
     """
-    .. deprecated::
-       Use :py:func:`extract_frames_by_mode` instead.
+    .. deprecated:: 1.3.0
+       Will be removed in 2.0.0. Use :func:`extract_images_by_mode` instead.
 
     Extracts the middle frame of a time interval annotation as a numpy ndarray.
 
@@ -983,7 +994,9 @@ def extract_mid_frame(mmif: Mmif, time_frame: Annotation, as_PIL: bool = False):
     :param as_PIL: return :py:class:`~PIL.Image.Image` instead of :py:class:`~numpy.ndarray`
     :return: frame as a :py:class:`numpy.ndarray` or :py:class:`PIL.Image.Image`
     """
-    warnings.warn('This function is deprecated. Use ``extract_frames_by_mode()`` instead.', DeprecationWarning, stacklevel=2)
+    warnings.warn('extract_mid_frame() is deprecated and will be removed in '
+                  '2.0.0. Use extract_images_by_mode() instead.',
+                  DeprecationWarning, stacklevel=2)
     vd = mmif[time_frame.get_property('document')]
     fn = get_mid_framenum(mmif, time_frame)
     return extract_frames_as_images(vd, [fn], as_PIL=as_PIL)[0]
@@ -991,8 +1004,8 @@ def extract_mid_frame(mmif: Mmif, time_frame: Annotation, as_PIL: bool = False):
 
 def get_representative_framenums(mmif: Mmif, time_frame: Annotation) -> list[int]:
     """
-    .. deprecated::
-       Use :py:func:`extract_frames_by_mode` instead.
+    .. deprecated:: 1.3.0
+       Will be removed in 2.0.0. Use :func:`extract_images_by_mode` instead.
 
     Calculates the representative frame numbers from an annotation. To pick the representative frames, it first looks
     up the ``representatives`` property of the ``TimeFrame`` annotation. If it is not found, it will calculate the
@@ -1002,7 +1015,9 @@ def get_representative_framenums(mmif: Mmif, time_frame: Annotation) -> list[int
     :param time_frame: :py:class:`~mmif.serialize.annotation.Annotation` instance that holds a time interval annotation containing a `representatives` property (``"@type": ".../TimeFrame/..."``)
     :return: representative frame number as an integer
     """
-    warnings.warn('This function is deprecated. Use ``extract_frames_by_mode()`` instead.', DeprecationWarning, stacklevel=2)
+    warnings.warn('get_representative_framenums() is deprecated and will be '
+                  'removed in 2.0.0. Use extract_images_by_mode() instead.',
+                  DeprecationWarning, stacklevel=2)
     if 'representatives' not in time_frame:
         return [_get_mid_framenum(mmif, time_frame)]
     timeunit = time_frame.get_property('timeUnit')
@@ -1021,13 +1036,15 @@ def get_representative_framenums(mmif: Mmif, time_frame: Annotation) -> list[int
 
 def get_representative_framenum(mmif: Mmif, time_frame: Annotation) -> int:
     """
-    .. deprecated::
-       Use :py:func:`extract_frames_by_mode` instead.
+    .. deprecated:: 1.3.0
+       Will be removed in 2.0.0. Use :func:`extract_images_by_mode` instead.
 
     A thin wrapper around :py:func:`get_representative_framenums` to return a single representative frame number. Always
     return the first frame number found.
     """
-    warnings.warn('This function is deprecated. Use ``extract_frames_by_mode()`` instead.', DeprecationWarning, stacklevel=2)
+    warnings.warn('get_representative_framenum() is deprecated and will be '
+                  'removed in 2.0.0. Use extract_images_by_mode() instead.',
+                  DeprecationWarning, stacklevel=2)
     try:
         return get_representative_framenums(mmif, time_frame)[0]
     except IndexError:
@@ -1036,8 +1053,8 @@ def get_representative_framenum(mmif: Mmif, time_frame: Annotation) -> int:
 
 def extract_representative_frame(mmif: Mmif, time_frame: Annotation, as_PIL: bool = False, first_only: bool = True):
     """
-    .. deprecated::
-       Use :py:func:`extract_frames_by_mode` instead.
+    .. deprecated:: 1.3.0
+       Will be removed in 2.0.0. Use :func:`extract_images_by_mode` instead.
 
     Extracts the representative frame of an annotation as a numpy ndarray or PIL Image.
 
@@ -1047,7 +1064,9 @@ def extract_representative_frame(mmif: Mmif, time_frame: Annotation, as_PIL: boo
     :param first_only: return the first representative frame only
     :return: frame as a :py:class:`numpy.ndarray` or :py:class:`PIL.Image.Image`
     """
-    warnings.warn('This function is deprecated. Use ``extract_frames_by_mode()`` instead.', DeprecationWarning, stacklevel=2)
+    warnings.warn('extract_representative_frame() is deprecated and will be '
+                  'removed in 2.0.0. Use extract_images_by_mode() instead.',
+                  DeprecationWarning, stacklevel=2)
     video_document = mmif[time_frame.get_property('document')]
     rep_frame_num = [get_representative_framenum(mmif, time_frame)] if first_only else get_representative_framenums(mmif, time_frame)
     return extract_frames_as_images(video_document, rep_frame_num, as_PIL=as_PIL)[0]
@@ -1055,8 +1074,9 @@ def extract_representative_frame(mmif: Mmif, time_frame: Annotation, as_PIL: boo
 
 def sample_frames(start_frame: int, end_frame: int, sample_rate: float = 1) -> list[int]:
     """
-    .. deprecated::
-       Use :py:func:`sample_timepoints` instead. See issue #379.
+    .. deprecated:: 1.4.0
+       Will be removed in 2.0.0. Use :func:`sample_timepoints` instead. See
+       issue #379.
 
     Helper function to sample frames from a time interval.
     Can also be used as a "cutoff" function when used with ``start_frame==0`` and ``sample_rate==1``.
@@ -1066,11 +1086,10 @@ def sample_frames(start_frame: int, end_frame: int, sample_rate: float = 1) -> l
     :param sample_rate: sampling rate (or step) to configure how often to take a frame, default is 1, meaning all consecutive frames are sampled
     :return: list of frame numbers to extract
     """
-    warnings.warn(
-        f'sample_frames() is deprecated; use sample_timepoints() instead. '
-        f'{_PTS_BUG_NOTICE}',
-        DeprecationWarning, stacklevel=2,
-    )
+    warnings.warn('sample_frames() is deprecated and will be removed in '
+                  '2.0.0. Use sample_timepoints() instead. '
+                  f'{_PTS_BUG_NOTICE}',
+                  DeprecationWarning, stacklevel=2)
     if sample_rate < 1:
         raise ValueError(f"Sample rate must be greater than 1, but got {sample_rate}")
     frame_nums: list[int] = []
@@ -1086,8 +1105,8 @@ def sample_frames(start_frame: int, end_frame: int, sample_rate: float = 1) -> l
 def get_annotation_property(mmif, annotation, prop_name):
     """
     .. deprecated:: 1.0.8
-       Will be removed in 2.0.0.
-       Use :py:meth:`mmif.serialize.annotation.Annotation.get_property` method instead.
+       Will be removed in 2.0.0. Use
+       :meth:`mmif.serialize.annotation.Annotation.get_property` instead.
 
     Get a property value from an annotation. If the property is not found in the annotation, it will look up the metadata of the annotation's parent view and return the value from there.
 
@@ -1096,104 +1115,104 @@ def get_annotation_property(mmif, annotation, prop_name):
     :param prop_name: name of the property to retrieve
     :return: the property value
     """
-    warnings.warn(f'{__name__}() is deprecated. '
-                  f'Directly ask the annotation for a property by calling annotation.get_property() instead.',
+    warnings.warn('get_annotation_property() is deprecated and will be '
+                  'removed in 2.0.0. Use Annotation.get_property() instead.',
                   DeprecationWarning)
     return annotation.get_property(prop_name)
 
 
 def framenum_to_second(video_doc: Document, frame: int):
     """
-    .. deprecated::
-       Use :py:func:`~mmif.utils.timeunit_helper.convert` with ``ms``/``s``
-       directly. See issue #379.
+    .. deprecated:: 1.4.0
+       Will be removed in 2.0.0. Use :func:`mmif.utils.timeunit_helper.convert`
+       with ``ms``/``s`` instead. See issue #379.
     """
-    warnings.warn(
-        f'framenum_to_second() is deprecated. {_PTS_BUG_NOTICE}',
-        DeprecationWarning, stacklevel=2,
-    )
+    warnings.warn('framenum_to_second() is deprecated and will be removed in '
+                  '2.0.0. Use timeunit_helper.convert() instead. '
+                  f'{_PTS_BUG_NOTICE}',
+                  DeprecationWarning, stacklevel=2)
     fps = get_framerate(video_doc)
     return convert(frame, 'f', 's', fps)
 
 
 def framenum_to_millisecond(video_doc: Document, frame: int):
     """
-    .. deprecated::
-       Use :py:func:`~mmif.utils.timeunit_helper.convert` with ``ms``/``s``
-       directly. See issue #379.
+    .. deprecated:: 1.4.0
+       Will be removed in 2.0.0. Use :func:`mmif.utils.timeunit_helper.convert`
+       with ``ms``/``s`` instead. See issue #379.
     """
-    warnings.warn(
-        f'framenum_to_millisecond() is deprecated. {_PTS_BUG_NOTICE}',
-        DeprecationWarning, stacklevel=2,
-    )
+    warnings.warn('framenum_to_millisecond() is deprecated and will be '
+                  'removed in 2.0.0. Use timeunit_helper.convert() instead. '
+                  f'{_PTS_BUG_NOTICE}',
+                  DeprecationWarning, stacklevel=2)
     fps = get_framerate(video_doc)
     return convert(frame, 'f', 'ms', fps)
 
 
 def second_to_framenum(video_doc: Document, second) -> int:
     """
-    .. deprecated::
-       Use :py:func:`extract_images_from_timepoints` or stay in the time
-       domain. See issue #379.
+    .. deprecated:: 1.4.0
+       Will be removed in 2.0.0. Use :func:`extract_images_from_timepoints`
+       instead, or stay in the time domain. See issue #379.
     """
-    warnings.warn(
-        f'second_to_framenum() is deprecated. {_PTS_BUG_NOTICE}',
-        DeprecationWarning, stacklevel=2,
-    )
+    warnings.warn('second_to_framenum() is deprecated and will be removed in '
+                  '2.0.0. Use extract_images_from_timepoints() instead. '
+                  f'{_PTS_BUG_NOTICE}',
+                  DeprecationWarning, stacklevel=2)
     fps = get_framerate(video_doc)
     return int(convert(second, 's', 'f', fps))
 
 
 def millisecond_to_framenum(video_doc: Document, millisecond: float) -> int:
     """
-    .. deprecated::
-       Use :py:func:`extract_images_from_timepoints` or stay in the time
-       domain. See issue #379.
+    .. deprecated:: 1.4.0
+       Will be removed in 2.0.0. Use :func:`extract_images_from_timepoints`
+       instead, or stay in the time domain. See issue #379.
     """
-    warnings.warn(
-        f'millisecond_to_framenum() is deprecated. {_PTS_BUG_NOTICE}',
-        DeprecationWarning, stacklevel=2,
-    )
+    warnings.warn('millisecond_to_framenum() is deprecated and will be '
+                  'removed in 2.0.0. Use extract_images_from_timepoints() '
+                  'instead. '
+                  f'{_PTS_BUG_NOTICE}',
+                  DeprecationWarning, stacklevel=2)
     fps = get_framerate(video_doc)
     return int(convert(millisecond, 'ms', 'f', fps))
 
 
 def extract_timepoints_as_images(*args, **kwargs):
     """
-    .. deprecated::
-       Renamed to :py:func:`extract_images_from_timepoints`.
+    .. deprecated:: 1.5.0
+       Will be removed in 2.0.0. Use :func:`extract_images_from_timepoints`
+       instead.
     """
-    warnings.warn(
-        'extract_timepoints_as_images() is deprecated; '
-        'use extract_images_from_timepoints() instead.',
-        DeprecationWarning, stacklevel=2,
-    )
+    warnings.warn('extract_timepoints_as_images() is deprecated and will be '
+                  'removed in 2.0.0. Use extract_images_from_timepoints() '
+                  'instead.',
+                  DeprecationWarning, stacklevel=2)
     return extract_images_from_timepoints(*args, **kwargs)
 
 
 def extract_target_frames(*args, **kwargs):
     """
-    .. deprecated::
-       Renamed to :py:func:`extract_images_by_count_with_sources`.
-       For a bare-images variant, use :py:func:`extract_images_by_count`.
+    .. deprecated:: 1.5.0
+       Will be removed in 2.0.0. Use
+       :func:`extract_images_by_count_with_sources` instead. For a bare-images
+       variant, use :func:`extract_images_by_count`.
     """
-    warnings.warn(
-        'extract_target_frames() is deprecated; '
-        'use extract_images_by_count_with_sources() instead.',
-        DeprecationWarning, stacklevel=2,
-    )
+    warnings.warn('extract_target_frames() is deprecated and will be removed '
+                  'in 2.0.0. Use extract_images_by_count_with_sources() '
+                  'instead.',
+                  DeprecationWarning, stacklevel=2)
     return extract_images_by_count_with_sources(*args, **kwargs)
 
 
 def extract_frames_by_mode(*args, **kwargs):
     """
-    .. deprecated::
-       Renamed to :py:func:`extract_images_by_mode`. For per-image source
-       IDs, use :py:func:`extract_images_by_mode_with_sources`.
+    .. deprecated:: 1.5.0
+       Will be removed in 2.0.0. Use :func:`extract_images_by_mode` instead.
+       For per-image source IDs, use
+       :func:`extract_images_by_mode_with_sources`.
     """
-    warnings.warn(
-        'extract_frames_by_mode() is deprecated; '
-        'use extract_images_by_mode() instead.',
-        DeprecationWarning, stacklevel=2,
-    )
+    warnings.warn('extract_frames_by_mode() is deprecated and will be removed'
+                  ' in 2.0.0. Use extract_images_by_mode() instead.',
+                  DeprecationWarning, stacklevel=2)
     return extract_images_by_mode(*args, **kwargs)

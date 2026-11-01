@@ -484,8 +484,8 @@ class DataList(MmifObject, Generic[T]):
     def get(self, key: str, default=None) -> Optional[T]:
         """
         .. deprecated:: 1.1.3
-           Do not use in new code. Will be removed in 2.0.0.
-           Use container-level access or positional indexing instead.
+           Will be removed in 2.0.0. Use container-level access or positional
+           indexing instead.
 
         Deprecated method for retrieving list elements by string ID.
 
@@ -517,13 +517,11 @@ class DataList(MmifObject, Generic[T]):
         --------
         __getitem__ : List-style positional access with integers
         """
-        warnings.warn(
-            "The 'get' method on list-like collections is deprecated and "
-            "will be removed in 2.0.0. Use container-level access "
-            "(e.g., mmif['v1']) or positional indexing (e.g., views[0]).",
-            DeprecationWarning,
-            stacklevel=2
-        )
+        warnings.warn("get() on list-like collections is deprecated and will "
+                      "be removed in 2.0.0. Use container-level access (e.g.,"
+                      " mmif['v1']) or positional indexing (e.g., views[0]) "
+                      "instead.",
+                      DeprecationWarning, stacklevel=2)
         return self._items.get(key, default)
 
     def _append_with_key(self, key: str, value: T, overwrite=False) -> None:

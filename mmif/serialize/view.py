@@ -295,10 +295,8 @@ class View(MmifObject):
     def get_annotation_by_id(self, ann_id) -> Annotation:
         """
         .. deprecated:: 1.1.0
-           Will be removed in 2.0.0. 
-           Use general ``Mmif.__getitem__()`` method instead to retrieve 
-           any annotation across the MMIF, or View.__getitems__() to 
-           retrieve annotations within the view.
+           Will be removed in 2.0.0. Use ``view[ann_id]`` to look in this view,
+           or ``mmif[ann_id]`` to look across the MMIF, instead.
            
         Thinly wraps the Mmif.__getitem__ method and returns an Annotation 
         object. Note that although this method is under View class, it can 
@@ -308,10 +306,9 @@ class View(MmifObject):
         :return: found :class:`mmif.serialize.annotation.Annotation` object.
         :raises KeyError: if the annotation with the given ID is not found
         """
-        warnings.warn(
-            "View.get_annotation_by_id() is deprecated, use view[ann_id] instead.",
-            DeprecationWarning
-        )
+        warnings.warn('get_annotation_by_id() is deprecated and will be '
+                      'removed in 2.0.0. Use view[ann_id] instead.',
+                      DeprecationWarning)
         ann_found = self._parent_mmif.__getitem__(ann_id)
         if not isinstance(ann_found, Annotation):
             raise KeyError(f"Annotation with ID {ann_id} not found in the MMIF object.")
@@ -323,10 +320,8 @@ class View(MmifObject):
     def get_document_by_id(self, doc_id) -> Document:
         """
         .. deprecated:: 1.1.0
-           Will be removed in 2.0.0.
-           Use general ``Mmif.__getitem__()`` method instead to retrieve
-           any document across the MMIF, or View.__getitems__() to
-           retrieve documents within the view.
+           Will be removed in 2.0.0. Use ``view[doc_id]`` to look in this view,
+           or ``mmif[doc_id]`` to look across the MMIF, instead.
 
         Thinly wraps the Mmif.__getitem__ method and returns a Document
         object. Note that although this method is under View class, it can
@@ -336,10 +331,9 @@ class View(MmifObject):
         :return: found :class:`mmif.serialize.annotation.Document` object.
         :raises KeyError: if the document with the given ID is not found
         """
-        warnings.warn(
-            "View.get_document_by_id() is deprecated, use view[doc_id] instead.",
-            DeprecationWarning
-        )
+        warnings.warn('View.get_document_by_id() is deprecated and will be '
+                      'removed in 2.0.0. Use view[doc_id] instead.',
+                      DeprecationWarning)
         doc_found = self.annotations._items.get(doc_id)
         if not isinstance(doc_found, Document):
             raise KeyError(f"Document \"{doc_id}\" not found in view {self.id}.")

@@ -18,15 +18,26 @@ from mmif.utils.workflow_helper import (
 
 
 def get_pipeline_specs(mmif_file: Union[str, Path]):
+    """
+    .. deprecated:: 1.2.1
+       Will be removed in 2.0.0. Use :func:`mmif.utils.workflow_helper.describe_single_mmif` instead.
+    """
     import warnings
-    warnings.warn("get_pipeline_specs is deprecated, use mmif.utils.workflow_helper.describe_single_mmif instead",
+    warnings.warn('get_pipeline_specs() is deprecated and will be removed in '
+                  '2.0.0. Use describe_single_mmif() instead.',
                   DeprecationWarning)
     return describe_single_mmif(mmif_file)
 
 
 def generate_pipeline_identifier(mmif_file: Union[str, Path]) -> str:
+    """
+    .. deprecated:: 1.2.1
+       Will be removed in 2.0.0. Use :func:`mmif.utils.workflow_helper.generate_workflow_identifier` instead.
+    """
     import warnings
-    warnings.warn("generate_pipeline_identifier is deprecated, use generate_workflow_identifier instead",
+    warnings.warn('generate_pipeline_identifier() is deprecated and will be '
+                  'removed in 2.0.0. Use generate_workflow_identifier() '
+                  'instead.',
                   DeprecationWarning)
     return cast(str, generate_workflow_identifier(mmif_file))
 

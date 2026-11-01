@@ -233,17 +233,15 @@ class Annotation(MmifObject):
     def parent(self, parent_id: str) -> None:
         """
         .. deprecated:: 1.1.0
-           Will be removed in 2.0.0. 
-           Setting parent ID is no longer allowed. Instead, the parent ID
-           should be prefixed to the annotation ID. 
+           Will be removed in 2.0.0. Use a prefixed annotation ID instead.
           
         Sets the parent view ID of this annotation.
         :param parent_id: 
         """
-        warnings.warn(
-            "Setting parent ID is deprecated and nothing happened. Use prefixed annotation ID instead.",
-            DeprecationWarning
-        )
+        warnings.warn('Setting the parent ID is deprecated and will be '
+                      'removed in 2.0.0. Use a prefixed annotation ID '
+                      'instead.',
+                      DeprecationWarning)
 
 
     @property
@@ -256,16 +254,20 @@ class Annotation(MmifObject):
         
     @property
     def long_id(self) -> str:
-        warnings.warn(
-            'long_id is deprecated. Use `id` instead. ', DeprecationWarning
-        )
+        """
+        .. deprecated:: 1.1.0
+           Will be removed in 2.0.0. Use :attr:`id` instead.
+        """
+        warnings.warn('long_id is deprecated and will be removed in 2.0.0. '
+                      'Use id instead.',
+                      DeprecationWarning)
         return self.id
     
     @long_id.setter
     def long_id(self, long_id: str) -> None:
-        warnings.warn(
-            'long_id is deprecated. Use `id` instead. ', DeprecationWarning
-        )
+        warnings.warn('long_id is deprecated and will be removed in 2.0.0. '
+                      'Use id instead.',
+                      DeprecationWarning)
         self.id = long_id
     
     @property
@@ -861,10 +863,13 @@ class DocumentProperties(AnnotationProperties):
     def location_path(self) -> Optional[str]:
         """
         .. deprecated:: 1.0.2
-           Will be removed in 2.0.0. 
-           Use :meth:`location_path_resolved` instead.
+           Will be removed in 2.0.0. Use :meth:`location_path_resolved`
+           instead.
         """
-        warnings.warn('location_path() is deprecated. Use location_path_resolved() instead.', DeprecationWarning)
+        warnings.warn('DocumentProperties.location_path() is deprecated and '
+                      'will be removed in 2.0.0. Use location_path_resolved()'
+                      ' instead.',
+                      DeprecationWarning)
         return self.location_path_resolved()
     
     def location_path_resolved(self, nonexist_ok=True) -> Optional[str]:

@@ -1068,11 +1068,12 @@ class TestDeprecations(unittest.TestCase):
         self._assert_silent(self.mmif.serialize)
         self._assert_silent(self.mmif.serialize, sanitize=True)
 
-    def test_internal_paths_are_silent(self):
+    def test_str_and_eq_warn_when_they_write_records(self):
         self.mmif.documents[0].add_property('author', 'me')
-        self._assert_silent(str, self.mmif)
-        self._assert_silent(lambda: self.mmif == self.mmif)
-        self.assertFalse(self.mmif == 'not a mmif')
+        with self.assertWarns(FutureWarning):
+            str(self.mmif)
+        with self.assertWarns(FutureWarning):
+            self.assertTrue(self.mmif == self.mmif)
 
     def test_write_mode_is_silent(self):
         self.mmif.documents[0].add_property('author', 'me')
@@ -1106,9 +1107,14 @@ class TestDeprecations(unittest.TestCase):
             self.mmif.sanitize()
         self.assertNotIn(AnnotationTypes.Region, self.view.metadata.contains)
 
-    def test_generate_capital_annotations_is_silent_for_now(self):
+    def test_generate_capital_annotations_warns_and_changes_the_object(self):
         self.mmif.documents[0].add_property('author', 'me')
-        self._assert_silent(self.mmif.generate_capital_annotations)
+        with self.assertWarnsRegex(DeprecationWarning, 'set_producer'):
+            self.mmif.generate_capital_annotations()
+        # the record goes to an earlier view that annotates the document
+        records = [ann for view in self.mmif.views
+                   for ann in view.get_annotations(AnnotationTypes.Annotation, author='me')]
+        self.assertEqual(1, len(records))
 
 
 class TestProducerContext(unittest.TestCase):

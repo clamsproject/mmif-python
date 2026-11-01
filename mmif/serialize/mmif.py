@@ -147,7 +147,13 @@ class ViewsList(DataList[View]):
             return self._items[list(self._items.keys())[-1]]
             
     def get_last(self) -> Optional[View]:
-        warnings.warn('get_last() is deprecated, use get_last_contentful_view() instead.', DeprecationWarning)
+        """
+        .. deprecated:: 1.0.18
+           Will be removed in 2.0.0. Use :meth:`get_last_contentful_view` instead.
+        """
+        warnings.warn('get_last() is deprecated and will be removed in 2.0.0.'
+                      ' Use get_last_contentful_view() instead.',
+                      DeprecationWarning)
         return self.get_last_contentful_view()
 
 
@@ -818,8 +824,7 @@ class Mmif(MmifObject):
     def get_document_by_id(self, doc_id: str) -> Document:
         """
         .. deprecated:: 1.1.0
-           Will be removed in 2.0.0. 
-           Use general ``__getitem__()`` method instead, e.g., ``mmif[doc_id]``.
+           Will be removed in 2.0.0. Use ``mmif[doc_id]`` instead.
            
         Finds a Document object with the given ID.
 
@@ -827,10 +832,9 @@ class Mmif(MmifObject):
         :return: a reference to the corresponding document, if it exists
         :raises KeyError: if there is no corresponding document
         """
-        warnings.warn(
-            "Mmif.get_document_by_id() is deprecated, use mmif[doc_id] instead.",
-            DeprecationWarning
-        )
+        warnings.warn('Mmif.get_document_by_id() is deprecated and will be '
+                      'removed in 2.0.0. Use mmif[doc_id] instead.',
+                      DeprecationWarning)
         doc_found = self.__getitem__(doc_id)
         if not isinstance(doc_found, Document):
             raise KeyError(f"Document with ID {doc_id} not found in the MMIF object.")
@@ -839,8 +843,7 @@ class Mmif(MmifObject):
     def get_view_by_id(self, view_id: str) -> View:
         """
         .. deprecated:: 1.1.0
-           Will be removed in 2.0.0. 
-           Use general ``__getitem__()`` method instead, e.g., ``mmif[view_id]``.
+           Will be removed in 2.0.0. Use ``mmif[view_id]`` instead.
            
         Finds a View object with the given ID.
 
@@ -848,10 +851,9 @@ class Mmif(MmifObject):
         :return: a reference to the corresponding view, if it exists
         :raises Exception: if there is no corresponding view
         """
-        warnings.warn(
-            "Mmif.get_view_by_id() is deprecated, use mmif[view_id] instead.",
-            DeprecationWarning
-        )
+        warnings.warn('get_view_by_id() is deprecated and will be removed in '
+                      '2.0.0. Use mmif[view_id] instead.',
+                      DeprecationWarning)
         view_found = self.__getitem__(view_id)
         if not isinstance(view_found, View):
             raise KeyError(f"View with ID {view_id} not found in the MMIF object.")
