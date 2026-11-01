@@ -4,7 +4,7 @@ from operator import itemgetter
 from pathlib import Path
 import argparse
 
-from typing import Any
+from typing import Union
 from mmif import Mmif
 
 from mmif.utils.summarizer import config
@@ -31,13 +31,11 @@ class Graph(object):
 
     """
 
-    def __init__(self, mmif: Any):
-        # TODO: the type hint should really be "MMif | str", but pytype did not
-        # like that.
-        self.mmif = mmif if type(mmif) is Mmif else Mmif(mmif)
-        self.documents = []
-        self.nodes = {}
-        self.alignments = []
+    def __init__(self, mmif: Union[Mmif, str]):
+        self.mmif = mmif if isinstance(mmif, Mmif) else Mmif(mmif)
+        self.documents: list = []
+        self.nodes: dict = {}
+        self.alignments: list = []
         self._init_nodes()
         self._init_edges()
         # Third pass to add links between text elements, in particular from
@@ -115,7 +113,7 @@ class Graph(object):
         """
         Collect counts for node types in each view.
         """
-        stats = defaultdict(int)
+        stats: defaultdict[str, int] = defaultdict(int)
         for node in self.nodes.values():
             stats[f'{str(node.view_id):4} {node.at_type.shortname}'] += 1
         return stats
@@ -191,7 +189,7 @@ class TokenIndex(object):
     #   targets to tokens.
 
     def __init__(self, tokens):
-        self.tokens = {}
+        self.tokens: dict = {}
         self.token_count = len(tokens)
         for t in tokens:
             tup = ((t.properties['start'], t.properties['end']), t)

@@ -65,7 +65,7 @@ class View(MmifObject):
 
     def __init__(self, view_obj: Optional[Union[bytes, str, dict]] = None, parent_mmif=None, *_) -> None:
         # used to autogenerate annotation ids
-        self._id_counts = {}
+        self._id_counts: dict[str, int] = {}
         # used to access the parent MMIF object
         self._parent_mmif = parent_mmif
         self.reserved_names.update(("_parent_mmif", "_id_counts"))
@@ -591,7 +591,7 @@ class AnnotationsList(DataList[Union[Annotation, Document]]):
     """
     _items: dict[str, Union[Annotation, Document]]
 
-    def _deserialize(self, input_list: list) -> None:  # pytype: disable=signature-mismatch
+    def _deserialize(self, input_list: list) -> None:  # type: ignore[override]
         """
         Extends base ``_deserialize`` method to initialize ``items`` as a dict from
         annotation IDs to :class:`mmif.serialize.annotation.Annotation` objects.

@@ -5,7 +5,8 @@ import shlex
 import sys
 import warnings
 from collections.abc import Iterable, Iterator
-from typing import Optional, Union
+from collections.abc import Sequence
+from typing import Optional, Union, cast
 from contextlib import contextmanager
 from enum import Enum
 from io import StringIO
@@ -161,7 +162,7 @@ def open_container(video_document: Document):
     if video_document is None or video_document.at_type != DocumentTypes.VideoDocument:
         raise ValueError(f'The document does not exist.')
 
-    path = video_document.location_path(nonexist_ok=False)
+    path = cast(str, video_document.location_path(nonexist_ok=False))
     container = None
     with _ffmpeg_op('open', video_document, path):
         try:
@@ -341,7 +342,7 @@ def extract_images_from_timepoints(
     Image = _check_cv_dep('PIL.Image') if as_PIL else None
 
     container = open_container(video_document)
-    path = video_document.location_path()
+    path = cast(str, video_document.location_path())
     result_map = {}
     decode_errors: list[str] = []
     try:
@@ -405,7 +406,8 @@ def extract_images_from_timepoints(
         # left out of `result_map` to become a `None` entry below.
         while cur_ms is not None:
             if (prev_frame is not None
-                    and cur_pts - prev_pts <= _tolerance_ticks(prev_frame)):
+                    and cast(int, cur_pts) - cast(int, prev_pts)
+                    <= _tolerance_ticks(prev_frame)):
                 _emit(prev_frame, cur_ms)
             cur_ms, cur_pts = next(targets, (None, None))
     finally:
@@ -433,7 +435,8 @@ def _tp_ids_to_timepoints_ms(mmif: Mmif, tp_ids: list[str]) -> list[int]:
     # falls back to `frame / fps` ms math that ignores the container's PTS
     # start offset. Fully resolving this requires retiring timeUnit='frame'
     # (tracked in clams-vocabulary#15).
-    return [int(round(convert_timepoint(mmif, mmif[tp_id], 'ms')))
+    return [int(round(cast(float, convert_timepoint(
+                    mmif, cast(Annotation, mmif[tp_id]), 'ms'))))
             for tp_id in tp_ids]
 
 
@@ -451,7 +454,7 @@ def _timeframe_to_timepoint_range_ms(
     :rtype: tuple
     """
     start, end = convert_timeframe(mmif, time_frame, 'ms')
-    return int(round(start)), int(round(end))
+    return int(round(cast(float, start))), int(round(cast(float, end)))
 
 
 def _sample_all_timepoint_pairs_ms(
@@ -475,7 +478,7 @@ def _sample_all_timepoint_pairs_ms(
         ms_list = _tp_ids_to_timepoints_ms(mmif, target_ids)
         return list(zip(ms_list, target_ids))
     start_ms, end_ms = _timeframe_to_timepoint_range_ms(mmif, time_frame)
-    video_document = mmif[time_frame.get_property('document')]
+    video_document = cast(Document, mmif[time_frame.get_property('document')])
     fps = get_framerate(video_document)
     step_ms = 1000.0 / fps
     return [(t, None) for t in sample_timepoints(start_ms, end_ms, step_ms)]
@@ -583,7 +586,7 @@ def extract_images_by_count_with_sources(
 
     selected_target_ids = [targets[i] for i in indices]
     timepoints_ms = _tp_ids_to_timepoints_ms(mmif, selected_target_ids)
-    video_doc = mmif[annotation.get_property('document')]
+    video_doc = cast(Document, mmif[annotation.get_property('document')])
     images = extract_images_from_timepoints(
         video_doc, timepoints_ms, as_PIL=as_PIL)
     return images, selected_target_ids
@@ -656,6 +659,7 @@ def extract_images_by_mode_with_sources(
     """
     if mode is None:
         mode = _sampling_mode.get()
+    pairs: Sequence[tuple[int, Optional[str]]]
     if mode == SamplingMode.ALL:
         pairs = _sample_all_timepoint_pairs_ms(mmif, time_frame)
     elif mode == SamplingMode.REPRESENTATIVES:
@@ -668,7 +672,7 @@ def extract_images_by_mode_with_sources(
     sources: list[Union[str, int]] = [
         tp_id if tp_id is not None else ms for ms, tp_id in pairs
     ]
-    video_doc = mmif[time_frame.get_property('document')]
+    video_doc = cast(Document, mmif[time_frame.get_property('document')])
     images = extract_images_from_timepoints(
         video_doc, timepoints_ms, as_PIL=as_PIL)
     return images, sources
@@ -757,7 +761,7 @@ def iter_timeframe_images(
                     if image is not None]
         if not readable:
             continue
-        video_document = mmif[time_frame.get_property('document')]
+        video_document = cast(Document, mmif[time_frame.get_property('document')])
         timepoint_ids = _to_timepoints(
             output_view, video_document, [source for _, source in readable])
         yield time_frame, [image for image, _ in readable], timepoint_ids
@@ -836,7 +840,7 @@ def convert_timepoint(mmif: Mmif, timepoint: Annotation, out_unit: str) -> Union
     :return: frame number (integer) or second/millisecond (float) of input timepoint
     """
     in_unit = timepoint.get_property('timeUnit')
-    vd = mmif[timepoint.get_property('document')]
+    vd = cast(Document, mmif[timepoint.get_property('document')])
     return convert(timepoint.get_property('timePoint'), in_unit, out_unit, get_framerate(vd))
 
 
@@ -850,7 +854,7 @@ def convert_timeframe(mmif: Mmif, time_frame: Annotation, out_unit: str) -> tupl
     :return: tuple of frame numbers, seconds/milliseconds, or ISO notation of TimeFrame's start and end
     """
     in_unit = time_frame.get_property('timeUnit')
-    vd = mmif[time_frame.get_property('document')]
+    vd = cast(Document, mmif[time_frame.get_property('document')])
     fps = get_framerate(vd)
     return convert(time_frame.get_property('start'), in_unit, out_unit, fps), convert(time_frame.get_property('end'), in_unit, out_unit, fps)
 
@@ -966,9 +970,9 @@ def _get_mid_framenum(mmif: Mmif, time_frame: Annotation) -> int:
     :return: middle frame number as an integer
     """
     timeunit = time_frame.get_property('timeUnit')
-    video_document = mmif[time_frame.get_property('document')]
+    video_document = cast(Document, mmif[time_frame.get_property('document')])
     fps = get_framerate(video_document)
-    return int(convert(time_frame.get_property('start') + time_frame.get_property('end'), timeunit, 'frame', fps) // 2)
+    return int(cast(int, convert(time_frame.get_property('start') + time_frame.get_property('end'), timeunit, 'frame', fps)) // 2)
 
 
 def get_mid_framenum(mmif: Mmif, time_frame: Annotation) -> int:
@@ -997,7 +1001,7 @@ def extract_mid_frame(mmif: Mmif, time_frame: Annotation, as_PIL: bool = False):
     warnings.warn('extract_mid_frame() is deprecated and will be removed in '
                   '2.0.0. Use extract_images_by_mode() instead.',
                   DeprecationWarning, stacklevel=2)
-    vd = mmif[time_frame.get_property('document')]
+    vd = cast(Document, mmif[time_frame.get_property('document')])
     fn = get_mid_framenum(mmif, time_frame)
     return extract_frames_as_images(vd, [fn], as_PIL=as_PIL)[0]
 
@@ -1021,13 +1025,13 @@ def get_representative_framenums(mmif: Mmif, time_frame: Annotation) -> list[int
     if 'representatives' not in time_frame:
         return [_get_mid_framenum(mmif, time_frame)]
     timeunit = time_frame.get_property('timeUnit')
-    video_document = mmif[time_frame.get_property('document')]
+    video_document = cast(Document, mmif[time_frame.get_property('document')])
     fps = get_framerate(video_document)
     representatives = time_frame.get_property('representatives')
     ref_frams = []
     for rep_id in representatives:
         try:
-            rep_anno = mmif[rep_id]
+            rep_anno = cast(Annotation, mmif[rep_id])
         except KeyError as ke:
             raise ValueError(f'Representative timepoint {rep_id} not found in any view. ({ke})')
         ref_frams.append(int(convert(rep_anno.get_property('timePoint'), timeunit, 'frame', fps)))
@@ -1067,7 +1071,7 @@ def extract_representative_frame(mmif: Mmif, time_frame: Annotation, as_PIL: boo
     warnings.warn('extract_representative_frame() is deprecated and will be '
                   'removed in 2.0.0. Use extract_images_by_mode() instead.',
                   DeprecationWarning, stacklevel=2)
-    video_document = mmif[time_frame.get_property('document')]
+    video_document = cast(Document, mmif[time_frame.get_property('document')])
     rep_frame_num = [get_representative_framenum(mmif, time_frame)] if first_only else get_representative_framenums(mmif, time_frame)
     return extract_frames_as_images(video_document, rep_frame_num, as_PIL=as_PIL)[0]
 
@@ -1093,7 +1097,7 @@ def sample_frames(start_frame: int, end_frame: int, sample_rate: float = 1) -> l
     if sample_rate < 1:
         raise ValueError(f"Sample rate must be greater than 1, but got {sample_rate}")
     frame_nums: list[int] = []
-    cur_f = start_frame
+    cur_f: float = start_frame
     while cur_f < end_frame:
         ceiling = math.ceil(cur_f)
         if ceiling < end_frame:

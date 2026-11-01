@@ -5,7 +5,7 @@ import pathlib
 import sys
 import textwrap
 from collections.abc import Generator, Iterable
-from typing import Optional, Union
+from typing import Optional, Union, cast
 from urllib.parse import urlparse
 
 from mmif import Mmif, Document, DocumentTypes, __specver__
@@ -47,6 +47,8 @@ class WorkflowSource:
             common_documents_json = []
         if common_metadata_json is None:
             common_metadata_json = dict()
+        if isinstance(common_metadata_json, str):
+            common_metadata_json = json.loads(common_metadata_json)
         self.mmif_start: dict = {"documents": [json.loads(document)
                                                if isinstance(document, str)
                                                else document
@@ -54,7 +56,7 @@ class WorkflowSource:
                                  "views": [],
                                  "metadata": {
                                      "mmif": f"http://mmif.clams.ai/{__specver__}",
-                                     **common_metadata_json
+                                     **cast(dict, common_metadata_json)
                                  }}
         self.prime()
 
@@ -127,13 +129,13 @@ class WorkflowSource:
         if isinstance(documents, str):
             documents = json.loads(documents)
         if isinstance(metadata, MmifMetadata):
-            metadata = metadata.serialize() # pytype: disable=attribute-error # bug in pytype? (https://github.com/google/pytype/issues/533)
+            metadata = metadata.serialize()
         if isinstance(metadata, str):
             metadata = json.loads(metadata)
 
         for document in documents:
             self.add_document(document)
-        for key, value in metadata.items():
+        for key, value in cast(dict, metadata).items():
             self.change_metadata(key, value)
         return self.produce()
 

@@ -319,7 +319,7 @@ def describe_single_mmif(mmif_input: Union[str, Path, Mmif]) -> dict:
     for group in view_groups:
         first_view = group[0]
 
-        execution_ann_counter = Counter()
+        execution_ann_counter: Counter[str] = Counter()
         for view in group:
             execution_ann_counter.update(Counter(str(ann.at_type) for ann in view.annotations))
 
@@ -358,7 +358,7 @@ def describe_single_mmif(mmif_input: Union[str, Path, Mmif]) -> dict:
         ))
 
     # aggregate total annotation counts
-    total_annotations_by_type = Counter()
+    total_annotations_by_type: Counter[str] = Counter()
     for execution in grouped_apps:
         # Only aggregate from actual apps, not the special unassigned entry
         if execution.app != "http://apps.clams.ai/non-existing-app/v1":
@@ -476,7 +476,7 @@ def describe_mmif_collection(mmif_dir: Union[str, Path]) -> dict:
         invalid=0
     )
 
-    aggregated_counts = Counter()
+    aggregated_counts: Counter[str] = Counter()
 
     # Structure: {workflow_id: {'mmifs': [...], 'apps': {app_uri: {'appConfiguration': ..., 'execution_times': [...]}}}}
     workflows_data: dict[str, dict] = {}

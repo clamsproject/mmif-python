@@ -108,6 +108,7 @@ def main(args):
     """
     if hasattr(args, 'help_schema') and args.help_schema is not None:
         schema_name = args.help_schema[0]
+        model_cls: Union[type[SingleMmifDesc], type[CollectionMmifDesc]]
         if schema_name == 'mmif-file':
             model_cls = SingleMmifDesc
         elif schema_name == 'mmif-dir':

@@ -57,7 +57,7 @@ class DocumentsList(DataList[Document]):
     """
     _items: dict[str, Document]
 
-    def _deserialize(self, input_list: list) -> None:  # pytype: disable=signature-mismatch
+    def _deserialize(self, input_list: list) -> None:  # type: ignore[override]
         """
         Extends base ``_deserialize`` method to initialize ``items`` as a dict from
         document IDs to :class:`mmif.serialize.document.Document` objects.
@@ -98,7 +98,7 @@ class ViewsList(DataList[View]):
         self.reserved_names.update(("_parent_mmif", "_id_counts"))
         super().__init__(mmif_obj)
 
-    def _deserialize(self, input_list: list) -> None:  # pytype: disable=signature-mismatch
+    def _deserialize(self, input_list: list) -> None:  # type: ignore[override]
         """
         Extends base ``_deserialize`` method to initialize ``items`` as a dict from
         view IDs to :class:`mmif.serialize.view.View` objects.
@@ -145,7 +145,8 @@ class ViewsList(DataList[View]):
         """
         if self._items:
             return self._items[list(self._items.keys())[-1]]
-            
+        return None
+
     def get_last(self) -> Optional[View]:
         """
         .. deprecated:: 1.0.18
@@ -547,12 +548,13 @@ class Mmif(MmifObject):
 
         # to avoid duplicate property recording, this will be populated with
         # existing Annotation objects from all existing views
-        existing_anns = defaultdict(lambda: defaultdict(dict))
+        existing_anns: defaultdict[str, defaultdict[str, dict]] = defaultdict(
+            lambda: defaultdict(dict))
         # ideally, if we can "de-duplicate" props at `add_property()` time, that'd be more efficient, 
         # but that is impossible without looking for the target `document` across other views and top documents list
         
         # new properties to record in the current serialization call
-        anns_to_write = defaultdict(dict)
+        anns_to_write: defaultdict[str, dict] = defaultdict(dict)
         for view in self.views:
             for ann in view.get_annotations(AnnotationTypes.Annotation):
                 # values recorded at view level (`contains`) count too;
@@ -739,7 +741,7 @@ class Mmif(MmifObject):
         :param vid: the source view ID to search for
         :return: a list of documents matching the requested source view ID, or an empty list if the view not found
         """
-        view = self.views.get(vid)
+        view = None if vid is None else self.views.get(vid)
         if view is not None:
             return view.get_documents()
         else:
@@ -865,7 +867,7 @@ class Mmif(MmifObject):
         at_type1, at_type2 = [ThingTypesBase.from_str(x) if isinstance(x, str) else x for x in (at_type1, at_type2)]
         assert at_type1 != at_type2, f"Alignment must be between two different types, given only one: {at_type1}"
         for alignment_view in self.get_all_views_contain(AnnotationTypes.Alignment):
-            alignments = []
+            alignments: list[Annotation] = []
             contains_meta = alignment_view.metadata.contains[AnnotationTypes.Alignment]
             if 'sourceType' in contains_meta and 'targetType' in contains_meta:
                 aligned_types = [ThingTypesBase.from_str(x) 
@@ -874,12 +876,12 @@ class Mmif(MmifObject):
                     alignments.extend(alignment_view.annotations)
             else:
                 for alignment in alignment_view.get_annotations(AnnotationTypes.Alignment):
-                    aligned_types = set()
+                    unique_types = set()
                     for ann_id in [alignment['target'], alignment['source']]:
                         ann_id = cast(str, ann_id)
                         aligned_type = cast(Annotation, self.__getitem__(ann_id)).at_type
-                        aligned_types.add(aligned_type)
-                    aligned_types = list(aligned_types)  # because membership check for sets also checks hash() values
+                        unique_types.add(aligned_type)
+                    aligned_types = list(unique_types)  # because membership check for sets also checks hash() values
                     if len(aligned_types) == 2 and at_type1 in aligned_types and at_type2 in aligned_types:
                         alignments.append(alignment)
             if len(alignments) > 0:
@@ -1105,8 +1107,8 @@ class Mmif(MmifObject):
         for view in self.get_all_views_contain(AnnotationTypes.TimeFrame) + self.get_all_views_contain(AnnotationTypes.TimePoint):
             time_unit_in_view = view.metadata.contains.get(AnnotationTypes.TimeFrame)["timeUnit"]
             
-            start_time = convert(start, time_unit, time_unit_in_view, 1)
-            end_time = convert(end, time_unit, time_unit_in_view, 1)
+            start_time = cast(Union[int, float], convert(start, time_unit, time_unit_in_view, 1))
+            end_time = cast(Union[int, float], convert(end, time_unit, time_unit_in_view, 1))
             for ann in view.get_annotations():
                 if ann.at_type in (AnnotationTypes.TimeFrame, AnnotationTypes.TimePoint) and self._is_in_time_range(ann, start_time, end_time):
                     time_anchors_in_range.append(ann)
@@ -1141,10 +1143,10 @@ class Mmif(MmifObject):
                 point = math.inf if start else -1
                 comp = min if start else max
                 for target_id in ann.get_property('targets'):
-                    point = comp(point, self._get_linear_anchor_point(self.__getitem__(target_id), start=start))
+                    point = comp(point, self._get_linear_anchor_point(cast(Annotation, self.__getitem__(target_id)), start=start))
                 return point
             target_id = ann.get_property('targets')[0 if start else -1]
-            return self._get_linear_anchor_point(self.__getitem__(target_id), start=start)
+            return self._get_linear_anchor_point(cast(Annotation, self.__getitem__(target_id)), start=start)
         elif (start and 'start' in props) or (not start and 'end' in props):
             return ann.get_property('start' if start else 'end')
         else:
@@ -1230,7 +1232,7 @@ class Mmif(MmifObject):
         else:
             # search for document first, then views
             # raise KeyError if nothing is found
-            ret = self.documents._items.get(item)
+            ret: Optional[Union[Document, View]] = self.documents._items.get(item)
             if ret is None:
                 ret = self.views._items.get(item)
                 if ret is None:

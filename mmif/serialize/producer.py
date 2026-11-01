@@ -63,9 +63,8 @@ class ProducerContext:
     def __enter__(self) -> 'ProducerContext':
         return self
 
-    def __exit__(self, exc_type, exc_value, exc_tb) -> bool:
+    def __exit__(self, exc_type, exc_value, exc_tb) -> None:
         self.mmif._producer = None
-        return False
 
     def add_warnings(self,
                      *issued: Union[Warning, warnings.WarningMessage]) -> None:
@@ -163,7 +162,7 @@ class ProducerContext:
         :return: the plan, in the form that
             :meth:`mmif.serialize.mmif.Mmif._write_capital_annotations` takes
         """
-        recorded = defaultdict(dict)
+        recorded: defaultdict[str, dict] = defaultdict(dict)
         for view in self.mmif.views:
             for ann in view.get_annotations(AnnotationTypes.Annotation):
                 recorded[ann.get('document')].update(

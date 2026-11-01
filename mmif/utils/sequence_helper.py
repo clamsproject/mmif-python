@@ -18,10 +18,14 @@ import importlib
 import itertools
 import warnings
 from collections.abc import Callable, Iterable
+from typing import TYPE_CHECKING
 
 import mmif
 from mmif import Annotation
 from mmif.serialize.model import PRMTV_TYPES
+
+if TYPE_CHECKING:
+    import numpy
 
 for seq_dep in ['numpy']:
     try:
@@ -265,7 +269,7 @@ def build_label_remapper(src_labels: list[str], dst_labels: dict[str, PRMTV_TYPE
 
 def build_score_lists(classifications: list[dict], label_remapper: dict,
                       score_remap_op: Callable[..., float] = max) \
-        -> tuple[dict[str, int], "numpy.ndarray"]:  # pytype: disable=name-error
+        -> tuple[dict[str, int], "numpy.ndarray"]:
 
     """
     Build lists of scores indexed by the label names. 
@@ -278,7 +282,7 @@ def build_score_lists(classifications: list[dict], label_remapper: dict,
              2. 2-d numpy array of scores, of which rows are indexed by label map dict (first return value)
     """
     import numpy
-    scores = {lbl: [] for lbl in label_remapper.values()}
+    scores: dict[str, list] = {lbl: [] for lbl in label_remapper.values()}
     for c_idx, classification in enumerate(classifications):
         for src_label, src_score in classification.items():
             dst_label = label_remapper[src_label]

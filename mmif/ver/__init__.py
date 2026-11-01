@@ -9,7 +9,7 @@ __version__ = version("mmif-python")
 _urls = {
     k: v for k, v in (
         u.split(", ", 1)
-        for u in metadata("mmif-python").get_all("Project-URL")
+        for u in metadata("mmif-python").get_all("Project-URL", [])
     )
 }
 __specver__ = _urls["mmif-spec"].rstrip("/").rsplit("/", 1)[-1]

@@ -24,11 +24,11 @@ This module defines two main collection types:
 import json
 import warnings
 from collections.abc import Generator, Iterator
-from typing import Any, ClassVar, Generic, Optional, TypeVar, Union
+from typing import Any, ClassVar, Generic, Optional, TypeAlias, TypeVar, Union
 
 T = TypeVar('T')
 S = TypeVar('S')
-PRMTV_TYPES: type = Union[str, int, float, bool, None]  # noqa: UP007
+PRMTV_TYPES: TypeAlias = Union[str, int, float, bool, None]  # noqa: UP007
 
 __all__ = [
     'PRMTV_TYPES',
@@ -105,6 +105,7 @@ class MmifObject(object):
         '_contextual_attributes'
     }
     _unnamed_attributes: Optional[dict]
+    _required_attributes: list[str]
     _exclude_from_diff: set[str]
     _contextual_attributes: set[str]
     _attribute_classes: dict[str, type] = {}  # Mapping: str -> Type
@@ -159,7 +160,7 @@ class MmifObject(object):
                           stacklevel=2)
             self[attr] = value
             return
-        self._unnamed_attributes[key] = value  # pytype: disable=unsupported-operands
+        self._unnamed_attributes[key] = value
 
     def _named_attributes(self) -> Generator[str, None, None]:
         """
@@ -198,8 +199,9 @@ class MmifObject(object):
         """
         container = alt_container if alt_container is not None else self._unnamed_attributes
         serializing_obj = {}
-        try:
-            for k, v in container.items():   # pytype: disable=attribute-error
+        # `container` is None when additional properties are disallowed
+        if container is not None:
+            for k, v in container.items():
                 if v is None:
                     continue
                 k = str(k)
@@ -212,9 +214,6 @@ class MmifObject(object):
                     serializing_obj[k] = v._serialize(include_context=include_context)
                 else:
                     serializing_obj[k] = v
-        except AttributeError as e:
-            # means _unnamed_attributes is None, so nothing unnamed would be serialized
-            pass
         for k, v in self.__dict__.items():
             if k in self.reserved_names:
                 continue
@@ -351,7 +350,7 @@ class MmifObject(object):
             else:
                 self.set_additional_property(key, value)
 
-    def __contains__(self, key: str) -> bool:
+    def __contains__(self, key: object) -> bool:
         try:
             self.__getitem__(key)
             return True
@@ -456,9 +455,9 @@ class DataList(MmifObject, Generic[T]):
         self.disallow_additional_properties()
         if mmif_obj is None:
             mmif_obj = []
-        super().__init__(mmif_obj)
+        super().__init__(mmif_obj)  # type: ignore[arg-type]
 
-    def _serialize(self, *args, **kwargs) -> list:  # pytype: disable=signature-mismatch
+    def _serialize(self, *args, **kwargs) -> list:  # type: ignore[override]
         """
         Internal serialization method. Returns a list.
 
@@ -466,19 +465,19 @@ class DataList(MmifObject, Generic[T]):
         """
         return list(super()._serialize(self._items, **kwargs).values())
 
-    def deserialize(self, mmif_json: Union[str, list]) -> None:  # pytype: disable=signature-mismatch
+    def deserialize(self, mmif_json: Union[str, list]) -> None:  # type: ignore[override]
         """
         Passes the input data into the internal deserializer.
         """
-        super().deserialize(mmif_json)  
+        super().deserialize(mmif_json)  # type: ignore[arg-type]
 
     @staticmethod
-    def _load_json(json_list: Union[list, str]) -> list:
+    def _load_json(json_list: Union[list, str]) -> list:  # type: ignore[override]
         if type(json_list) is str:
             json_list = json.loads(json_list)
         return [MmifObject._load_json(obj) for obj in json_list]
     
-    def _deserialize(self, input_list: list) -> None:
+    def _deserialize(self, input_list: list) -> None:  # type: ignore[override]
         raise NotImplementedError()
 
     def get(self, key: str, default=None) -> Optional[T]:

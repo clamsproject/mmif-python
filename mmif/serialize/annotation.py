@@ -16,7 +16,7 @@ import re
 import typing
 import warnings
 from collections.abc import Iterator, MutableMapping
-from typing import Optional, TypeVar, Union
+from typing import TYPE_CHECKING, Any, Optional, TypeVar, Union, cast
 from urllib.parse import urlparse
 
 import mmif_docloc_http
@@ -25,6 +25,9 @@ from mmif.vocabulary import DocumentTypesBase, ThingTypesBase
 
 from .. import AnnotationTypes, DocumentTypes
 from .model import PRMTV_TYPES, MmifObject
+
+if TYPE_CHECKING:
+    from .view import View
 
 __all__ = ['Annotation', 'AnnotationProperties', 'Document', 'DocumentProperties', 'Text', 'canonicalize_prop_name']
 
@@ -92,8 +95,8 @@ class Annotation(MmifObject):
         self._props_ephemeral: AnnotationProperties = AnnotationProperties(None, self)
         # the view holding this annotation; backs `parent` and the lookup of
         # view-level `contains` defaults
-        self._parent_view = None
-        self._alignments = {}  # to hold alignment information (Alignment anno long_id -> aligned anno long_id)
+        self._parent_view: Optional['View'] = None
+        self._alignments: dict = {}  # to hold alignment information (Alignment anno long_id -> aligned anno long_id)
         self.reserved_names.update(('_props_ephemeral', '_parent_view', '_alignments'))
         if not hasattr(self, 'properties'):  # don't overwrite DocumentProperties on super() call
             self.properties: AnnotationProperties = AnnotationProperties(None, self)
@@ -175,7 +178,7 @@ class Annotation(MmifObject):
 
         :return: a new dict of canonical property names to values
         """
-        resolved = {}
+        resolved: dict = {}
         if self._parent_view is not None:
             defaults = self._parent_view.metadata.contains.get(self._type)
             if defaults:
@@ -208,8 +211,9 @@ class Annotation(MmifObject):
             # Use ``model_construct()`` to skip Pydantic field validation —
             # direct ``__init__`` rejects types with required fields
             # (e.g., ``Alignment`` requires ``source``/``target``).
-            instance = at_type.model_construct()
-            instance.initialized_from = at_type.uri
+            vocab_type: Any = at_type
+            instance = vocab_type.model_construct()
+            instance.initialized_from = vocab_type.uri
             self._type = instance
         else:
             self._type = at_type
@@ -431,7 +435,7 @@ class Document(Annotation):
         super().__init__(doc_obj)
     
     def add_property(self, name: str,
-                     value: Union[PRMTV_TYPES, LIST_PRMTV]
+                     value: Union[PRMTV_TYPES, LIST_PRMTV, LIST_LIST_PRMTV, DICT_PRMTV, DICT_LIST_PRMTV]
                      ) -> None:
         """
         Adds a property to the document's properties.
@@ -470,7 +474,7 @@ class Document(Annotation):
         # that already existed refuse `add_property`; "already existed" is
         # defined by the producer context
         if name in self._TEXT_PROP_NAMES:
-            text = Text(value)
+            text = Text(cast(Union[str, dict], value))
             current = self.properties.text
             if (self.location is not None or current.value) and text != current:
                 raise self._read_only_error('text')
@@ -481,11 +485,12 @@ class Document(Annotation):
                 raise self._read_only_error(name)
             self.properties.mime = mime
         elif name == "location":
+            location = cast(str, value)
             requested = DocumentProperties()
-            requested.location = value
+            requested.location = location
             if self.location is not None and self.location != requested.location:
                 raise self._read_only_error(name)
-            self.location = value
+            self.location = location
         elif self.check_prop_value_is_simple_enough(value):
             self._props_pending[name] = value
         else:
@@ -603,7 +608,7 @@ class Document(Annotation):
     def text_value(self) -> str:
         if self._type == DocumentTypes.TextDocument:
             if self.location:
-                f = open(self.location_path(nonexist_ok=False), 'r', encoding='utf8')
+                f = open(cast(str, self.location_path(nonexist_ok=False)), 'r', encoding='utf8')
                 textvalue = f.read()
                 f.close()
                 return textvalue
@@ -665,6 +670,7 @@ class AnnotationProperties(MmifObject, MutableMapping[str, T]):
 
     :param mmif_obj: the JSON data that defines the properties
     """
+    _unnamed_attributes: dict
 
     def __delitem__(self, key: str) -> None:
         key = self._canonical(key)
@@ -745,7 +751,7 @@ class AnnotationProperties(MmifObject, MutableMapping[str, T]):
         """
         canonical_dict = {}
         # canonical name -> the deprecated spelling it was read from
-        from_alias = {}
+        from_alias: dict = {}
         for key, value in input_dict.items():
             canonical = self._canonical(key)
             if canonical in canonical_dict and (canonical != key or canonical in from_alias):
