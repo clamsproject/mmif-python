@@ -77,7 +77,7 @@ This means adding a properly structured module within the CLI package is all tha
 pip install -e ".[dev]"
 ```
 
-An editable install (`pip install -e .`) is required before running tests or building docs. The package uses `importlib.metadata` for version resolution at runtime, which only works when the package is registered in the environment. You can no longer run `pytest` or `pytype` directly against the source tree without installing first. If you want to avoid pulling in all dependencies, `pip install -e . --no-deps` is sufficient to register the package metadata.
+An editable install (`pip install -e .`) is required before running tests or building docs. The package uses `importlib.metadata` for version resolution at runtime, which only works when the package is registered in the environment. You can no longer run `pytest` or `mypy` directly against the source tree without installing first. If you want to avoid pulling in all dependencies, `pip install -e . --no-deps` is sufficient to register the package metadata.
 
 ## Local Development
 

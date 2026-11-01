@@ -14,14 +14,14 @@ use container-level access for ID-based lookups.
 import json
 import warnings
 from datetime import datetime
-from typing import Dict, Union, Optional, Generator, List, cast
+from collections.abc import Generator
+from typing import cast
 
-from mmif import DocumentTypes, AnnotationTypes, ThingTypesBase, ClamsTypesBase
+from mmif import AnnotationTypes, ClamsTypesBase, DocumentTypes, ThingTypesBase
 from mmif.serialize.annotation import Annotation, Document, canonicalize_prop_name
-from mmif.serialize.model import PRMTV_TYPES, MmifObject, DataList, DataDict
-from mmif.vocabulary.base_types import AnnotationTypesBase
+from mmif.serialize.model import PRMTV_TYPES, DataDict, DataList, MmifObject
 
-__all__ = ['View', 'ViewMetadata', 'Contain']
+__all__ = ['Contain', 'View', 'ViewMetadata']
 
 
 class View(MmifObject):
@@ -63,9 +63,9 @@ class View(MmifObject):
        some_anns = view.annotations[1:5]    # Slice of annotations
     """
 
-    def __init__(self, view_obj: Optional[Union[bytes, str, dict]] = None, parent_mmif=None, *_) -> None:
+    def __init__(self, view_obj: bytes | str | dict | None = None, parent_mmif=None, *_) -> None:
         # used to autogenerate annotation ids
-        self._id_counts = {}
+        self._id_counts: dict[str, int] = {}
         # used to access the parent MMIF object
         self._parent_mmif = parent_mmif
         self.reserved_names.update(("_parent_mmif", "_id_counts"))
@@ -81,6 +81,8 @@ class View(MmifObject):
         }
         self._required_attributes = ["id", "metadata", "annotations"]
         super().__init__(view_obj)
+        for annotation in self.annotations:
+            annotation._parent_view = self
         self._fix_old_short_ids()
         self._rebuild_id_counts()
 
@@ -144,13 +146,14 @@ class View(MmifObject):
                                     propv[i] = f"{self.id}{self.id_delimiter}{item}"
                 self.annotations.append(annotation)
 
-    def new_contain(self, at_type: Union[str, ThingTypesBase], **contains_metadata) -> Optional['Contain']:
+    def new_contain(self, at_type: str | ThingTypesBase, **contains_metadata) -> 'Contain':
         """
-        Adds a new element to the ``contains`` metadata.
+        Adds a new element to the ``contains`` metadata. For a type that is
+        already there, the metadata is merged into its element.
 
         :param at_type: the ``@type`` of the annotation type being added
         :param contains_metadata: any metadata associated with the annotation type
-        :return: the generated :class:`Contain` object
+        :return: the :class:`Contain` object of the type
         """
         if MmifObject.is_empty(at_type):
             raise ValueError("@type must not be empty.")
@@ -172,7 +175,7 @@ class View(MmifObject):
             self._id_counts[prefix] = new_num
             annotation.id = self.id + self.id_delimiter + new_id
     
-    def new_annotation(self, at_type: Union[str, ThingTypesBase], aid: Optional[str] = None, 
+    def new_annotation(self, at_type: str | ThingTypesBase, aid: str | None = None, 
                        overwrite=False, **properties) -> 'Annotation':
         """
         Generates a new :class:`mmif.serialize.annotation.Annotation`
@@ -220,12 +223,12 @@ class View(MmifObject):
             annotation.id = f"{self.id}{self.id_delimiter}{annotation.id}"
         self.annotations.append(annotation, overwrite)
         self.new_contain(annotation.at_type)
-        annotation._add_ephemeral_defaults(self.metadata.contains.get(annotation.at_type, {}))
+        annotation._parent_view = self
         if annotation.at_type == AnnotationTypes.Alignment:
             self._parent_mmif._cache_alignment(annotation)
         return annotation
     
-    def new_textdocument(self, text: str, lang: str = "en", did: Optional[str] = None, 
+    def new_textdocument(self, text: str, lang: str = "en", did: str | None = None, 
                          overwrite=False, **properties) -> 'Document':
         """
         Generates a new :class:`mmif.serialize.annotation.Document`
@@ -269,7 +272,7 @@ class View(MmifObject):
         """
         return self.add_annotation(document, overwrite)
 
-    def get_annotations(self, at_type: Optional[Union[str, ThingTypesBase]] = None, 
+    def get_annotations(self, at_type: str | ThingTypesBase | None = None, 
                         **properties) -> Generator[Annotation, None, None]:
         """
         Look for certain annotations in this view, specified by parameters
@@ -293,10 +296,8 @@ class View(MmifObject):
     def get_annotation_by_id(self, ann_id) -> Annotation:
         """
         .. deprecated:: 1.1.0
-           Will be removed in 2.0.0. 
-           Use general ``Mmif.__getitem__()`` method instead to retrieve 
-           any annotation across the MMIF, or View.__getitems__() to 
-           retrieve annotations within the view.
+           Will be removed in 2.0.0. Use ``view[ann_id]`` to look in this view,
+           or ``mmif[ann_id]`` to look across the MMIF, instead.
            
         Thinly wraps the Mmif.__getitem__ method and returns an Annotation 
         object. Note that although this method is under View class, it can 
@@ -306,25 +307,22 @@ class View(MmifObject):
         :return: found :class:`mmif.serialize.annotation.Annotation` object.
         :raises KeyError: if the annotation with the given ID is not found
         """
-        warnings.warn(
-            "View.get_annotation_by_id() is deprecated, use view[ann_id] instead.",
-            DeprecationWarning
-        )
+        warnings.warn('get_annotation_by_id() is deprecated and will be '
+                      'removed in 2.0.0. Use view[ann_id] instead.',
+                      DeprecationWarning)
         ann_found = self._parent_mmif.__getitem__(ann_id)
         if not isinstance(ann_found, Annotation):
             raise KeyError(f"Annotation with ID {ann_id} not found in the MMIF object.")
         return cast(Annotation, ann_found)
         
-    def get_documents(self) -> List[Document]:
+    def get_documents(self) -> list[Document]:
         return [cast(Document, annotation) for annotation in self.annotations if annotation.is_document()]
 
     def get_document_by_id(self, doc_id) -> Document:
         """
         .. deprecated:: 1.1.0
-           Will be removed in 2.0.0.
-           Use general ``Mmif.__getitem__()`` method instead to retrieve
-           any document across the MMIF, or View.__getitems__() to
-           retrieve documents within the view.
+           Will be removed in 2.0.0. Use ``view[doc_id]`` to look in this view,
+           or ``mmif[doc_id]`` to look across the MMIF, instead.
 
         Thinly wraps the Mmif.__getitem__ method and returns a Document
         object. Note that although this method is under View class, it can
@@ -334,10 +332,9 @@ class View(MmifObject):
         :return: found :class:`mmif.serialize.annotation.Document` object.
         :raises KeyError: if the document with the given ID is not found
         """
-        warnings.warn(
-            "View.get_document_by_id() is deprecated, use view[doc_id] instead.",
-            DeprecationWarning
-        )
+        warnings.warn('View.get_document_by_id() is deprecated and will be '
+                      'removed in 2.0.0. Use view[doc_id] instead.',
+                      DeprecationWarning)
         doc_found = self.annotations._items.get(doc_id)
         if not isinstance(doc_found, Document):
             raise KeyError(f"Document \"{doc_id}\" not found in view {self.id}.")
@@ -401,7 +398,7 @@ class View(MmifObject):
         self.metadata.set_error(err_message, err_trace)
         self.annotations.empty()
     
-    def get_error(self) -> Optional[str]:
+    def get_error(self) -> str | None:
         """
         Get the "text" representation of the error occurred during 
         processing. Text representation is supposed to be human-readable. 
@@ -434,16 +431,16 @@ class ViewMetadata(MmifObject):
     :param viewmetadata_obj: the JSON data that defines the metadata
     """
 
-    def __init__(self, viewmetadata_obj: Optional[Union[bytes, str, dict]] = None, *_) -> None:
+    def __init__(self, viewmetadata_obj: bytes | str | dict | None = None, *_) -> None:
         self.document: str = ''
-        self.timestamp: Optional[datetime] = None
+        self.timestamp: datetime | None = None
         self.app: str = ''
-        self.appTags: List[str] = []
+        self.appTags: list[str] = []
         self.contains: ContainsDict = ContainsDict()
-        self.parameters: Dict[str, str] = {}
-        self.appConfiguration: Dict[str, Union[PRMTV_TYPES, List[PRMTV_TYPES]]] = {}
-        self.error: Union[dict, ErrorDict] = {}
-        self.warnings: List[str] = []
+        self.parameters: dict[str, str] = {}
+        self.appConfiguration: dict[str, PRMTV_TYPES | list[PRMTV_TYPES]] = {}
+        self.error: dict | ErrorDict = {}
+        self.warnings: list[str] = []
         self._required_attributes = ["app"]
         self._contextual_attributes = {"timestamp"}
         self._attribute_classes = {
@@ -482,32 +479,37 @@ class ViewMetadata(MmifObject):
         else:
             raise KeyError(f"No error found")
             
-    def new_contain(self, at_type: Union[str, ThingTypesBase], **contains_metadata) -> Optional['Contain']:
+    def new_contain(self, at_type: str | ThingTypesBase, **contains_metadata) -> 'Contain':
         """
-        Adds a new element to the ``contains`` dictionary.
+        Adds a new element to the ``contains`` dictionary. For a type that is
+        already there, the metadata is merged into its element.
 
         :param at_type: the ``@type`` of the annotation type being added
         :param contains_metadata: any metadata associated with the annotation type
-        :return: the generated :class:`Contain` object
+        :return: the :class:`Contain` object of the type
         """
         if isinstance(at_type, str):
             at_type = ThingTypesBase.from_str(at_type)
             
+        new_contain = Contain._for_type(at_type, contains_metadata)
         if at_type not in self.contains:
-            new_contain = Contain._for_type(at_type, contains_metadata)
             self.add_contain(new_contain, at_type)
             return new_contain
+        existing = self.contains[at_type]
+        for key, value in new_contain.items():
+            existing[key] = value
+        return existing
     
-    def add_contain(self, contain: 'Contain', at_type: Union[str, ThingTypesBase]) -> None:
+    def add_contain(self, contain: 'Contain', at_type: str | ThingTypesBase) -> None:
         self.contains[at_type] = contain
 
-    def add_app_configuration(self, config_key: str, config_value: Union[PRMTV_TYPES, List[PRMTV_TYPES]]) -> None:
+    def add_app_configuration(self, config_key: str, config_value: PRMTV_TYPES | list[PRMTV_TYPES]) -> None:
         """
         Add a configuration key-value pair to the app_configuration dictionary.
         """
         self.appConfiguration[config_key] = config_value
 
-    def get_app_configuration(self, config_key: str) -> Union[PRMTV_TYPES, List[PRMTV_TYPES]]:
+    def get_app_configuration(self, config_key: str) -> PRMTV_TYPES | list[PRMTV_TYPES]:
         """
         Get a configuration value from the app_configuration dictionary.
         """
@@ -556,7 +558,7 @@ class ErrorDict(MmifObject):
     """
     Error object that stores information about error occurred during processing. 
     """
-    def __init__(self, error_obj: Optional[Union[bytes, str, dict]] = None, *_) -> None:
+    def __init__(self, error_obj: bytes | str | dict | None = None, *_) -> None:
         self.message: str = ''
         self.stackTrace: str = ''
         self._contextual_attributes = {"stackTrace"}
@@ -582,14 +584,14 @@ class Contain(DataDict[str, str]):
         return cls({canonicalize_prop_name(at_type, k): v for k, v in contains_metadata.items()})
 
 
-class AnnotationsList(DataList[Union[Annotation, Document]]):
+class AnnotationsList(DataList[Annotation | Document]):
     """
     AnnotationsList object that implements :class:`mmif.serialize.model.DataList`
     for :class:`mmif.serialize.annotation.Annotation`.
     """
-    _items: Dict[str, Union[Annotation, Document]]
+    _items: dict[str, Annotation | Document]
 
-    def _deserialize(self, input_list: list) -> None:  # pytype: disable=signature-mismatch
+    def _deserialize(self, input_list: list) -> None:  # type: ignore[override]
         """
         Extends base ``_deserialize`` method to initialize ``items`` as a dict from
         annotation IDs to :class:`mmif.serialize.annotation.Annotation` objects.
@@ -601,7 +603,7 @@ class AnnotationsList(DataList[Union[Annotation, Document]]):
                        if ClamsTypesBase.attype_iri_isdocument(item['_type']) else Annotation(item)
                        for item in input_list}
 
-    def append(self, value: Union[Annotation, Document], overwrite=False) -> None:
+    def append(self, value: Annotation | Document, overwrite=False) -> None:
         """
         Appends an annotation to the list.
 
@@ -628,18 +630,18 @@ class ContainsDict(DataDict[ThingTypesBase, Contain]):
                 key = ThingTypesBase.from_str(key)
             self._items[key] = Contain._for_type(key, value)
 
-    def update(self, other: Union[dict, 'ContainsDict'], overwrite=False):
+    def update(self, other: 'dict | ContainsDict', overwrite=False):
         for k, v in other.items():
             if isinstance(k, str):
                 k = ThingTypesBase.from_str(k)
             self._append_with_key(k, v, overwrite=overwrite)
             
-    def get(self, key: Union[str, ThingTypesBase], default=None):
+    def get(self, key: str | ThingTypesBase, default=None):
         if isinstance(key, str):
             key = ThingTypesBase.from_str(key)
         return self._items.get(key, default)
     
-    def __contains__(self, item: Union[str, ThingTypesBase]):
+    def __contains__(self, item: str | ThingTypesBase):
         if isinstance(item, str):
             # in general, when querying with a string, do not use fuzzy equality
             if 'vocab.lappsgrid.org' in item and item.split('/')[-1] in ThingTypesBase._old_lapps_type_shortnames:

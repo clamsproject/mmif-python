@@ -4,7 +4,7 @@ Run tests for the mmif-python package.
 This script is equivalent to::
 
     pip install -e ".[test]"
-    pytype mmif
+    python -m mypy
     python -m pytest --cov=mmif --cov-report=xml -m "not slow"
 """
 import argparse
@@ -51,10 +51,10 @@ def main():
             cwd=project_root,
         )
 
-    # Run pytype static analysis
-    print("\n--- Running pytype ---")
+    # Run mypy static analysis (configured in pyproject.toml)
+    print("\n--- Running mypy ---")
     run_command(
-        ["pytype", "mmif"],
+        [sys.executable, "-m", "mypy"],
         cwd=project_root,
     )
 

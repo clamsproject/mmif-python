@@ -9,7 +9,7 @@ for more information.
 import urllib.request
 import urllib.error
 
-_cache = {}
+_cache: dict = {}
 
 
 def resolve(docloc):

@@ -15,21 +15,27 @@ import pkgutil
 import re
 import typing
 import warnings
-from typing import Union, Dict, Optional, Iterator, MutableMapping, TypeVar
+from collections.abc import Iterator, MutableMapping
+from typing import TYPE_CHECKING, Any, TypeVar, cast
 from urllib.parse import urlparse
 
-from mmif.vocabulary import ThingTypesBase, DocumentTypesBase
-from .model import MmifObject, PRMTV_TYPES
-from .. import DocumentTypes, AnnotationTypes
 import mmif_docloc_http
+
+from mmif.vocabulary import DocumentTypesBase, ThingTypesBase
+
+from .. import AnnotationTypes, DocumentTypes
+from .model import PRMTV_TYPES, MmifObject
+
+if TYPE_CHECKING:
+    from .view import View
 
 __all__ = ['Annotation', 'AnnotationProperties', 'Document', 'DocumentProperties', 'Text', 'canonicalize_prop_name']
 
 T = TypeVar('T')
-LIST_PRMTV = typing.List[PRMTV_TYPES]  # list of values (most cases for annotation props)
-LIST_LIST_PRMTV = typing.List[LIST_PRMTV]   # list of lists of values (e.g. for coordinates)
-DICT_PRMTV = typing.Dict[str, PRMTV_TYPES]  # dict of values (`text` prop of `TextDocument` and other complex props)
-DICT_LIST_PRMTV = typing.Dict[str, LIST_PRMTV]  # dict of list of values (even more complex props)
+LIST_PRMTV = list[PRMTV_TYPES]  # list of values (most cases for annotation props)
+LIST_LIST_PRMTV = list[LIST_PRMTV]   # list of lists of values (e.g. for coordinates)
+DICT_PRMTV = dict[str, PRMTV_TYPES]  # dict of values (`text` prop of `TextDocument` and other complex props)
+DICT_LIST_PRMTV = dict[str, LIST_PRMTV]  # dict of list of values (even more complex props)
 
 
 # some built-in document location helpers
@@ -43,7 +49,7 @@ discovered_docloc_plugins.update({
 
 
 @functools.lru_cache(maxsize=None)
-def _prop_alias_map(shortname: str) -> Dict[str, str]:
+def _prop_alias_map(shortname: str) -> dict[str, str]:
     """
     Maps every spelling of an aliased property of a type to the canonical
     name. The table is read from the latest version of the type in the
@@ -81,12 +87,17 @@ class Annotation(MmifObject):
     MmifObject that represents an annotation in a MMIF view.
     """
 
-    def __init__(self, anno_obj: Optional[Union[bytes, str, dict]] = None, *_) -> None:
+    def __init__(self, anno_obj: bytes | str | dict | None = None, *_) -> None:
         self._type: ThingTypesBase = ThingTypesBase('')
-        # to store the parent view ID
+        # values that are not stored on the annotation itself but cached at
+        # load time: properties recorded by capital `Annotation`s (on
+        # documents) and computed `start`/`end` (on `targets` annotations)
         self._props_ephemeral: AnnotationProperties = AnnotationProperties(None, self)
-        self._alignments = {}  # to hold alignment information (Alignment anno long_id -> aligned anno long_id)
-        self.reserved_names.update(('_props_ephemeral', '_alignments'))
+        # the view holding this annotation; backs `parent` and the lookup of
+        # view-level `contains` defaults
+        self._parent_view: 'View | None' = None
+        self._alignments: dict = {}  # to hold alignment information (Alignment anno long_id -> aligned anno long_id)
+        self.reserved_names.update(('_props_ephemeral', '_parent_view', '_alignments'))
         if not hasattr(self, 'properties'):  # don't overwrite DocumentProperties on super() call
             self.properties: AnnotationProperties = AnnotationProperties(None, self)
             self._attribute_classes = {'properties': AnnotationProperties}
@@ -115,7 +126,7 @@ class Annotation(MmifObject):
         """
         self._alignments[alignment_ann] = alignedto_ann
     
-    def aligned_to_by(self, alignment: 'Annotation') -> Optional['Annotation']:
+    def aligned_to_by(self, alignment: 'Annotation') -> 'Annotation | None':
         """
         Retrieves the other side of ``Alignment`` annotation that has this annotation on one side. 
         
@@ -140,22 +151,43 @@ class Annotation(MmifObject):
             yield aligned
         
         
-    def _add_ephemeral_defaults(self, defaults: typing.Mapping[str, typing.Any]) -> None:
+    def _get_view_default(self, prop_name: str):
         """
-        Distributes view-level defaults (from the ``contains`` metadata of the
-        parent view) to this annotation as ephemeral properties, under their
-        canonical names. An annotation-level value takes precedence over a
-        view-level default, so a default is skipped when the annotation
-        carries the property itself.
+        Looks up a view-level default for this annotation's ``@type`` in the
+        ``contains`` metadata of the parent view, at read time. Deprecated
+        spellings in ``contains`` are matched by their canonical name.
 
-        :param defaults: property defaults for this annotation's ``@type``
+        :param prop_name: a canonical property name
+        :return: the default value
+        :raises KeyError: if there is no parent view or no such default
         """
-        for name, value in defaults.items():
-            name = canonicalize_prop_name(self._type, name)
-            if name not in self.properties:
-                self._props_ephemeral[name] = value
+        if self._parent_view is not None:
+            defaults = self._parent_view.metadata.contains.get(self._type)
+            if defaults:
+                for name, value in defaults.items():
+                    if canonicalize_prop_name(self._type, name) == prop_name:
+                        return value
+        raise KeyError(prop_name)
 
-    def is_type(self, at_type: Union[str, ThingTypesBase]) -> bool:
+    def _resolved_properties(self) -> dict[str, typing.Any]:
+        """
+        Returns the properties of this annotation as a reader sees them:
+        view-level defaults from the parent view's ``contains``, overridden by
+        the values stored on the annotation itself. Values cached at load time
+        are not included.
+
+        :return: a new dict of canonical property names to values
+        """
+        resolved: dict = {}
+        if self._parent_view is not None:
+            defaults = self._parent_view.metadata.contains.get(self._type)
+            if defaults:
+                for name, value in defaults.items():
+                    resolved[canonicalize_prop_name(self._type, name)] = value
+        resolved.update(self.properties.items())
+        return resolved
+
+    def is_type(self, at_type: str | ThingTypesBase) -> bool:
         """
         Check if the @type of this object matches.
         """
@@ -168,7 +200,7 @@ class Annotation(MmifObject):
         return self._type
 
     @at_type.setter
-    def at_type(self, at_type: Union[str, ThingTypesBase]) -> None:
+    def at_type(self, at_type: str | ThingTypesBase) -> None:
         if isinstance(at_type, str):
             self._type = ThingTypesBase.from_str(at_type)
         elif isinstance(at_type, type) and issubclass(at_type, ThingTypesBase):
@@ -179,14 +211,22 @@ class Annotation(MmifObject):
             # Use ``model_construct()`` to skip Pydantic field validation —
             # direct ``__init__`` rejects types with required fields
             # (e.g., ``Alignment`` requires ``source``/``target``).
-            instance = at_type.model_construct()
-            instance.initialized_from = at_type.uri
+            vocab_type: Any = at_type
+            instance = vocab_type.model_construct()
+            instance.initialized_from = vocab_type.uri
             self._type = instance
         else:
             self._type = at_type
 
     @property
     def parent(self) -> str:
+        """
+        The ID of the view that holds this annotation. Taken from the view
+        itself once the annotation is added to one, otherwise parsed from the
+        view-prefixed annotation ID.
+        """
+        if self._parent_view is not None:
+            return self._parent_view.id
         if self.id_delimiter in self.properties.id:
             id_split = self.properties.id.split(self.id_delimiter)
             if len(id_split) == 2:
@@ -197,17 +237,15 @@ class Annotation(MmifObject):
     def parent(self, parent_id: str) -> None:
         """
         .. deprecated:: 1.1.0
-           Will be removed in 2.0.0. 
-           Setting parent ID is no longer allowed. Instead, the parent ID
-           should be prefixed to the annotation ID. 
+           Will be removed in 2.0.0. Use a prefixed annotation ID instead.
           
         Sets the parent view ID of this annotation.
         :param parent_id: 
         """
-        warnings.warn(
-            "Setting parent ID is deprecated and nothing happened. Use prefixed annotation ID instead.",
-            DeprecationWarning
-        )
+        warnings.warn('Setting the parent ID is deprecated and will be '
+                      'removed in 2.0.0. Use a prefixed annotation ID '
+                      'instead.',
+                      DeprecationWarning)
 
 
     @property
@@ -220,16 +258,20 @@ class Annotation(MmifObject):
         
     @property
     def long_id(self) -> str:
-        warnings.warn(
-            'long_id is deprecated. Use `id` instead. ', DeprecationWarning
-        )
+        """
+        .. deprecated:: 1.1.0
+           Will be removed in 2.0.0. Use :attr:`id` instead.
+        """
+        warnings.warn('long_id is deprecated and will be removed in 2.0.0. '
+                      'Use id instead.',
+                      DeprecationWarning)
         return self.id
     
     @long_id.setter
     def long_id(self, long_id: str) -> None:
-        warnings.warn(
-            'long_id is deprecated. Use `id` instead. ', DeprecationWarning
-        )
+        warnings.warn('long_id is deprecated and will be removed in 2.0.0. '
+                      'Use id instead.',
+                      DeprecationWarning)
         self.id = long_id
     
     @property
@@ -244,7 +286,7 @@ class Annotation(MmifObject):
     
     @staticmethod
     def check_prop_value_is_simple_enough(
-            value: Union[PRMTV_TYPES, LIST_PRMTV, LIST_LIST_PRMTV, DICT_PRMTV, DICT_LIST_PRMTV]) -> bool:
+            value: PRMTV_TYPES | LIST_PRMTV | LIST_LIST_PRMTV | DICT_PRMTV | DICT_LIST_PRMTV) -> bool:
         
         def json_primitives(x): 
             return isinstance(x, typing.get_args(PRMTV_TYPES))
@@ -261,7 +303,7 @@ class Annotation(MmifObject):
             or (isinstance(value, dict) and all(map(lambda x: isinstance(x[0], str) and (json_primitives(x[1]) or json_primitives_list(x[1])), value.items())))
 
     def add_property(self, name: str,
-                     value: Union[PRMTV_TYPES, LIST_PRMTV, LIST_LIST_PRMTV, DICT_PRMTV, DICT_LIST_PRMTV]) -> None:
+                     value: PRMTV_TYPES | LIST_PRMTV | LIST_LIST_PRMTV | DICT_PRMTV | DICT_LIST_PRMTV) -> None:
         """
         Adds a property to the annotation's properties. A deprecated spelling
         of an aliased property (e.g. ``frameType``) is stored under its
@@ -289,7 +331,9 @@ class Annotation(MmifObject):
             return self.properties[prop_name]
         elif prop_name in self._props_ephemeral:
             return self._props_ephemeral[prop_name]
-        else:
+        try:
+            return self._get_view_default(prop_name)
+        except KeyError:
             raise KeyError(f"Property {prop_name} does not exist in this annotation.")
 
     def get(self, prop_name: str, default=None):
@@ -300,9 +344,13 @@ class Annotation(MmifObject):
         or a default value if not found. This method searches in multiple
         locations with the following priority:
 
-        1. Direct properties (in ``annotation.properties``)
-        2. Ephemeral properties (view-level metadata from ``contains``)
-        3. Special fields (``@type``, ``properties``)
+        1. Special fields (``@type``, ``properties``)
+        2. Direct properties (in ``annotation.properties``)
+        3. Values cached at load time (properties recorded by capital
+           ``Annotation`` objects, on documents; computed ``start``/``end``,
+           on ``targets`` annotations)
+        4. View-level defaults (the parent view's ``contains`` metadata for
+           this annotation's ``@type``)
 
         This allows convenient access to properties without explicitly
         checking the ``properties`` object or view-level metadata. A
@@ -363,73 +411,101 @@ class Document(Annotation):
 
     :param document_obj: the JSON data that defines the document
     """
-    def __init__(self, doc_obj: Optional[Union[bytes, str, dict]] = None, *_) -> None:
+    #: the spellings of the ``text`` property in :meth:`add_property`
+    _TEXT_PROP_NAMES = frozenset({'text', '@text', '_text'})
+
+    def __init__(self, doc_obj: bytes | str | dict | None = None, *_) -> None:
         # see https://github.com/clamsproject/mmif-python/issues/226 for discussion
-        # around the use of these three dictionaries
+        # around the property stores of a document
         # (names changed since, `existing` >> `ephemeral` and `temporary` >> `pending`)
-        self._props_original: DocumentProperties = DocumentProperties(None, self)
-        # pending props are never cleared: every `Mmif.serialize()` call
-        # converts them into `Annotation`s again, and
-        # `Mmif.generate_capital_annotations()` relies on its duplicate check
-        # to skip values already written. Calling it more than once (e.g.,
-        # early in clams-python's `ClamsApp.annotate()`) is safe only while
-        # that check holds.
+        # properties added to a document that are recorded as capital
+        # `Annotation`s. This dict is never cleared. `Mmif.serialize()` writes
+        # the records into its output only, so repeated serialization gives
+        # the same records. `Mmif.generate_capital_annotations()` writes them
+        # into the views, and calling it more than once (e.g., early in
+        # clams-python's `ClamsApp.annotate()`) relies on its duplicate check
+        # to skip values already written.
         self._props_pending: AnnotationProperties = AnnotationProperties(None, self)
-        self.reserved_names.update(('_props_original', '_props_pending'))
+        self.reserved_names.add('_props_pending')
         
-        self._type: Union[ThingTypesBase, DocumentTypesBase] = ThingTypesBase('')
-        self.properties = self._props_original
+        self._type: ThingTypesBase | DocumentTypesBase = ThingTypesBase('')
+        self.properties: DocumentProperties = DocumentProperties(None, self)
         self.disallow_additional_properties()
         self._attribute_classes = {'properties': DocumentProperties}
         super().__init__(doc_obj)
     
     def add_property(self, name: str,
-                     value: Union[PRMTV_TYPES, LIST_PRMTV]
+                     value: PRMTV_TYPES | LIST_PRMTV | LIST_LIST_PRMTV | DICT_PRMTV | DICT_LIST_PRMTV
                      ) -> None:
         """
         Adds a property to the document's properties.
 
-        Unlike the parent :class:`Annotation` class, added properties of a
-        ``Document`` object can be lost during serialization unless it belongs
-        to somewhere in a ``Mmif`` object. This is because we want to keep
-        ``Document`` object as "read-only" as possible. Thus, if you want to add
-        a property to a ``Document`` object,
-
-        * add the document to a ``Mmif`` object (either in the documents list or
-          in a view from the views list), or
-        * directly write to ``Document.properties`` instead of using this method
-          (which is not recommended).
-
-        With the former method, the SDK will record the added property as a
-        `Annotation` annotation object, separate from the original `Document`
-        object. See :meth:`mmif.serialize.mmif.Mmif.generate_capital_annotations` for more.
+        ``Document`` objects stay as "read-only" as possible, so a property
+        added here is not written to the document. It is kept aside, and
+        recorded as a separate ``Annotation`` object when the ``Mmif`` object
+        holding the document is serialized (see
+        :meth:`mmif.serialize.mmif.Mmif.set_producer`). A document that is not
+        in a ``Mmif`` object loses it on serialization. Without a producer,
+        recording also needs a view with no error and no warnings.
 
         A few notes to keep in mind:
 
-        #. You can't overwrite an existing property of a ``Document`` object.
+        #. ``location``, ``text``, and ``mime`` are set once. A different value
+           raises ``AttributeError`` once the document has one, and ``text``
+           is also refused on a document with a ``location``. Setting the same
+           value again changes nothing. To record a later value of any other
+           property, add it here, and it becomes an ``Annotation`` object.
         #. A MMIF can have multiple ``Annotation`` objects with the same
            property name but different values. When this happens, the SDK will
            only keep the latest value (in order of appearances in views list) of
            the property, effectively overwriting the previous values.
 
         :param name: the name of the property
-        :param value: the property's desired value (note: Document accepts fewer value types than Annotation)
+        :param value: the property's desired value
         """
-        # we don't checking if this k-v already exists in _original (new props) or _ephemeral (read from existing MMIF)
-        # because it is impossible to keep the _original updated when a new annotation is added (via `new_annotation`)
-        # without look across other views and top-level documents list. Also see 
-        # ``mmif.serialize.mmif.Mmif.generate_capital_annotations`` for where the "de-duplication" happens.
-        if name == "text":
-            self.properties.text = Text(value)
+        # whether this k-v is already recorded can't be told from here, because
+        # records live in other views. De-duplication happens when the records
+        # are planned, in `Mmif._plan_capital_annotations()` and
+        # `ProducerContext._plan_capital_annotations()`
+        # TODO: upgrade this set-once check to an ownership-based guardrail:
+        # objects the current run created are writable (last write wins,
+        # set-once keys excepted); documents that already existed are never
+        # changed, and new values become capital `Annotation`s; annotations
+        # that already existed refuse `add_property`; "already existed" is
+        # defined by the producer context
+        if name in self._TEXT_PROP_NAMES:
+            text = Text(cast(str | dict, value))
+            current = self.properties.text
+            if (self.location is not None or current.value) and text != current:
+                raise self._read_only_error('text')
+            self.properties.text = text
         elif name == "mime":
-            self.properties.mime = str(value)
+            mime = str(value)
+            if self.properties.mime and self.properties.mime != mime:
+                raise self._read_only_error(name)
+            self.properties.mime = mime
         elif name == "location":
-            self.location = value
-        elif name not in self._props_original:
-            if self.check_prop_value_is_simple_enough(value):
-                self._props_pending[name] = value
-            else:
-                super().add_property(name, value)
+            location = cast(str, value)
+            requested = DocumentProperties()
+            requested.location = location
+            if self.location is not None and self.location != requested.location:
+                raise self._read_only_error(name)
+            self.location = location
+        elif self.check_prop_value_is_simple_enough(value):
+            self._props_pending[name] = value
+        else:
+            super().add_property(name, value)
+
+    def _read_only_error(self, name: str) -> AttributeError:
+        """
+        Builds the error for an attempt to change a set-once property.
+
+        :param name: the name of the property
+        :return: the error to raise
+        """
+        return AttributeError(f'Property "{name}" of document {self.id} is '
+                              f'read-only. Documents keep the source data '
+                              f'they were created with.')
 
     def __getitem__(self, prop_name: str):
         """
@@ -439,9 +515,9 @@ class Document(Annotation):
         #. Special fields (``id``, ``location``)
         #. Pending properties (added via :meth:`add_property` after creation,
            to be serialized as capital ``Annotation`` objects)
-        #. Original properties (in ``document.properties``)
-        #. Ephemeral properties (from existing ``Annotation`` objects or view
-           ``contains`` metadata)
+        #. Stored properties (in ``document.properties``)
+        #. Values recorded by existing ``Annotation`` objects
+        #. View-level defaults (the parent view's ``contains`` metadata)
 
         ``Document`` overrides ``__getitem__`` (not only :meth:`get`) so that
         the ``in`` operator, subscripting, and :meth:`get` all agree.
@@ -469,9 +545,10 @@ class Document(Annotation):
             return self._props_pending[prop_name]
         else:
             # Delegates to Annotation.__getitem__(), which checks
-            # self.properties (_props_original) before _props_ephemeral.
-            # This gives annotation-level properties precedence over
-            # view-level contains defaults (MMIF spec >= 1.1.1).
+            # self.properties, then values recorded by capital `Annotation`s
+            # (_props_ephemeral), then the parent view's `contains` defaults.
+            # Annotation-level properties take precedence over view-level
+            # defaults (MMIF spec >= 1.1.1).
             return super().__getitem__(prop_name)
 
     def get(self, prop_name, default=None):
@@ -531,7 +608,7 @@ class Document(Annotation):
     def text_value(self) -> str:
         if self._type == DocumentTypes.TextDocument:
             if self.location:
-                f = open(self.location_path(nonexist_ok=False), 'r', encoding='utf8')
+                f = open(cast(str, self.location_path(nonexist_ok=False)), 'r', encoding='utf8')
                 textvalue = f.read()
                 f.close()
                 return textvalue
@@ -548,7 +625,7 @@ class Document(Annotation):
             raise ValueError("Only TextDocument can have `text` field.")
 
     @property
-    def location(self) -> Optional[str]:
+    def location(self) -> str | None:
         """
         ``location`` property must be a legitimate URI. That is, should the document be a local file
         then the file:// scheme must be used.
@@ -560,21 +637,21 @@ class Document(Annotation):
     def location(self, location: str) -> None:
         self.properties.location = location
 
-    def location_scheme(self) -> Optional[str]:
+    def location_scheme(self) -> str | None:
         """
         Retrieves URI scheme of the document location.
         Returns None when no location is set.
         """
         return self.properties.location_scheme()
 
-    def location_address(self) -> Optional[str]:
+    def location_address(self) -> str | None:
         """
         Retrieves the full address from the document location URI.
         Returns None when no location is set.
         """
         return self.properties.location_address()
 
-    def location_path(self, nonexist_ok=True) -> Optional[str]:
+    def location_path(self, nonexist_ok=True) -> str | None:
         """
         Retrieves a path that's resolved to a pathname in the local file system.
         To obtain the original value of the "path" part in the location string
@@ -593,6 +670,7 @@ class AnnotationProperties(MmifObject, MutableMapping[str, T]):
 
     :param mmif_obj: the JSON data that defines the properties
     """
+    _unnamed_attributes: dict
 
     def __delitem__(self, key: str) -> None:
         key = self._canonical(key)
@@ -646,8 +724,8 @@ class AnnotationProperties(MmifObject, MutableMapping[str, T]):
                           DeprecationWarning)
         super().__setitem__(canonical, value)
 
-    def __init__(self, mmif_obj: Optional[Union[bytes, str, dict]] = None,
-                 parent: Optional['Annotation'] = None, *_) -> None:
+    def __init__(self, mmif_obj: bytes | str | dict | None = None,
+                 parent: 'Annotation | None' = None, *_) -> None:
         self.id: str = ''
         # any individual at_type (subclassing this class) can have its own set of required attributes
         self._required_attributes = ["id"]
@@ -673,7 +751,7 @@ class AnnotationProperties(MmifObject, MutableMapping[str, T]):
         """
         canonical_dict = {}
         # canonical name -> the deprecated spelling it was read from
-        from_alias = {}
+        from_alias: dict = {}
         for key, value in input_dict.items():
             canonical = self._canonical(key)
             if canonical in canonical_dict and (canonical != key or canonical in from_alias):
@@ -697,8 +775,8 @@ class DocumentProperties(AnnotationProperties):
     :param mmif_obj: the JSON data that defines the properties
     """
 
-    def __init__(self, mmif_obj: Optional[Union[bytes, str, dict]] = None,
-                 parent: Optional['Annotation'] = None, *_) -> None:
+    def __init__(self, mmif_obj: bytes | str | dict | None = None,
+                 parent: 'Annotation | None' = None, *_) -> None:
         self.mime: str = ''
         # note the trailing underscore here. I wanted to use the name `location`
         # for @property in this class and `Document` class, so had to use a diff
@@ -741,7 +819,7 @@ class DocumentProperties(AnnotationProperties):
         self.text.value = s
 
     @property
-    def location(self) -> Optional[str]:
+    def location(self) -> str | None:
         """
         ``location`` property must be a legitimate URI. That is, should the document be a local file 
         then the file:// scheme must be used. 
@@ -757,7 +835,7 @@ class DocumentProperties(AnnotationProperties):
         else:
             self.location_ = location
 
-    def location_scheme(self) -> Optional[str]:
+    def location_scheme(self) -> str | None:
         """
         Retrieves URI scheme of the document location.
         Returns None when no location is set.
@@ -766,7 +844,7 @@ class DocumentProperties(AnnotationProperties):
             return None
         return urlparse(self.location).scheme
 
-    def location_address(self) -> Optional[str]:
+    def location_address(self) -> str | None:
         """
         Retrieves the full address from the document location URI.
         Returns None when no location is set.
@@ -779,16 +857,19 @@ class DocumentProperties(AnnotationProperties):
         else:
             return "".join((parsed_location.netloc, parsed_location.path))
 
-    def location_path(self) -> Optional[str]:
+    def location_path(self) -> str | None:
         """
         .. deprecated:: 1.0.2
-           Will be removed in 2.0.0. 
-           Use :meth:`location_path_resolved` instead.
+           Will be removed in 2.0.0. Use :meth:`location_path_resolved`
+           instead.
         """
-        warnings.warn('location_path() is deprecated. Use location_path_resolved() instead.', DeprecationWarning)
+        warnings.warn('DocumentProperties.location_path() is deprecated and '
+                      'will be removed in 2.0.0. Use location_path_resolved()'
+                      ' instead.',
+                      DeprecationWarning)
         return self.location_path_resolved()
     
-    def location_path_resolved(self, nonexist_ok=True) -> Optional[str]:
+    def location_path_resolved(self, nonexist_ok=True) -> str | None:
         """
         Retrieves only path name of the document location (hostname is ignored), 
         and then try to resolve the path name in the local file system.
@@ -812,7 +893,7 @@ class DocumentProperties(AnnotationProperties):
         else:
             return p
 
-    def location_path_literal(self) -> Optional[str]:
+    def location_path_literal(self) -> str | None:
         """
         Retrieves only path name of the document location (hostname is ignored). 
         Returns None when no location is set.
@@ -824,7 +905,7 @@ class DocumentProperties(AnnotationProperties):
 
 class Text(MmifObject):
 
-    def __init__(self, text_obj: Optional[Union[bytes, str, dict]] = None, *_) -> None:
+    def __init__(self, text_obj: bytes | str | dict | None = None, *_) -> None:
         self._value: str = ''
         self._language: str = ''
         self.disallow_additional_properties()
@@ -847,4 +928,3 @@ class Text(MmifObject):
     @value.setter
     def value(self, s: str) -> None:
         self._value = s
-

@@ -17,11 +17,15 @@ Hence, if you see a warning about missing optional packages, you might want to i
 import importlib
 import itertools
 import warnings
-from typing import List, Tuple, Dict, Union, Iterable, Callable
+from collections.abc import Callable, Iterable
+from typing import TYPE_CHECKING
 
 import mmif
 from mmif import Annotation
 from mmif.serialize.model import PRMTV_TYPES
+
+if TYPE_CHECKING:
+    import numpy
 
 for seq_dep in ['numpy']:
     try:
@@ -34,7 +38,7 @@ for seq_dep in ['numpy']:
 NEG_LABEL = '-'
 
 
-def smooth_outlying_short_intervals(scores: List[float],
+def smooth_outlying_short_intervals(scores: list[float],
                                     min_spseq_size: int,
                                     min_snseq_size: int,
                                     min_score: float = 0.5,
@@ -211,7 +215,7 @@ def smooth_outlying_short_intervals(scores: List[float],
     return _sequence_to_intervals(pass2)
 
 
-def _sequence_to_intervals(seq: Iterable[bool]) -> List[Tuple[int, int]]:
+def _sequence_to_intervals(seq: Iterable[bool]) -> list[tuple[int, int]]:
     pos_ints = []
     cur = 0
     for positivity, members in itertools.groupby(seq):
@@ -222,7 +226,7 @@ def _sequence_to_intervals(seq: Iterable[bool]) -> List[Tuple[int, int]]:
     return pos_ints
 
 
-def validate_labelset(annotations: Iterable[Annotation]) -> List[str]:
+def validate_labelset(annotations: Iterable[Annotation]) -> list[str]:
     """
     Simple check for a list of annotations to see if they have the same label set.
     
@@ -248,7 +252,7 @@ def validate_labelset(annotations: Iterable[Annotation]) -> List[str]:
     return list(src_labels)
 
 
-def build_label_remapper(src_labels: List[str], dst_labels: Dict[str, PRMTV_TYPES]) -> Dict[str, PRMTV_TYPES]:
+def build_label_remapper(src_labels: list[str], dst_labels: dict[str, PRMTV_TYPES]) -> dict[str, PRMTV_TYPES]:
     """
     Build a label remapper dictionary from source and destination labels.
     
@@ -263,9 +267,9 @@ def build_label_remapper(src_labels: List[str], dst_labels: Dict[str, PRMTV_TYPE
         return {**dst_labels, **dict((k, NEG_LABEL) for k in src_labels if k not in dst_labels)}
 
 
-def build_score_lists(classifications: List[Dict], label_remapper: Dict,
+def build_score_lists(classifications: list[dict], label_remapper: dict,
                       score_remap_op: Callable[..., float] = max) \
-        -> Tuple[Dict[str, int], "numpy.ndarray"]:  # pytype: disable=name-error
+        -> tuple[dict[str, int], "numpy.ndarray"]:
 
     """
     Build lists of scores indexed by the label names. 
@@ -278,7 +282,7 @@ def build_score_lists(classifications: List[Dict], label_remapper: Dict,
              2. 2-d numpy array of scores, of which rows are indexed by label map dict (first return value)
     """
     import numpy
-    scores = {lbl: [] for lbl in label_remapper.values()}
+    scores: dict[str, list] = {lbl: [] for lbl in label_remapper.values()}
     for c_idx, classification in enumerate(classifications):
         for src_label, src_score in classification.items():
             dst_label = label_remapper[src_label]

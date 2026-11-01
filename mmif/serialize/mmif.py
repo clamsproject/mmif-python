@@ -14,8 +14,9 @@ import json
 import math
 import warnings
 from collections import defaultdict
+from collections.abc import Iterable, Iterator
 from datetime import datetime, timezone
-from typing import Any, List, Union, Optional, Dict, cast, Iterable, Iterator
+from typing import cast
 from urllib.parse import urlparse
 
 import jsonschema.validators
@@ -23,7 +24,8 @@ import jsonschema.validators
 import mmif
 from mmif import ThingTypesBase
 from mmif.serialize.annotation import Annotation, Document
-from mmif.serialize.model import MmifObject, DataList
+from mmif.serialize.model import DataList, MmifObject, MmifObjectEncoder
+from mmif.serialize.producer import ProducerContext
 from mmif.serialize.view import View
 from mmif.vocabulary import AnnotationTypes, DocumentTypesBase
 
@@ -41,7 +43,7 @@ class MmifMetadata(MmifObject):
     :param metadata_obj: the JSON data
     """
 
-    def __init__(self, metadata_obj: Optional[Union[bytes, str, dict]] = None, *_) -> None:
+    def __init__(self, metadata_obj: bytes | str | dict | None = None, *_) -> None:
         # TODO (krim @ 10/7/20): there could be a better name and a better way to give a value to this
         self.mmif: str = f"http://mmif.clams.ai/{mmif.__specver__}"
         self._required_attributes = ["mmif"]
@@ -53,9 +55,9 @@ class DocumentsList(DataList[Document]):
     DocumentsList object that implements :class:`mmif.serialize.model.DataList`
     for :class:`mmif.serialize.document.Document`.
     """
-    _items: Dict[str, Document]
+    _items: dict[str, Document]
 
-    def _deserialize(self, input_list: list) -> None:  # pytype: disable=signature-mismatch
+    def _deserialize(self, input_list: list) -> None:  # type: ignore[override]
         """
         Extends base ``_deserialize`` method to initialize ``items`` as a dict from
         document IDs to :class:`mmif.serialize.document.Document` objects.
@@ -89,14 +91,14 @@ class ViewsList(DataList[View]):
     ViewsList object that implements :class:`mmif.serialize.model.DataList`
     for :class:`mmif.serialize.view.View`.
     """
-    _items: Dict[str, View]
+    _items: dict[str, View]
 
-    def __init__(self, mmif_obj: Optional[Union[bytes, str, list]] = None, parent_mmif=None, *_):
+    def __init__(self, mmif_obj: bytes | str | list | None = None, parent_mmif=None, *_):
         self._parent_mmif = parent_mmif
         self.reserved_names.update(("_parent_mmif", "_id_counts"))
         super().__init__(mmif_obj)
 
-    def _deserialize(self, input_list: list) -> None:  # pytype: disable=signature-mismatch
+    def _deserialize(self, input_list: list) -> None:  # type: ignore[override]
         """
         Extends base ``_deserialize`` method to initialize ``items`` as a dict from
         view IDs to :class:`mmif.serialize.view.View` objects.
@@ -125,7 +127,7 @@ class ViewsList(DataList[View]):
         """
         super()._append_with_key(value.id, value, overwrite)
 
-    def get_last_contentful_view(self) -> Optional[View]:
+    def get_last_contentful_view(self) -> View | None:
         """
         Returns the last view that is contentful, i.e., has at least one
         annotation (see :meth:`~mmif.serialize.view.View.has_content`).
@@ -137,15 +139,22 @@ class ViewsList(DataList[View]):
                 return view
         return None
     
-    def get_last_view(self) -> Optional[View]:
+    def get_last_view(self) -> View | None:
         """
         Returns the last view appended.
         """
         if self._items:
             return self._items[list(self._items.keys())[-1]]
-            
-    def get_last(self) -> Optional[View]:
-        warnings.warn('get_last() is deprecated, use get_last_contentful_view() instead.', DeprecationWarning)
+        return None
+
+    def get_last(self) -> View | None:
+        """
+        .. deprecated:: 1.0.18
+           Will be removed in 2.0.0. Use :meth:`get_last_contentful_view` instead.
+        """
+        warnings.warn('get_last() is deprecated and will be removed in 2.0.0.'
+                      ' Use get_last_contentful_view() instead.',
+                      DeprecationWarning)
         return self.get_last_contentful_view()
 
 
@@ -192,10 +201,13 @@ class Mmif(MmifObject):
         'mime', 'location', 'location_', 'text',
     })
 
-    def __init__(self, mmif_obj: Optional[Union[bytes, str, dict]] = None, *, validate: bool = True) -> None:
+    def __init__(self, mmif_obj: bytes | str | dict | None = None, *, validate: bool = True) -> None:
         self.metadata: MmifMetadata = MmifMetadata()
         self.documents: DocumentsList = DocumentsList()
         self.views: ViewsList = ViewsList()
+        # the write mode, see `set_producer()`
+        self._producer: ProducerContext | None = None
+        self.reserved_names.add('_producer')
         if validate and mmif_obj is not None:
             self.validate(mmif_obj)
         self.disallow_additional_properties()
@@ -208,7 +220,7 @@ class Mmif(MmifObject):
         super().__init__(mmif_obj)
 
     @staticmethod
-    def validate(json_str: Union[bytes, str, dict]) -> None:
+    def validate(json_str: bytes | str | dict) -> None:
         """
         Validates a MMIF JSON object against the MMIF Schema.
         Note that this method operates before processing by MmifObject._load_str,
@@ -233,69 +245,220 @@ class Mmif(MmifObject):
                   include_context: bool = True,
                   *,
                   sanitize: bool = False,
-                  autogenerate_capital_annotations: bool = True,
-                  factor_out_shared_properties: bool = True) -> str:
+                  autogenerate_capital_annotations: bool | None = None,
+                  factor_out_shared_properties: bool | None = None) -> str:
         """
         Serializes the MMIF object to a JSON string.
+
+        The output is built once, and capital ``Annotation`` records,
+        factored properties, and sanitization apply to that output only. The
+        in-memory ``Mmif`` object itself never change, so calling this 
+        method repeatedly gives the same records. While a producer is set (see
+        :meth:`set_producer`), only the views of its run are finalized, and
+        ``autogenerate_capital_annotations`` and
+        ``factor_out_shared_properties`` have no effect.
 
         :param pretty: If True, returns the string with indentation.
         :param include_context: If False, excludes contextual attributes (e.g.
             runtime timestamps) from serialization.
-        :param sanitize: If True, performs some sanitization of before returning
-            the JSON string. See :meth:`sanitize` for details.
-        :param autogenerate_capital_annotations: If True, automatically convert
-            any "pending" temporary properties from `Document` objects to
-            `Annotation` objects. See :meth:`generate_capital_annotations` for
-            details.
-        :param factor_out_shared_properties: If True, lift properties shared
+        :param sanitize: If True, removes ``contains`` entries of types with
+            no annotations from the output, and validates the output against
+            the MMIF JSON schema.
+        :param autogenerate_capital_annotations: Deprecated and will be
+            removed in 2.0.0. Use :meth:`set_producer` instead. If True (the
+            default), write any "pending"
+            properties of `Document` objects as `Annotation` objects in the
+            output. See :meth:`generate_capital_annotations` for the rules.
+        :param factor_out_shared_properties: Deprecated and will be removed
+            in 2.0.0. Use :meth:`set_producer` instead. If True (the default),
+            lift properties shared
             (same value) across all annotations of a type in a view into the
-            view's ``contains`` metadata. See
-            :meth:`factor_out_shared_properties` for details. Independent of
+            view's ``contains`` metadata in the output. See
+            :meth:`factor_out_shared_properties` for the rules. Independent of
             ``autogenerate_capital_annotations``, but runs after it (so
             freshly-materialized pending properties are included) when both are
             enabled.
         :return: JSON string of the MMIF object.
         """
-        if autogenerate_capital_annotations:
-            self.generate_capital_annotations()
-        if factor_out_shared_properties:
-            self.factor_out_shared_properties()
-        # sanitization should be done after `Annotation` annotations are generated
+        for name, value in (
+                ('autogenerate_capital_annotations', autogenerate_capital_annotations),
+                ('factor_out_shared_properties', factor_out_shared_properties)):
+            if value is not None:
+                warnings.warn(f'The {name} argument of serialize() is '
+                              f'deprecated and will be removed in 2.0.0. '
+                              f'Use set_producer() instead.',
+                              DeprecationWarning, stacklevel=2)
+        output = self._serialize(include_context=include_context)
+        views_out = output['views']
+        if self._producer is not None:
+            self._producer._finalize_output(views_out, include_context)
+        else:
+            if autogenerate_capital_annotations is not False:
+                plan = self._plan_capital_annotations()
+                if plan:
+                    warnings.warn('Writing document properties as Annotation '
+                                  'objects in serialize() without a producer '
+                                  'is deprecated and will be removed in '
+                                  '2.0.0. Use set_producer() instead.',
+                                  FutureWarning, stacklevel=2)
+                self._write_capital_annotations(plan, views_out, include_context)
+            if factor_out_shared_properties is not False:
+                self._factor_out_in_output(views_out)
+            # sanitization should be done after `Annotation` annotations are generated
+            if sanitize:
+                self._prune_contains_in_output(views_out)
+        serialized = json.dumps(output, indent=2 if pretty else None,
+                                cls=MmifObjectEncoder)
         if sanitize:
-            self.sanitize()
-        return super().serialize(pretty=pretty, include_context=include_context)
+            self.validate(serialized)
+        return serialized
+
+    def set_producer(self, signature: View) -> ProducerContext:
+        """
+        Turns on the write mode of this MMIF, for a producer that adds views
+        to it. Keep the serialization inside the ``with`` block::
+
+            with mmif_obj.set_producer(signature) as producer:
+                view = mmif_obj.new_view()
+                ...
+                output = mmif_obj.serialize()
+
+        Code that only reads, or re-saves without adding views, doesn't need
+        this. See :class:`mmif.serialize.producer.ProducerContext` for what
+        the mode does.
+
+        :param signature: a view whose metadata is signed by the producer,
+            copied to the views the mode writes
+        :return: the producer context; leaving its ``with`` block turns the
+            mode off
+        :raises RuntimeError: if a producer is already set
+        """
+        return ProducerContext(self, signature)
+
+    def _write_capital_annotations(self, plan: list[tuple[View, str, dict, bool]],
+                                   views_out: list[dict],
+                                   include_context: bool) -> None:
+        """
+        Writes capital ``Annotation`` records into the serialized views.
+
+        :param plan: the records, as returned by
+            :meth:`_plan_capital_annotations`
+        :param views_out: serialized views, changed in place
+        :param include_context: See :meth:`serialize` for details.
+        """
+        views_by_id = {view_out['id']: view_out for view_out in views_out}
+        last_nums = {}
+        for view, doc_id, props, in_place in plan:
+            view_out = views_by_id[view.id]
+            if in_place:
+                doc_out = next(ann_out for ann_out in view_out['annotations']
+                               if ann_out['properties']['id'] == doc_id)
+                doc_out['properties'].update(props)
+                continue
+            record = Annotation()
+            record.at_type = AnnotationTypes.Annotation
+            prefix = record.at_type.get_prefix()
+            if view.id not in last_nums:
+                last_nums[view.id] = self._last_annotation_num(
+                    view, view_out, prefix)
+            last_nums[view.id] += 1
+            record.id = f'{view.id}{self.id_delimiter}{prefix}_{last_nums[view.id]}'
+            for key, value in props.items():
+                record.add_property(key, value)
+            record.add_property('document', doc_id)
+            view_out['annotations'].append(
+                record._serialize(include_context=include_context))
+            view_out['metadata'].setdefault('contains', {}).setdefault(
+                str(record.at_type), {})
+
+    def _last_annotation_num(self, view: View, view_out: dict,
+                             prefix: str) -> int:
+        """
+        Finds the largest number used in the IDs of a view's annotations with
+        the given prefix. Annotations added with an explicit ID are not
+        counted in ``View._id_counts``, so the serialized view is scanned too.
+
+        :param view: the view
+        :param view_out: the serialized view
+        :param prefix: an annotation ID prefix
+        :return: the largest number, 0 when there is none
+        """
+        last_num = view._id_counts.get(prefix, 0)
+        for ann_out in view_out['annotations']:
+            local_id = ann_out['properties']['id'].split(self.id_delimiter)[-1]
+            ann_prefix, _, num = local_id.rpartition('_')
+            if ann_prefix == prefix and num.isdigit():
+                last_num = max(last_num, int(num))
+        return last_num
+
+    def _factor_out_in_output(self, views_out: list[dict]) -> None:
+        """
+        Applies the rules of :meth:`factor_out_shared_properties` to the
+        serialized views.
+
+        :param views_out: serialized views, changed in place
+        """
+        for view_out in views_out:
+            props_by_type = defaultdict(list)
+            for ann_out in view_out['annotations']:
+                props_by_type[str(ann_out['@type'])].append(ann_out['properties'])
+            for at_type, props_list in props_by_type.items():
+                if len(props_list) < 2:
+                    continue
+                shared = {key: value for key, value in props_list[0].items()
+                          if key not in self._NON_FACTORABLE_PROPS
+                          and all(key in props and props[key] == value
+                                  for props in props_list)}
+                if not shared:
+                    continue
+                contain = view_out['metadata'].setdefault(
+                    'contains', {}).setdefault(at_type, {})
+                for key, value in shared.items():
+                    contain[key] = value
+                    for props in props_list:
+                        del props[key]
+
+    @staticmethod
+    def _prune_contains_in_output(views_out: list[dict]) -> None:
+        """
+        Removes ``contains`` entries of types that have no annotations in a
+        serialized view. A view with an error or warnings drops an empty
+        ``contains``; any other view keeps it, as the schema requires.
+
+        :param views_out: serialized views, changed in place
+        """
+        for view_out in views_out:
+            metadata = view_out['metadata']
+            contains = metadata.get('contains', {})
+            existing_at_types = {str(ann_out['@type'])
+                                 for ann_out in view_out['annotations']}
+            for at_type in set(contains) - existing_at_types:
+                del contains[at_type]
+            if not contains and ('error' in metadata or 'warnings' in metadata):
+                metadata.pop('contains', None)
 
     def _deserialize(self, input_dict: dict) -> None:
         """
         Deserializes the MMIF JSON string into a Mmif object.
-        After *regular* deserialization, this method will perform the following 
-        *special* handling of Annotation.properties that allows apps to access 
-        Annotation/Document properties that are not encoded in the objects 
-        themselves. This is to allow apps to access in a more intuitive way, 
-        without having too much hassle to iterate views and manually collect the properties.
-        
-        1. This will read in existing *view*-scoped properties from *contains*
-        metadata and attach them to the corresponding ``Annotation`` objects.
+        After *regular* deserialization, this method reads existing
+        ``Annotation`` typed annotations and copies the document-level
+        properties to the ``Document`` objects, in an ephemeral property dict,
+        so that apps don't need to iterate views to collect them.
 
-        1. This will read in existing ``Annotation`` typed annotations and 
-        attach the document-level properties to the ``Document`` objects, 
-        using an ephemeral property dict. 
-        
+        View-scoped properties in *contains* metadata are not copied. They
+        resolve through the parent view when an annotation is read.
         """
         super()._deserialize(input_dict)
         for view in self.views:
             view._parent_mmif = self
             for ann in view.get_annotations():
                 ## for "capital" Annotation properties
-                # first, distribute view-level defaults from `contains` metadata
-                # to the Annotation objects as "ephemeral" properties
-                ann._add_ephemeral_defaults(view.metadata.contains.get(ann.at_type, {}))
-                # then, do the same to associated Document objects. Note that, 
-                # in a view, it is guaranteed that all Annotation objects are not duplicates
+                # copy the recorded properties onto the associated Document
+                # objects; view-level defaults resolve through the parent view
                 if ann.at_type == AnnotationTypes.Annotation:
                     doc_id = ann.get_property('document')
                     try:
-                        for prop_key, prop_value in ann.properties.items():
+                        for prop_key, prop_value in ann._resolved_properties().items():
                             doc = cast(Document, self.__getitem__(doc_id))
                             if not isinstance(doc, Document):
                                 raise KeyError
@@ -338,11 +501,35 @@ class Mmif(MmifObject):
     def generate_capital_annotations(self):
         """
         Automatically convert any "pending" temporary properties from 
-        `Document` objects to `Annotation` objects . The generated `Annotation` 
-        objects are then added to the last `View` in the views lists. 
+        `Document` objects to `Annotation` objects, and add them to the views 
+        of this object. :meth:`serialize` applies the same rules to its output
+        without calling this method, and leaves the views unchanged.
         
         See https://github.com/clamsproject/mmif-python/issues/226 for rationale
         behind this behavior and discussion.
+
+        .. deprecated:: 1.7.0
+           Will be removed in 2.0.0. Use :meth:`set_producer` instead.
+        """
+        warnings.warn('generate_capital_annotations() is deprecated and will '
+                      'be removed in 2.0.0. Use set_producer() instead.',
+                      DeprecationWarning, stacklevel=2)
+        for view, doc_id, props, in_place in self._plan_capital_annotations():
+            if in_place:
+                view[doc_id].properties.update(props)
+            else:
+                view.new_annotation(AnnotationTypes.Annotation,
+                                    **{**props, 'document': doc_id})
+
+    def _plan_capital_annotations(self) -> list[tuple[View, str, dict, bool]]:
+        """
+        Decides where the "pending" properties of `Document` objects are 
+        recorded. Values that are already recorded for the document are left
+        out, and this method changes nothing.
+
+        :return: a list of (view to write to, document ID, properties to
+            record, whether the properties go into the document itself, which
+            is in that view, rather than into a new `Annotation`)
         """
         # this view will be the default kitchen sink for all generated annotations.
         # this can be an empty view, from an app that only adds document properties
@@ -350,64 +537,65 @@ class Mmif(MmifObject):
                           if not v.has_error() and not v.has_warnings()), None)
         
         # proceed only when there's at least one view
-        if last_view:
-            
-            # this app name is used to check a view is generated by the "currently running" app.
-            # knowing the currently running app is important so that properties of `Document` objects generated by the 
-            # current app can be properly recorded inside the `Document` objects (since they are "writable" to the 
-            # current app), instead of being recorded in a separate `Annotation` object.
-            current_app = last_view.metadata.app
+        if last_view is None:
+            return []
 
-            # to avoid duplicate property recording, this will be populated with
-            # existing Annotation objects from all existing views
-            existing_anns = defaultdict(lambda: defaultdict(dict))
-            # ideally, if we can "de-duplicate" props at `add_property()` time, that'd be more efficient, 
-            # but that is impossible without looking for the target `document` across other views and top documents list
-            
-            # new properties to record in the current serialization call
-            anns_to_write = defaultdict(dict)
-            for view in self.views:
-                for ann in view.get_annotations(AnnotationTypes.Annotation):
-                    # view-level `contains` defaults are exposed on each
-                    # annotation as ephemeral properties; in MMIF made by old
-                    # SDKs, the id may be in the short form (no view prefix)
-                    existing_anns[ann.get_property('document')].update(
-                        ann.properties.items())
-                for doc in view.get_documents():
-                    anns_to_write[doc.id].update(doc._props_pending.items())
-            for doc in self.documents:
+        # this app name is used to check a view is generated by the "currently running" app.
+        # knowing the currently running app is important so that properties of `Document` objects generated by the 
+        # current app can be properly recorded inside the `Document` objects (since they are "writable" to the 
+        # current app), instead of being recorded in a separate `Annotation` object.
+        current_app = last_view.metadata.app
+
+        # to avoid duplicate property recording, this will be populated with
+        # existing Annotation objects from all existing views
+        existing_anns: defaultdict[str, defaultdict[str, dict]] = defaultdict(
+            lambda: defaultdict(dict))
+        # ideally, if we can "de-duplicate" props at `add_property()` time, that'd be more efficient, 
+        # but that is impossible without looking for the target `document` across other views and top documents list
+        
+        # new properties to record in the current serialization call
+        anns_to_write: defaultdict[str, dict] = defaultdict(dict)
+        for view in self.views:
+            for ann in view.get_annotations(AnnotationTypes.Annotation):
+                # values recorded at view level (`contains`) count too;
+                # in MMIF made by old SDKs, the id may be in the short
+                # form (no view prefix)
+                existing_anns[ann.get_property('document')].update(
+                    ann._resolved_properties())
+            for doc in view.get_documents():
                 anns_to_write[doc.id].update(doc._props_pending.items())
-            # additional iteration of views, to find a proper view to add the 
-            # generated annotations. If none found, use the last view as the kitchen sink
-            last_view_for_docs = defaultdict(lambda: last_view)
-            doc_ids = set(anns_to_write.keys())
-            for doc_id in doc_ids:
-                if len(last_view.annotations) == 0:
-                    # meaning, this new app didn't generate any annotation except for these document properties
-                    # thus, we should add capital annotations to the last (empty) view
-                    last_view_for_docs[doc_id] = last_view
+        for doc in self.documents:
+            anns_to_write[doc.id].update(doc._props_pending.items())
+        # additional iteration of views, to find a proper view to add the 
+        # generated annotations. If none found, use the last view as the kitchen sink
+        last_view_for_docs = defaultdict(lambda: last_view)
+        doc_ids = set(anns_to_write.keys())
+        for doc_id in doc_ids:
+            if len(last_view.annotations) == 0:
+                # meaning, this new app didn't generate any annotation except for these document properties
+                # thus, we should add capital annotations to the last (empty) view
+                last_view_for_docs[doc_id] = last_view
+                break
+            for view in reversed(self.views):
+                if any(view.get_annotations(document=doc_id)):
+                    last_view_for_docs[doc_id] = view 
                     break
-                for view in reversed(self.views):
-                    if any(view.get_annotations(document=doc_id)):
-                        last_view_for_docs[doc_id] = view 
-                        break
-            for doc_id, found_props in anns_to_write.items():
-                # ignore the "empty" id property from temporary dict 
-                # `id` is "required" attribute for `AnnotationProperty` class 
-                # thus will always be present in `props` dict as a key with emtpy value
-                # also ignore duplicate k-v pairs
-                props = {}
-                for k, v in found_props.items():
-                    if k != 'id' and existing_anns[doc_id][k] != v:
-                        props[k] = v
-                if props:
-                    view_to_write = last_view_for_docs[doc_id]
-                    if view_to_write.metadata.app == current_app and doc_id in view_to_write.annotations:
-                        view_to_write[doc_id].properties.update(props)
-                    else:
-                        props['document'] = doc_id
-                        view_to_write.new_annotation(AnnotationTypes.Annotation, **props)
-
+        plan = []
+        for doc_id, found_props in anns_to_write.items():
+            # ignore the "empty" id property from temporary dict 
+            # `id` is "required" attribute for `AnnotationProperty` class 
+            # thus will always be present in `props` dict as a key with emtpy value
+            # also ignore duplicate k-v pairs
+            props = {}
+            for k, v in found_props.items():
+                if k != 'id' and existing_anns[doc_id][k] != v:
+                    props[k] = v
+            if props:
+                view_to_write = last_view_for_docs[doc_id]
+                in_place = (view_to_write.metadata.app == current_app
+                            and doc_id in view_to_write.annotations)
+                plan.append((view_to_write, doc_id, props, in_place))
+        return plan
 
     def factor_out_shared_properties(self):
         """
@@ -420,10 +608,17 @@ class Mmif(MmifObject):
         **every** annotation of a given ``@type`` in the view, there are at
         least two such annotations (so the value is genuinely shared), and the
         key is not in the :attr:`_NON_FACTORABLE_PROPS` protection list.
-        Factored values are mirrored into each annotation's ephemeral props at
-        deserialization time, so in-memory access is unchanged, while the 
-        serialized output carries the value once, in ``contains``.
+        Factored values resolve through the view at read time, so
+        ``get_property`` is unchanged, while the view carries the value once,
+        in ``contains``. :meth:`serialize` applies the same rules to its
+        output without calling this method, and leaves the views unchanged.
+
+        .. deprecated:: 1.7.0
+           Will be removed in 2.0.0. Use :meth:`set_producer` instead.
         """
+        warnings.warn('factor_out_shared_properties() is deprecated and will '
+                      'be removed in 2.0.0. Use set_producer() instead.',
+                      DeprecationWarning, stacklevel=2)
         for view in self.views:
             by_type = defaultdict(list)
             for ann in view.get_annotations():
@@ -448,17 +643,25 @@ class Mmif(MmifObject):
                     contain[key] = value
                     for a in anns:
                         del a.properties[key]
-                        a._props_ephemeral[key] = value
 
     def sanitize(self):
         """
-        Sanitizes a Mmif object by running some safeguards.
-        Concretely, it performs the following before returning the JSON string.
-        
-        #. validating output using built-in MMIF jsonschema
+        Sanitizes this Mmif object by running some safeguards.
+        Concretely, it performs the following.
+
         #. remove non-existing annotation types from ``contains`` metadata
-    
+        #. validating the serialized object using built-in MMIF jsonschema
+
+        ``serialize(sanitize=True)`` applies the same safeguards to its output
+        without calling this method, and leaves the views unchanged.
+
+        .. deprecated:: 1.7.0
+           Will be removed in 2.0.0. Use ``serialize(sanitize=True)``
+           instead.
         """
+        warnings.warn('sanitize() is deprecated and will be removed in '
+                      '2.0.0. Use serialize(sanitize=True) instead.',
+                      DeprecationWarning, stacklevel=2)
         for view in self.views:
             existing_at_types = set(annotation.at_type for annotation in view.annotations)
             to_pop = set()
@@ -467,8 +670,7 @@ class Mmif(MmifObject):
                     to_pop.add(contains_at_type)
             for key in to_pop:
                 view.metadata.contains.pop(key)
-        serialized = self.serialize()
-        self.validate(serialized)
+        self.validate(self.serialize())
 
     def new_view_id(self) -> str:
         """
@@ -532,20 +734,20 @@ class Mmif(MmifObject):
             raise KeyError(f"{document.id} already exists in the views list. ")
         self.documents.append(document, overwrite)
 
-    def get_documents_in_view(self, vid: Optional[str] = None) -> List[Document]:
+    def get_documents_in_view(self, vid: str | None = None) -> list[Document]:
         """
         Method to get all documents object queries by a view id.
 
         :param vid: the source view ID to search for
         :return: a list of documents matching the requested source view ID, or an empty list if the view not found
         """
-        view = self.views.get(vid)
+        view = None if vid is None else self.views.get(vid)
         if view is not None:
             return view.get_documents()
         else:
             return []
 
-    def get_documents_by_type(self, doc_type: DocumentTypesBase) -> List[Document]:
+    def get_documents_by_type(self, doc_type: DocumentTypesBase) -> list[Document]:
         """
         Method to get all documents where the type matches a particular document type, which should be one of the CLAMS document types.
 
@@ -559,7 +761,7 @@ class Mmif(MmifObject):
         docs.extend([document for document in self.documents if document.is_type(doc_type)])
         return docs
 
-    def get_documents_by_app(self, app_id: str) -> List[Document]:
+    def get_documents_by_app(self, app_id: str) -> list[Document]:
         """
         Method to get all documents object queries by its originated app name.
 
@@ -572,7 +774,7 @@ class Mmif(MmifObject):
                 docs.extend(view.get_documents())
         return docs
 
-    def get_documents_by_property(self, prop_key: str, prop_value: str) -> List[Document]:
+    def get_documents_by_property(self, prop_key: str, prop_value: str) -> list[Document]:
         """
         Method to retrieve documents by an arbitrary key-value pair in the document properties objects.
 
@@ -588,7 +790,7 @@ class Mmif(MmifObject):
         docs.extend([document for document in self.documents if document[prop_key] == prop_value])
         return docs
 
-    def get_documents_locations(self, m_type: Union[DocumentTypesBase, str], path_only=False) -> List[Union[str, None]]:
+    def get_documents_locations(self, m_type: DocumentTypesBase | str, path_only=False) -> list[str | None]:
         """
         This method returns the file paths of documents of given type.
         Only top-level documents have locations, so we only check them.
@@ -603,7 +805,7 @@ class Mmif(MmifObject):
         else:
             return [doc.location for doc in docs]
 
-    def get_document_location(self, m_type: Union[DocumentTypesBase, str], path_only=False) -> Optional[str]:
+    def get_document_location(self, m_type: DocumentTypesBase | str, path_only=False) -> str | None:
         """
         Method to get the location of *first* document of given type.
 
@@ -618,8 +820,7 @@ class Mmif(MmifObject):
     def get_document_by_id(self, doc_id: str) -> Document:
         """
         .. deprecated:: 1.1.0
-           Will be removed in 2.0.0. 
-           Use general ``__getitem__()`` method instead, e.g., ``mmif[doc_id]``.
+           Will be removed in 2.0.0. Use ``mmif[doc_id]`` instead.
            
         Finds a Document object with the given ID.
 
@@ -627,10 +828,9 @@ class Mmif(MmifObject):
         :return: a reference to the corresponding document, if it exists
         :raises KeyError: if there is no corresponding document
         """
-        warnings.warn(
-            "Mmif.get_document_by_id() is deprecated, use mmif[doc_id] instead.",
-            DeprecationWarning
-        )
+        warnings.warn('Mmif.get_document_by_id() is deprecated and will be '
+                      'removed in 2.0.0. Use mmif[doc_id] instead.',
+                      DeprecationWarning)
         doc_found = self.__getitem__(doc_id)
         if not isinstance(doc_found, Document):
             raise KeyError(f"Document with ID {doc_id} not found in the MMIF object.")
@@ -639,8 +839,7 @@ class Mmif(MmifObject):
     def get_view_by_id(self, view_id: str) -> View:
         """
         .. deprecated:: 1.1.0
-           Will be removed in 2.0.0. 
-           Use general ``__getitem__()`` method instead, e.g., ``mmif[view_id]``.
+           Will be removed in 2.0.0. Use ``mmif[view_id]`` instead.
            
         Finds a View object with the given ID.
 
@@ -648,16 +847,15 @@ class Mmif(MmifObject):
         :return: a reference to the corresponding view, if it exists
         :raises Exception: if there is no corresponding view
         """
-        warnings.warn(
-            "Mmif.get_view_by_id() is deprecated, use mmif[view_id] instead.",
-            DeprecationWarning
-        )
+        warnings.warn('get_view_by_id() is deprecated and will be removed in '
+                      '2.0.0. Use mmif[view_id] instead.',
+                      DeprecationWarning)
         view_found = self.__getitem__(view_id)
         if not isinstance(view_found, View):
             raise KeyError(f"View with ID {view_id} not found in the MMIF object.")
         return cast(View, view_found)
 
-    def get_alignments(self, at_type1: Union[str, ThingTypesBase], at_type2: Union[str, ThingTypesBase]) -> Dict[str, List[Annotation]]:
+    def get_alignments(self, at_type1: str | ThingTypesBase, at_type2: str | ThingTypesBase) -> dict[str, list[Annotation]]:
         """
         Finds views where alignments between two given annotation types occurred.
 
@@ -669,7 +867,7 @@ class Mmif(MmifObject):
         at_type1, at_type2 = [ThingTypesBase.from_str(x) if isinstance(x, str) else x for x in (at_type1, at_type2)]
         assert at_type1 != at_type2, f"Alignment must be between two different types, given only one: {at_type1}"
         for alignment_view in self.get_all_views_contain(AnnotationTypes.Alignment):
-            alignments = []
+            alignments: list[Annotation] = []
             contains_meta = alignment_view.metadata.contains[AnnotationTypes.Alignment]
             if 'sourceType' in contains_meta and 'targetType' in contains_meta:
                 aligned_types = [ThingTypesBase.from_str(x) 
@@ -678,19 +876,19 @@ class Mmif(MmifObject):
                     alignments.extend(alignment_view.annotations)
             else:
                 for alignment in alignment_view.get_annotations(AnnotationTypes.Alignment):
-                    aligned_types = set()
+                    unique_types = set()
                     for ann_id in [alignment['target'], alignment['source']]:
                         ann_id = cast(str, ann_id)
                         aligned_type = cast(Annotation, self.__getitem__(ann_id)).at_type
-                        aligned_types.add(aligned_type)
-                    aligned_types = list(aligned_types)  # because membership check for sets also checks hash() values
+                        unique_types.add(aligned_type)
+                    aligned_types = list(unique_types)  # because membership check for sets also checks hash() values
                     if len(aligned_types) == 2 and at_type1 in aligned_types and at_type2 in aligned_types:
                         alignments.append(alignment)
             if len(alignments) > 0:
                 v_and_a[alignment_view.id] = alignments
         return v_and_a
 
-    def get_views_for_document(self, doc_id: str) -> List[View]:
+    def get_views_for_document(self, doc_id: str) -> list[View]:
         """
         Returns the list of all views that have annotations anchored on a particular document.
         Note that when the document is inside a view (generated during the workflow's running),
@@ -706,7 +904,7 @@ class Mmif(MmifObject):
                 pass
         return views
 
-    def get_all_views_with_error(self) -> List[View]:
+    def get_all_views_with_error(self) -> list[View]:
         """
         Returns the list of all views in the MMIF that have errors. 
         
@@ -716,7 +914,7 @@ class Mmif(MmifObject):
     
     get_views_with_error = get_all_views_with_error
             
-    def get_all_views_contain(self, *at_types: Union[ThingTypesBase, str]) -> List[View]:
+    def get_all_views_contain(self, *at_types: ThingTypesBase | str) -> list[View]:
         """
         Returns the list of all views in the MMIF if given types
         are present in that view's 'contains' metadata.
@@ -729,7 +927,7 @@ class Mmif(MmifObject):
 
     get_views_contain = get_all_views_contain
     
-    def get_view_with_error(self) -> Optional[View]:
+    def get_view_with_error(self) -> View | None:
         """
         Returns the last view appended that contains an error.
         
@@ -740,7 +938,7 @@ class Mmif(MmifObject):
                 return view
         return None
     
-    def get_last_error(self) -> Optional[str]:
+    def get_last_error(self) -> str | None:
         """
         Returns the last error message found in the views.
         
@@ -749,7 +947,7 @@ class Mmif(MmifObject):
         v = self.get_view_with_error()
         return v.get_error() if v is not None else None
 
-    def get_view_contains(self, at_types: Union[ThingTypesBase, str, List[Union[str, ThingTypesBase]]]) -> Optional[View]:
+    def get_view_contains(self, at_types: ThingTypesBase | str | list[str | ThingTypesBase]) -> View | None:
         """
         Returns the last view appended that contains the given
         types in its 'contains' metadata.
@@ -779,7 +977,7 @@ class Mmif(MmifObject):
             return app_id
         return f"{app_directory_baseurl}/{app_id.strip('/')}"
 
-    def get_all_views_by_app(self, *app_ids: str) -> List[View]:
+    def get_all_views_by_app(self, *app_ids: str) -> list[View]:
         """
         Returns the list of all views produced by any of the given apps.
 
@@ -800,7 +998,7 @@ class Mmif(MmifObject):
 
     get_views_by_app = get_all_views_by_app
 
-    def get_view_by_app(self, *app_ids: str) -> Optional[View]:
+    def get_view_by_app(self, *app_ids: str) -> View | None:
         """
         Returns the last view appended that was produced by any of the given
         apps. App IDs are matched as in :meth:`get_all_views_by_app`.
@@ -811,7 +1009,7 @@ class Mmif(MmifObject):
         matches = self.get_all_views_by_app(*app_ids)
         return matches[-1] if matches else None
 
-    def get_all_views_by_apptag(self, *tags: str) -> List[View]:
+    def get_all_views_by_apptag(self, *tags: str) -> list[View]:
         """
         Returns the list of all views whose ``appTags`` metadata contains
         any of the given tags.
@@ -825,7 +1023,7 @@ class Mmif(MmifObject):
 
     get_views_by_apptag = get_all_views_by_apptag
 
-    def get_view_by_apptag(self, *tags: str) -> Optional[View]:
+    def get_view_by_apptag(self, *tags: str) -> View | None:
         """
         Returns the last view appended whose ``appTags`` metadata contains
         any of the given tags.
@@ -837,7 +1035,7 @@ class Mmif(MmifObject):
         return matches[-1] if matches else None
 
     def get_annotations_of_labels(
-            self, at_type: Union[ThingTypesBase, str],
+            self, at_type: ThingTypesBase | str,
             include_labels: Iterable[str] = (),
             exclude_labels: Iterable[str] = ()) -> Iterator[Annotation]:
         """
@@ -873,7 +1071,7 @@ class Mmif(MmifObject):
                     continue
                 yield ann
 
-    def _is_in_time_range(self, ann: Annotation, range_s: Union[int, float], range_e: Union[int, float]) -> bool:
+    def _is_in_time_range(self, ann: Annotation, range_s: int | float, range_e: int | float) -> bool:
         """
         Checks if the annotation is anchored within the given time range. Any overlap is considered included. 
 
@@ -886,8 +1084,8 @@ class Mmif(MmifObject):
         ann_s, ann_e = self.get_start(ann), self.get_end(ann)
         return (ann_s < range_s < ann_e) or (ann_s < range_e < ann_e) or (ann_s > range_s and ann_e < range_e)
 
-    def get_annotations_between_time(self, start: Union[int, float], end: Union[int, float], time_unit: str = "ms",
-                                     at_types: List[Union[ThingTypesBase, str]] = []) -> Iterator[Annotation]:
+    def get_annotations_between_time(self, start: int | float, end: int | float, time_unit: str = "ms",
+                                     at_types: list[ThingTypesBase | str] = []) -> Iterator[Annotation]:
         """
         Finds annotations that are anchored between the given time points.
 
@@ -909,8 +1107,8 @@ class Mmif(MmifObject):
         for view in self.get_all_views_contain(AnnotationTypes.TimeFrame) + self.get_all_views_contain(AnnotationTypes.TimePoint):
             time_unit_in_view = view.metadata.contains.get(AnnotationTypes.TimeFrame)["timeUnit"]
             
-            start_time = convert(start, time_unit, time_unit_in_view, 1)
-            end_time = convert(end, time_unit, time_unit_in_view, 1)
+            start_time = cast(int | float, convert(start, time_unit, time_unit_in_view, 1))
+            end_time = cast(int | float, convert(end, time_unit, time_unit_in_view, 1))
             for ann in view.get_annotations():
                 if ann.at_type in (AnnotationTypes.TimeFrame, AnnotationTypes.TimePoint) and self._is_in_time_range(ann, start_time, end_time):
                     time_anchors_in_range.append(ann)
@@ -922,7 +1120,7 @@ class Mmif(MmifObject):
                 if not uniq_types or aligned.at_type in uniq_types:
                     yield aligned
 
-    def _get_linear_anchor_point(self, ann: Annotation, targets_sorted=False, start: bool = True) -> Union[int, float]:
+    def _get_linear_anchor_point(self, ann: Annotation, targets_sorted=False, start: bool = True) -> int | float:
         # TODO (krim @ 2/5/24): Update the return type once timeunits are unified to `ms` as integers (https://github.com/clamsproject/mmif/issues/192)
         """
         Retrieves the anchor point of the annotation. Currently, this method only supports linear anchors,
@@ -934,7 +1132,7 @@ class Mmif(MmifObject):
         :return: the anchor point of the annotation. 1d for linear regions (time, text)
         """
         props = ann.properties
-        if 'timePoint' in props:
+        if 'timePoint' in ann:
             return ann.get_property('timePoint')
         elif 'targets' in props:
             if 'start' in props or 'end' in props:
@@ -945,28 +1143,28 @@ class Mmif(MmifObject):
                 point = math.inf if start else -1
                 comp = min if start else max
                 for target_id in ann.get_property('targets'):
-                    point = comp(point, self._get_linear_anchor_point(self.__getitem__(target_id), start=start))
+                    point = comp(point, self._get_linear_anchor_point(cast(Annotation, self.__getitem__(target_id)), start=start))
                 return point
             target_id = ann.get_property('targets')[0 if start else -1]
-            return self._get_linear_anchor_point(self.__getitem__(target_id), start=start)
+            return self._get_linear_anchor_point(cast(Annotation, self.__getitem__(target_id)), start=start)
         elif (start and 'start' in props) or (not start and 'end' in props):
             return ann.get_property('start' if start else 'end')
         else:
             raise ValueError(f"{ann.id} ({ann.at_type}) does not have a valid anchor point. Is it a valid 'Region' type?")
     
-    def get_start(self, annotation: Annotation) -> Union[int, float]:
+    def get_start(self, annotation: Annotation) -> int | float:
         """
         An alias to `get_anchor_point` method with `start=True`.
         """
         return self._get_linear_anchor_point(annotation, start=True)
     
-    def get_end(self, annotation: Annotation) -> Union[int, float]:
+    def get_end(self, annotation: Annotation) -> int | float:
         """
         An alias to `get_anchor_point` method with `start=False`.
         """
         return self._get_linear_anchor_point(annotation, start=False)
 
-    def __getitem__(self, item: str) -> Union[Document, View, Annotation, MmifMetadata]:
+    def __getitem__(self, item: str) -> Document | View | Annotation | MmifMetadata:
         """
         High-level string-based access to MMIF objects by their IDs.
 
@@ -1034,7 +1232,7 @@ class Mmif(MmifObject):
         else:
             # search for document first, then views
             # raise KeyError if nothing is found
-            ret = self.documents._items.get(item)
+            ret: Document | View | None = self.documents._items.get(item)
             if ret is None:
                 ret = self.views._items.get(item)
                 if ret is None:

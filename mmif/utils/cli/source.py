@@ -4,7 +4,8 @@ import json
 import pathlib
 import sys
 import textwrap
-from typing import Union, Generator, List, Optional, Iterable
+from collections.abc import Generator, Iterable
+from typing import cast
 from urllib.parse import urlparse
 
 from mmif import Mmif, Document, DocumentTypes, __specver__
@@ -13,10 +14,10 @@ from mmif.utils.cli import open_cli_io_arg
 
 __all__ = ['WorkflowSource']
 
-DOC_JSON = Union[str, dict]
-DOC = Union[DOC_JSON, Document]
-METADATA_JSON = Union[str, dict]
-METADATA = Union[METADATA_JSON, MmifMetadata]
+DOC_JSON = str | dict
+DOC = DOC_JSON | Document
+METADATA_JSON = str | dict
+METADATA = METADATA_JSON | MmifMetadata
 
 
 class WorkflowSource:
@@ -39,13 +40,15 @@ class WorkflowSource:
 
     def __init__(
             self,
-            common_documents_json: Optional[List[DOC_JSON]] = None,
-            common_metadata_json: Optional[METADATA_JSON] = None
+            common_documents_json: list[DOC_JSON] | None = None,
+            common_metadata_json: METADATA_JSON | None = None
     ) -> None:
         if common_documents_json is None:
             common_documents_json = []
         if common_metadata_json is None:
             common_metadata_json = dict()
+        if isinstance(common_metadata_json, str):
+            common_metadata_json = json.loads(common_metadata_json)
         self.mmif_start: dict = {"documents": [json.loads(document)
                                                if isinstance(document, str)
                                                else document
@@ -53,11 +56,11 @@ class WorkflowSource:
                                  "views": [],
                                  "metadata": {
                                      "mmif": f"http://mmif.clams.ai/{__specver__}",
-                                     **common_metadata_json
+                                     **cast(dict, common_metadata_json)
                                  }}
         self.prime()
 
-    def add_document(self, document: Union[str, dict, Document]) -> None:
+    def add_document(self, document: str | dict | Document) -> None:
         """
         Adds a document to the working source MMIF.
 
@@ -103,8 +106,8 @@ class WorkflowSource:
 
     def __call__(
             self,
-            documents: Optional[List[DOC]] = None,
-            metadata: Optional[METADATA] = None
+            documents: list[DOC] | None = None,
+            metadata: METADATA | None = None
     ) -> Mmif:
         """
         Callable API that produces a new MMIF object from
@@ -126,20 +129,20 @@ class WorkflowSource:
         if isinstance(documents, str):
             documents = json.loads(documents)
         if isinstance(metadata, MmifMetadata):
-            metadata = metadata.serialize() # pytype: disable=attribute-error # bug in pytype? (https://github.com/google/pytype/issues/533)
+            metadata = metadata.serialize()
         if isinstance(metadata, str):
             metadata = json.loads(metadata)
 
         for document in documents:
             self.add_document(document)
-        for key, value in metadata.items():
+        for key, value in cast(dict, metadata).items():
             self.change_metadata(key, value)
         return self.produce()
 
     def from_data(
             self,
-            doc_lists: Iterable[List[DOC]],
-            metadata_objs: Optional[Iterable[Optional[METADATA]]] = None
+            doc_lists: Iterable[list[DOC]],
+            metadata_objs: Iterable[METADATA | None] | None = None
     ) -> Generator[Mmif, None, None]:
         """
         Provided with an iterable of document lists and an
