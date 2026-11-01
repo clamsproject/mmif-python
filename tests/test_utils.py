@@ -363,7 +363,8 @@ class TestVideoDocumentHelper(unittest.TestCase):
         tps = self._make_timepoints(10)
         parent = self.a_view.new_annotation(
             AnnotationTypes.TimeFrame, aid='tf_0',
-            targets=[tp.id for tp in tps])
+            targets=[tp.id for tp in tps],
+            document=self.video_doc.id)
 
         # bare form: returns just images
         imgs = vdh.extract_images_by_count(self.mmif_obj, parent, fraction=0.3)
@@ -382,7 +383,8 @@ class TestVideoDocumentHelper(unittest.TestCase):
         tps = self._make_timepoints(10)
         parent = self.a_view.new_annotation(
             AnnotationTypes.TimeFrame, aid='tf_0',
-            targets=[tp.id for tp in tps])
+            targets=[tp.id for tp in tps],
+            document=self.video_doc.id)
 
         imgs, ids = vdh.extract_images_by_count_with_sources(
             self.mmif_obj, parent, fraction=0.5)
@@ -406,7 +408,7 @@ class TestVideoDocumentHelper(unittest.TestCase):
         parent = self.a_view.new_annotation(
             AnnotationTypes.TimeFrame, aid='tf_0',
             targets=[tp.id for tp in tps],
-            representatives=reps)
+            representatives=reps, document=self.video_doc.id)
 
         imgs, sources = vdh.extract_images_by_mode_with_sources(
             self.mmif_obj, parent, mode=vdh.SamplingMode.REPRESENTATIVES)
@@ -467,7 +469,8 @@ class TestVideoDocumentHelper(unittest.TestCase):
         reps = [tps[2].id, tps[5].id]
         tf = self.a_view.new_annotation(
             AnnotationTypes.TimeFrame, aid='tf_0', label='shot',
-            targets=[tp.id for tp in tps], representatives=reps)
+            targets=[tp.id for tp in tps], representatives=reps,
+            document=self.video_doc.id)
         out_view = self.mmif_obj.new_view()
         results = list(vdh.iter_timeframe_images(
             self.mmif_obj, out_view, mode=vdh.SamplingMode.REPRESENTATIVES))
@@ -516,6 +519,29 @@ class TestVideoDocumentHelper(unittest.TestCase):
         self.assertEqual(['shot'], labels(include_labels=['shot']))
         self.assertEqual(['shot', None], labels(exclude_labels=['credits']))
 
+    def test_document_from_view_level_default(self):
+        # every TimeFrame carries `document`, so serialization factors it
+        # out into the view's `contains`; the video is then resolved from
+        # the view-level default
+        for i in range(2):
+            self.a_view.new_annotation(
+                AnnotationTypes.TimeFrame, aid=f'tf_{i}',
+                start=100 + i * 1000, end=500 + i * 1000,
+                timeUnit='milliseconds', document=self.video_doc.id)
+        reloaded = Mmif(self.mmif_obj.serialize(), validate=False)
+        view = reloaded.views[0]
+        contain = view.metadata.contains.get(AnnotationTypes.TimeFrame)
+        self.assertEqual(self.video_doc.id, contain.get('document'))
+        time_frame = next(view.get_annotations(AnnotationTypes.TimeFrame))
+        self.assertNotIn('document', time_frame.properties)
+        images, sources = vdh.extract_images_by_mode_with_sources(
+            reloaded, time_frame, mode=vdh.SamplingMode.SINGLE)
+        self.assertEqual(1, len(images))
+        self.assertEqual([300], sources)
+        results = list(vdh.iter_timeframe_images(
+            reloaded, reloaded.new_view(), mode=vdh.SamplingMode.SINGLE))
+        self.assertEqual(2, len(results))
+
     def test_renamed_helpers_emit_deprecation_warnings(self):
         # The three pre-rename names live as deprecation aliases that
         # delegate to the new names.
@@ -525,7 +551,8 @@ class TestVideoDocumentHelper(unittest.TestCase):
         tps = self._make_timepoints(4)
         parent = self.a_view.new_annotation(
             AnnotationTypes.TimeFrame, aid='tf_dep',
-            targets=[tp.id for tp in tps])
+            targets=[tp.id for tp in tps],
+            document=self.video_doc.id)
         with pytest.warns(DeprecationWarning, match='extract_images_by_count_with_sources'):
             vdh.extract_target_frames(self.mmif_obj, parent)
 

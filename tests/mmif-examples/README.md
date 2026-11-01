@@ -25,6 +25,10 @@ Example MMIF documents used for two purposes:
   backward-compat test fixture; **not** rendered in the docs.
   `alsoKnownAs` entries in `clams-vocabulary` resolve these URIs at
   deserialization time.
+- `1.0.4-old-shortid-idlists.json` — historical MMIF sample with short
+  IDs inside list-of-ID properties (`targets` on an annotation,
+  `representatives` in `contains`). Backward-compat test fixture for the
+  ID prefixing on load; **not** rendered in the docs.
 - `others/` — legacy prototype-format samples from the earliest MMIF
   drafts, kept for historical reference. Not referenced by any current
   code.

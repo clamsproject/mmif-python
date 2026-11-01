@@ -4,7 +4,8 @@ import json
 import pathlib
 import sys
 import textwrap
-from typing import Union, Generator, List, Optional, Iterable
+from collections.abc import Generator, Iterable
+from typing import Optional, Union
 from urllib.parse import urlparse
 
 from mmif import Mmif, Document, DocumentTypes, __specver__
@@ -39,7 +40,7 @@ class WorkflowSource:
 
     def __init__(
             self,
-            common_documents_json: Optional[List[DOC_JSON]] = None,
+            common_documents_json: Optional[list[DOC_JSON]] = None,
             common_metadata_json: Optional[METADATA_JSON] = None
     ) -> None:
         if common_documents_json is None:
@@ -103,7 +104,7 @@ class WorkflowSource:
 
     def __call__(
             self,
-            documents: Optional[List[DOC]] = None,
+            documents: Optional[list[DOC]] = None,
             metadata: Optional[METADATA] = None
     ) -> Mmif:
         """
@@ -138,7 +139,7 @@ class WorkflowSource:
 
     def from_data(
             self,
-            doc_lists: Iterable[List[DOC]],
+            doc_lists: Iterable[list[DOC]],
             metadata_objs: Optional[Iterable[Optional[METADATA]]] = None
     ) -> Generator[Mmif, None, None]:
         """

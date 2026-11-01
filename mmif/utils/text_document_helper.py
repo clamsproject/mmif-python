@@ -1,5 +1,3 @@
-import mmif
-from mmif import Annotation
 from mmif.vocabulary import AnnotationTypes
 
 

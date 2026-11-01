@@ -61,3 +61,4 @@ mmif = ["res/*"]
 [tool.pytest.ini_options]
 testpaths = ["mmif", "tests"]
 addopts = "--cov=mmif --cov-report=xml"
+markers = ["slow: takes long to run, such as sampling the JSON schema with hypothesis"]

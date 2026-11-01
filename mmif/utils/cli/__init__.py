@@ -6,9 +6,14 @@ import contextlib
 import io
 import os
 import sys
-from typing import Iterator, Optional, TextIO, Type, Union, cast, get_args, get_origin
+import types
+from collections.abc import Iterator
+from typing import Optional, TextIO, Union, cast, get_args, get_origin
 
 from pydantic import BaseModel
+
+# ``Optional[X]`` / ``Union[X, Y]`` and ``X | Y`` have different origins
+_UNION_ORIGINS = (Union, types.UnionType)
 
 
 @contextlib.contextmanager
@@ -124,7 +129,7 @@ def open_cli_io_arg(
             file_handle.close()
 
 
-def generate_model_summary(model: Type[BaseModel], indent: int = 0) -> str:
+def generate_model_summary(model: type[BaseModel], indent: int = 0) -> str:
     lines = []
     prefix = " " * indent
 
@@ -141,7 +146,7 @@ def generate_model_summary(model: Type[BaseModel], indent: int = 0) -> str:
             args = get_args(t)
 
             # Handle Optional (Union[T, None])
-            if origin is Union and type(None) in args:
+            if origin in _UNION_ORIGINS and type(None) in args:
                 non_none_args = [arg for arg in args if arg is not type(None)]
                 if len(non_none_args) == 1:
                     return f"{format_type(non_none_args[0])}, optional"
@@ -153,7 +158,7 @@ def generate_model_summary(model: Type[BaseModel], indent: int = 0) -> str:
                 return "[]"
 
             # Handle Dict
-            if origin is dict:
+            if origin is dict or t is dict:
                 return "obj"
 
             # Handle Pydantic Models (Custom Classes)
@@ -189,7 +194,7 @@ def generate_model_summary(model: Type[BaseModel], indent: int = 0) -> str:
         nested_model = None
         # Handle Optional wrappers for nesting check
         check_type = type_annotation
-        if origin is Union and type(None) in args:
+        if origin in _UNION_ORIGINS and type(None) in args:
             non_none_args = [arg for arg in args if arg is not type(None)]
             if len(non_none_args) == 1:
                 check_type = non_none_args[0]

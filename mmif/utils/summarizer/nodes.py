@@ -24,7 +24,8 @@ class NodeProperties(MutableMapping):
     That round trip is not shape-preserving when a type has a single annotation
     in the view, when the key is non-factorable (`start`, `source`, `target`, ...),
     or when another annotation of the type overrides the default, so the SDK
-    keeps defaults out of `.properties` and this class resolves them here."""
+    keeps defaults out of `.properties`, and `get_property` resolves them through
+    the parent view. This class does the same for its plain-dict view."""
 
     def __init__(self, annotation, view):
         self.annotation = annotation
