@@ -1,4 +1,25 @@
 
+## releasing 1.7.0 (2026-11-01)
+### Overview
+
+This release fixes how document and annotation properties are read and written, and adds a write mode for MMIF producers. `Mmif.serialize()` no longer changes the object it serializes. It also replaces `pytype` with `mypy` as the test-time type checker.
+
+### Additions
+
+* `Mmif.set_producer()`: new write mode for producers, returning a `ProducerContext`. It keeps capital `Annotation` records and `contains` factoring within the views of the current run, so earlier views stay unchanged. It also takes over empty-view pruning from clams-python (https://github.com/clamsproject/clams-python/pull/307). See https://github.com/clamsproject/mmif-python/issues/411 for the design discussion.
+
+### Changes
+
+* `Mmif.get_start()`, `Mmif.get_end()`, video document lookup, and document properties: fixed a bug where values factored to the view level were not found when reading a MMIF file (https://github.com/clamsproject/mmif-python/pull/398)
+* `Mmif.serialize()`: fixed bugs where it changed the `Mmif` object in memory, wrote document properties twice with `sanitize=True`, and silently dropped data when an error occurred during serialization (https://github.com/clamsproject/mmif-python/issues/411)
+* `Document.add_property()`: `location`, `text`, and `mime` can now be set only once. Only the `mmif source` command is meant to set these values, so this adds only a preemptive check and does not change how apps should behave
+* `new_contain()`: fixed a bug where metadata was dropped when the type was already in the view. It now always returns the `Contain`
+* Deprecated `Mmif.generate_capital_annotations()`, `Mmif.factor_out_shared_properties()`, `Mmif.sanitize()`, and the matching `Mmif.serialize()` arguments, to be removed in 2.0.0. Adding properties to existing documents without a producer now issues a `FutureWarning`
+* `WorkflowSource`: fixed a bug where common metadata given as a JSON string raised a `TypeError`
+* (contributors only) Type checking: tests now use `mypy` in place of `pytype` (https://github.com/clamsproject/mmif-python/pull/414)
+
+
+
 ## releasing 1.6.0  (2026-10-27)
 ### Overview
 
