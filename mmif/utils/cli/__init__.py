@@ -8,7 +8,7 @@ import os
 import sys
 import types
 from collections.abc import Iterator
-from typing import Optional, TextIO, Union, cast, get_args, get_origin
+from typing import TextIO, Union, cast, get_args, get_origin
 
 from pydantic import BaseModel
 
@@ -18,10 +18,10 @@ _UNION_ORIGINS = (Union, types.UnionType)
 
 @contextlib.contextmanager
 def open_cli_io_arg(
-    path_or_dash: Optional[str],
+    path_or_dash: str | None,
     mode: str = "r",
-    encoding: Optional[str] = None,
-    errors: Optional[str] = None,
+    encoding: str | None = None,
+    errors: str | None = None,
     default_stdin: bool = False,
 ) -> Iterator[TextIO]:
     """
@@ -77,7 +77,7 @@ def open_cli_io_arg(
 
     should_use_stdio = path_or_dash == "-" or (path_or_dash is None and default_stdin)
 
-    file_handle: Optional[TextIO] = None
+    file_handle: TextIO | None = None
     should_close = False
 
     try:

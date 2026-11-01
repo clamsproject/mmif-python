@@ -3,7 +3,7 @@ import hashlib
 import itertools
 from collections import Counter
 from pathlib import Path
-from typing import Any, Literal, Optional, Union, overload
+from typing import Any, Literal, overload
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -50,7 +50,7 @@ def group_views_by_app(views: ViewsList) -> list[list[Any]]:
 
 def _split_appname_appversion(
         long_app_id: str
-) -> tuple[Optional[str], Optional[str]]:
+) -> tuple[str | None, str | None]:
     """
     Split app name and version from a long app identifier.
 
@@ -90,7 +90,7 @@ def generate_param_hash(params: dict) -> str:
     return hashlib.md5(param_string.encode('utf-8')).hexdigest()
 
 
-def _read_mmif_from_path(mmif_input: Union[str, Path, Mmif]) -> Mmif:
+def _read_mmif_from_path(mmif_input: str | Path | Mmif) -> Mmif:
     """
     Helper function to get a Mmif object from various input types.
 
@@ -111,20 +111,20 @@ def _read_mmif_from_path(mmif_input: Union[str, Path, Mmif]) -> Mmif:
 
 
 @overload
-def generate_workflow_identifier(mmif_input: Union[str, Path, Mmif], 
+def generate_workflow_identifier(mmif_input: str | Path | Mmif, 
                                  return_param_dicts: Literal[True]
                                  ) -> tuple[str, list[dict]]: ...
 
 
 @overload
-def generate_workflow_identifier(mmif_input: Union[str, Path, Mmif],
+def generate_workflow_identifier(mmif_input: str | Path | Mmif,
                                  return_param_dicts: Literal[False] = False
                                  ) -> str: ...
 
 
-def generate_workflow_identifier(mmif_input: Union[str, Path, Mmif],
+def generate_workflow_identifier(mmif_input: str | Path | Mmif,
                                   return_param_dicts: bool = False
-                                  ) -> Union[str, tuple[str, list[dict]]]:
+                                  ) -> str | tuple[str, list[dict]]:
     """
     Generate a workflow identifier string from a MMIF file or object.
 
@@ -208,7 +208,7 @@ class AppProfiling(BaseModel):
     """
     model_config = ConfigDict(populate_by_name=True)
     
-    running_time_ms: Optional[int] = Field(default=None, alias="runningTimeMS", description="Execution time in milliseconds.")
+    running_time_ms: int | None = Field(default=None, alias="runningTimeMS", description="Execution time in milliseconds.")
 
 class AppExecution(BaseModel):
     """
@@ -262,7 +262,7 @@ def _get_profile_data(view) -> AppProfiling:
     return AppProfiling(runningTimeMS=milliseconds)
 
 
-def describe_single_mmif(mmif_input: Union[str, Path, Mmif]) -> dict:
+def describe_single_mmif(mmif_input: str | Path | Mmif) -> dict:
     """
     Reads a MMIF file or object and extracts the workflow specification from it.
 
@@ -319,7 +319,7 @@ def describe_single_mmif(mmif_input: Union[str, Path, Mmif]) -> dict:
     for group in view_groups:
         first_view = group[0]
 
-        execution_ann_counter = Counter()
+        execution_ann_counter: Counter[str] = Counter()
         for view in group:
             execution_ann_counter.update(Counter(str(ann.at_type) for ann in view.annotations))
 
@@ -358,7 +358,7 @@ def describe_single_mmif(mmif_input: Union[str, Path, Mmif]) -> dict:
         ))
 
     # aggregate total annotation counts
-    total_annotations_by_type = Counter()
+    total_annotations_by_type: Counter[str] = Counter()
     for execution in grouped_apps:
         # Only aggregate from actual apps, not the special unassigned entry
         if execution.app != "http://apps.clams.ai/non-existing-app/v1":
@@ -394,10 +394,10 @@ class AppProfilingStats(BaseModel):
     """
     model_config = ConfigDict(populate_by_name=True)
     
-    avg_running_time_ms: Optional[float] = Field(default=None, alias="avgRunningTimeMS", description="Average execution time in milliseconds.")
-    min_running_time_ms: Optional[float] = Field(default=None, alias="minRunningTimeMS", description="Minimum execution time in milliseconds.")
-    max_running_time_ms: Optional[float] = Field(default=None, alias="maxRunningTimeMS", description="Maximum execution time in milliseconds.")
-    stdev_running_time_ms: Optional[float] = Field(default=None, alias="stdevRunningTimeMS", description="Standard deviation of execution time.")
+    avg_running_time_ms: float | None = Field(default=None, alias="avgRunningTimeMS", description="Average execution time in milliseconds.")
+    min_running_time_ms: float | None = Field(default=None, alias="minRunningTimeMS", description="Minimum execution time in milliseconds.")
+    max_running_time_ms: float | None = Field(default=None, alias="maxRunningTimeMS", description="Maximum execution time in milliseconds.")
+    stdev_running_time_ms: float | None = Field(default=None, alias="stdevRunningTimeMS", description="Standard deviation of execution time.")
 
 
 
@@ -448,7 +448,7 @@ class CollectionMmifDesc(BaseModel):
     annotation_count_by_type: dict[str, int] = Field(default_factory=dict, alias="annotationCountByType", description="Total annotation counts across the entire collection.")
 
 
-def describe_mmif_collection(mmif_dir: Union[str, Path]) -> dict:
+def describe_mmif_collection(mmif_dir: str | Path) -> dict:
     """
     Reads all MMIF files in a directory and extracts a summarized workflow specification.
 
@@ -476,7 +476,7 @@ def describe_mmif_collection(mmif_dir: Union[str, Path]) -> dict:
         invalid=0
     )
 
-    aggregated_counts = Counter()
+    aggregated_counts: Counter[str] = Counter()
 
     # Structure: {workflow_id: {'mmifs': [...], 'apps': {app_uri: {'appConfiguration': ..., 'execution_times': [...]}}}}
     workflows_data: dict[str, dict] = {}

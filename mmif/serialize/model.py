@@ -24,11 +24,11 @@ This module defines two main collection types:
 import json
 import warnings
 from collections.abc import Generator, Iterator
-from typing import Any, ClassVar, Generic, Optional, TypeVar, Union
+from typing import Any, ClassVar, Generic, TypeAlias, TypeVar, Union
 
 T = TypeVar('T')
 S = TypeVar('S')
-PRMTV_TYPES: type = Union[str, int, float, bool, None]  # noqa: UP007
+PRMTV_TYPES: TypeAlias = Union[str, int, float, bool, None]  # noqa: UP007
 
 __all__ = [
     'PRMTV_TYPES',
@@ -104,12 +104,13 @@ class MmifObject(object):
         '_exclude_from_diff',
         '_contextual_attributes'
     }
-    _unnamed_attributes: Optional[dict]
+    _unnamed_attributes: dict | None
+    _required_attributes: list[str]
     _exclude_from_diff: set[str]
     _contextual_attributes: set[str]
     _attribute_classes: dict[str, type] = {}  # Mapping: str -> Type
 
-    def __init__(self, mmif_obj: Optional[Union[bytes, str, dict]] = None, *_) -> None:
+    def __init__(self, mmif_obj: bytes | str | dict | None = None, *_) -> None:
         if isinstance(mmif_obj, bytes):
             mmif_obj = mmif_obj.decode('utf8')
         if not hasattr(self, '_required_attributes'):
@@ -159,7 +160,7 @@ class MmifObject(object):
                           stacklevel=2)
             self[attr] = value
             return
-        self._unnamed_attributes[key] = value  # pytype: disable=unsupported-operands
+        self._unnamed_attributes[key] = value
 
     def _named_attributes(self) -> Generator[str, None, None]:
         """
@@ -183,7 +184,7 @@ class MmifObject(object):
         """
         return json.dumps(self._serialize(include_context=include_context), indent=2 if pretty else None, cls=MmifObjectEncoder)
 
-    def _serialize(self, alt_container: Optional[dict] = None, include_context: bool = True) -> dict:
+    def _serialize(self, alt_container: dict | None = None, include_context: bool = True) -> dict:
         """
         Maps a MMIF object to a plain python dict object,
         rewriting internal keys that start with '_' to
@@ -198,8 +199,9 @@ class MmifObject(object):
         """
         container = alt_container if alt_container is not None else self._unnamed_attributes
         serializing_obj = {}
-        try:
-            for k, v in container.items():   # pytype: disable=attribute-error
+        # `container` is None when additional properties are disallowed
+        if container is not None:
+            for k, v in container.items():
                 if v is None:
                     continue
                 k = str(k)
@@ -212,9 +214,6 @@ class MmifObject(object):
                     serializing_obj[k] = v._serialize(include_context=include_context)
                 else:
                     serializing_obj[k] = v
-        except AttributeError as e:
-            # means _unnamed_attributes is None, so nothing unnamed would be serialized
-            pass
         for k, v in self.__dict__.items():
             if k in self.reserved_names:
                 continue
@@ -245,7 +244,7 @@ class MmifObject(object):
         return False
 
     @staticmethod
-    def _load_json(json_obj: Union[dict, str]) -> dict:
+    def _load_json(json_obj: dict | str) -> dict:
         """
         Maps JSON-format MMIF strings and dicts into Python dicts
         with identifier-compliant keys. To do this, it replaces "@"
@@ -280,7 +279,7 @@ class MmifObject(object):
         else:
             raise TypeError(f"tried to load MMIF JSON in a format other than str or dict: {type(json_obj)}")
 
-    def deserialize(self, mmif_json: Union[str, dict]) -> None:
+    def deserialize(self, mmif_json: str | dict) -> None:
         """
         Takes a JSON-formatted string or a simple `dict` that's json-loaded from
         such a string as an input and populates object's fields with the values
@@ -351,7 +350,7 @@ class MmifObject(object):
             else:
                 self.set_additional_property(key, value)
 
-    def __contains__(self, key: str) -> bool:
+    def __contains__(self, key: object) -> bool:
         try:
             self.__getitem__(key)
             return True
@@ -450,15 +449,15 @@ class DataList(MmifObject, Generic[T]):
 
     :param Union[str, list] mmif_obj: the data that the list contains
     """
-    def __init__(self, mmif_obj: Optional[Union[bytes, str, list]] = None, *_):
+    def __init__(self, mmif_obj: bytes | str | list | None = None, *_):
         self.reserved_names.add('_items')
         self._items: dict[str, T] = dict()
         self.disallow_additional_properties()
         if mmif_obj is None:
             mmif_obj = []
-        super().__init__(mmif_obj)
+        super().__init__(mmif_obj)  # type: ignore[arg-type]
 
-    def _serialize(self, *args, **kwargs) -> list:  # pytype: disable=signature-mismatch
+    def _serialize(self, *args, **kwargs) -> list:  # type: ignore[override]
         """
         Internal serialization method. Returns a list.
 
@@ -466,22 +465,22 @@ class DataList(MmifObject, Generic[T]):
         """
         return list(super()._serialize(self._items, **kwargs).values())
 
-    def deserialize(self, mmif_json: Union[str, list]) -> None:  # pytype: disable=signature-mismatch
+    def deserialize(self, mmif_json: str | list) -> None:  # type: ignore[override]
         """
         Passes the input data into the internal deserializer.
         """
-        super().deserialize(mmif_json)  
+        super().deserialize(mmif_json)  # type: ignore[arg-type]
 
     @staticmethod
-    def _load_json(json_list: Union[list, str]) -> list:
+    def _load_json(json_list: list | str) -> list:  # type: ignore[override]
         if type(json_list) is str:
             json_list = json.loads(json_list)
         return [MmifObject._load_json(obj) for obj in json_list]
     
-    def _deserialize(self, input_list: list) -> None:
+    def _deserialize(self, input_list: list) -> None:  # type: ignore[override]
         raise NotImplementedError()
 
-    def get(self, key: str, default=None) -> Optional[T]:
+    def get(self, key: str, default=None) -> T | None:
         """
         .. deprecated:: 1.1.3
            Will be removed in 2.0.0. Use container-level access or positional
@@ -547,7 +546,7 @@ class DataList(MmifObject, Generic[T]):
     def append(self, value, overwrite):
         raise NotImplementedError()
 
-    def __getitem__(self, key: Union[int, slice]) -> Union[T, list[T]]:
+    def __getitem__(self, key: int | slice) -> T | list[T]:
         """
         List-style positional access using integers or slices.
 
@@ -611,7 +610,7 @@ class DataList(MmifObject, Generic[T]):
 
 
 class DataDict(MmifObject, Generic[T, S]):
-    def __init__(self, mmif_obj: Optional[Union[bytes, str, dict]] = None, *_):
+    def __init__(self, mmif_obj: bytes | str | dict | None = None, *_):
         self.reserved_names.add('_items')
         self._items: dict[T, S] = dict()
         self.disallow_additional_properties()
@@ -622,7 +621,7 @@ class DataDict(MmifObject, Generic[T, S]):
     def _serialize(self, *args, **kwargs) -> dict:
         return super()._serialize(self._items, **kwargs)
 
-    def get(self, key: T, default=None) -> Optional[S]:
+    def get(self, key: T, default=None) -> S | None:
         """
         Dictionary-style safe access with optional default value.
 

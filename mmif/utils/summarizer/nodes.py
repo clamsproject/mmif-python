@@ -343,7 +343,7 @@ class EntityNode(Node):
         is always a time frame or a bounding box.
         """
         # TODO: deal with the case where the primary document is not a video
-        self.paths = self.paths_to_docs()
+        self.paths = self.paths_to_docs()  # type: ignore[attr-defined]
         bbtf = self.find_boundingbox_or_timeframe()
         # for path in paths:
         #     print('... [')
@@ -370,7 +370,7 @@ class EntityNode(Node):
         #       where nodes have paths to anchors
         # TODO: deal with the case where the primary document is not a video
         if self._anchor is None:
-            self._paths = self.paths_to_docs()
+            self._paths = self.paths_to_docs()  # type: ignore[attr-defined]
             bbtf = self.find_boundingbox_or_timeframe()
             # for path in self._paths:
             #    print('... [')

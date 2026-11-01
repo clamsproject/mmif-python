@@ -15,7 +15,7 @@ import json
 import warnings
 from datetime import datetime
 from collections.abc import Generator
-from typing import Optional, Union, cast
+from typing import cast
 
 from mmif import AnnotationTypes, ClamsTypesBase, DocumentTypes, ThingTypesBase
 from mmif.serialize.annotation import Annotation, Document, canonicalize_prop_name
@@ -63,9 +63,9 @@ class View(MmifObject):
        some_anns = view.annotations[1:5]    # Slice of annotations
     """
 
-    def __init__(self, view_obj: Optional[Union[bytes, str, dict]] = None, parent_mmif=None, *_) -> None:
+    def __init__(self, view_obj: bytes | str | dict | None = None, parent_mmif=None, *_) -> None:
         # used to autogenerate annotation ids
-        self._id_counts = {}
+        self._id_counts: dict[str, int] = {}
         # used to access the parent MMIF object
         self._parent_mmif = parent_mmif
         self.reserved_names.update(("_parent_mmif", "_id_counts"))
@@ -146,7 +146,7 @@ class View(MmifObject):
                                     propv[i] = f"{self.id}{self.id_delimiter}{item}"
                 self.annotations.append(annotation)
 
-    def new_contain(self, at_type: Union[str, ThingTypesBase], **contains_metadata) -> 'Contain':
+    def new_contain(self, at_type: str | ThingTypesBase, **contains_metadata) -> 'Contain':
         """
         Adds a new element to the ``contains`` metadata. For a type that is
         already there, the metadata is merged into its element.
@@ -175,7 +175,7 @@ class View(MmifObject):
             self._id_counts[prefix] = new_num
             annotation.id = self.id + self.id_delimiter + new_id
     
-    def new_annotation(self, at_type: Union[str, ThingTypesBase], aid: Optional[str] = None, 
+    def new_annotation(self, at_type: str | ThingTypesBase, aid: str | None = None, 
                        overwrite=False, **properties) -> 'Annotation':
         """
         Generates a new :class:`mmif.serialize.annotation.Annotation`
@@ -228,7 +228,7 @@ class View(MmifObject):
             self._parent_mmif._cache_alignment(annotation)
         return annotation
     
-    def new_textdocument(self, text: str, lang: str = "en", did: Optional[str] = None, 
+    def new_textdocument(self, text: str, lang: str = "en", did: str | None = None, 
                          overwrite=False, **properties) -> 'Document':
         """
         Generates a new :class:`mmif.serialize.annotation.Document`
@@ -272,7 +272,7 @@ class View(MmifObject):
         """
         return self.add_annotation(document, overwrite)
 
-    def get_annotations(self, at_type: Optional[Union[str, ThingTypesBase]] = None, 
+    def get_annotations(self, at_type: str | ThingTypesBase | None = None, 
                         **properties) -> Generator[Annotation, None, None]:
         """
         Look for certain annotations in this view, specified by parameters
@@ -398,7 +398,7 @@ class View(MmifObject):
         self.metadata.set_error(err_message, err_trace)
         self.annotations.empty()
     
-    def get_error(self) -> Optional[str]:
+    def get_error(self) -> str | None:
         """
         Get the "text" representation of the error occurred during 
         processing. Text representation is supposed to be human-readable. 
@@ -431,15 +431,15 @@ class ViewMetadata(MmifObject):
     :param viewmetadata_obj: the JSON data that defines the metadata
     """
 
-    def __init__(self, viewmetadata_obj: Optional[Union[bytes, str, dict]] = None, *_) -> None:
+    def __init__(self, viewmetadata_obj: bytes | str | dict | None = None, *_) -> None:
         self.document: str = ''
-        self.timestamp: Optional[datetime] = None
+        self.timestamp: datetime | None = None
         self.app: str = ''
         self.appTags: list[str] = []
         self.contains: ContainsDict = ContainsDict()
         self.parameters: dict[str, str] = {}
-        self.appConfiguration: dict[str, Union[PRMTV_TYPES, list[PRMTV_TYPES]]] = {}
-        self.error: Union[dict, ErrorDict] = {}
+        self.appConfiguration: dict[str, PRMTV_TYPES | list[PRMTV_TYPES]] = {}
+        self.error: dict | ErrorDict = {}
         self.warnings: list[str] = []
         self._required_attributes = ["app"]
         self._contextual_attributes = {"timestamp"}
@@ -479,7 +479,7 @@ class ViewMetadata(MmifObject):
         else:
             raise KeyError(f"No error found")
             
-    def new_contain(self, at_type: Union[str, ThingTypesBase], **contains_metadata) -> 'Contain':
+    def new_contain(self, at_type: str | ThingTypesBase, **contains_metadata) -> 'Contain':
         """
         Adds a new element to the ``contains`` dictionary. For a type that is
         already there, the metadata is merged into its element.
@@ -500,16 +500,16 @@ class ViewMetadata(MmifObject):
             existing[key] = value
         return existing
     
-    def add_contain(self, contain: 'Contain', at_type: Union[str, ThingTypesBase]) -> None:
+    def add_contain(self, contain: 'Contain', at_type: str | ThingTypesBase) -> None:
         self.contains[at_type] = contain
 
-    def add_app_configuration(self, config_key: str, config_value: Union[PRMTV_TYPES, list[PRMTV_TYPES]]) -> None:
+    def add_app_configuration(self, config_key: str, config_value: PRMTV_TYPES | list[PRMTV_TYPES]) -> None:
         """
         Add a configuration key-value pair to the app_configuration dictionary.
         """
         self.appConfiguration[config_key] = config_value
 
-    def get_app_configuration(self, config_key: str) -> Union[PRMTV_TYPES, list[PRMTV_TYPES]]:
+    def get_app_configuration(self, config_key: str) -> PRMTV_TYPES | list[PRMTV_TYPES]:
         """
         Get a configuration value from the app_configuration dictionary.
         """
@@ -558,7 +558,7 @@ class ErrorDict(MmifObject):
     """
     Error object that stores information about error occurred during processing. 
     """
-    def __init__(self, error_obj: Optional[Union[bytes, str, dict]] = None, *_) -> None:
+    def __init__(self, error_obj: bytes | str | dict | None = None, *_) -> None:
         self.message: str = ''
         self.stackTrace: str = ''
         self._contextual_attributes = {"stackTrace"}
@@ -584,14 +584,14 @@ class Contain(DataDict[str, str]):
         return cls({canonicalize_prop_name(at_type, k): v for k, v in contains_metadata.items()})
 
 
-class AnnotationsList(DataList[Union[Annotation, Document]]):
+class AnnotationsList(DataList[Annotation | Document]):
     """
     AnnotationsList object that implements :class:`mmif.serialize.model.DataList`
     for :class:`mmif.serialize.annotation.Annotation`.
     """
-    _items: dict[str, Union[Annotation, Document]]
+    _items: dict[str, Annotation | Document]
 
-    def _deserialize(self, input_list: list) -> None:  # pytype: disable=signature-mismatch
+    def _deserialize(self, input_list: list) -> None:  # type: ignore[override]
         """
         Extends base ``_deserialize`` method to initialize ``items`` as a dict from
         annotation IDs to :class:`mmif.serialize.annotation.Annotation` objects.
@@ -603,7 +603,7 @@ class AnnotationsList(DataList[Union[Annotation, Document]]):
                        if ClamsTypesBase.attype_iri_isdocument(item['_type']) else Annotation(item)
                        for item in input_list}
 
-    def append(self, value: Union[Annotation, Document], overwrite=False) -> None:
+    def append(self, value: Annotation | Document, overwrite=False) -> None:
         """
         Appends an annotation to the list.
 
@@ -630,18 +630,18 @@ class ContainsDict(DataDict[ThingTypesBase, Contain]):
                 key = ThingTypesBase.from_str(key)
             self._items[key] = Contain._for_type(key, value)
 
-    def update(self, other: 'Union[dict, ContainsDict]', overwrite=False):
+    def update(self, other: 'dict | ContainsDict', overwrite=False):
         for k, v in other.items():
             if isinstance(k, str):
                 k = ThingTypesBase.from_str(k)
             self._append_with_key(k, v, overwrite=overwrite)
             
-    def get(self, key: Union[str, ThingTypesBase], default=None):
+    def get(self, key: str | ThingTypesBase, default=None):
         if isinstance(key, str):
             key = ThingTypesBase.from_str(key)
         return self._items.get(key, default)
     
-    def __contains__(self, item: Union[str, ThingTypesBase]):
+    def __contains__(self, item: str | ThingTypesBase):
         if isinstance(item, str):
             # in general, when querying with a string, do not use fuzzy equality
             if 'vocab.lappsgrid.org' in item and item.split('/')[-1] in ThingTypesBase._old_lapps_type_shortnames:

@@ -7,7 +7,7 @@ import copy
 import warnings
 from collections import defaultdict
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Any, Optional, Union, cast
+from typing import TYPE_CHECKING, Any, cast
 
 from mmif.serialize.view import View
 from mmif.vocabulary import AnnotationTypes
@@ -54,7 +54,7 @@ class ProducerContext:
         self.signature = signature
         self._warnings: list[Warning] = []
         self._view_metadata: dict[str, Any] = {}
-        self._run_id: Optional[datetime] = None
+        self._run_id: datetime | None = None
         self._existing_view_ids = {view.id for view in mmif.views}
         self._entry_pending = {doc.id: dict(doc._props_pending.items())
                                for doc in self._documents()}
@@ -63,12 +63,11 @@ class ProducerContext:
     def __enter__(self) -> 'ProducerContext':
         return self
 
-    def __exit__(self, exc_type, exc_value, exc_tb) -> bool:
+    def __exit__(self, exc_type, exc_value, exc_tb) -> None:
         self.mmif._producer = None
-        return False
 
     def add_warnings(self,
-                     *issued: Union[Warning, warnings.WarningMessage]) -> None:
+                     *issued: Warning | warnings.WarningMessage) -> None:
         """
         Records warnings of this run, written to one signed warnings view.
 
@@ -163,7 +162,7 @@ class ProducerContext:
         :return: the plan, in the form that
             :meth:`mmif.serialize.mmif.Mmif._write_capital_annotations` takes
         """
-        recorded = defaultdict(dict)
+        recorded: defaultdict[str, dict] = defaultdict(dict)
         for view in self.mmif.views:
             for ann in view.get_annotations(AnnotationTypes.Annotation):
                 recorded[ann.get('document')].update(

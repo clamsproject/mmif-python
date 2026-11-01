@@ -26,6 +26,16 @@ not_existing_attype = 'http://not.existing/type'
 tester_appname = 'http://not.existing/app'
 
 
+class TestPackageExports(unittest.TestCase):
+
+    def test_literal_all_matches_submodules(self):
+        import mmif.serialize as serialize
+        expected = {name for module in (serialize.annotation, serialize.mmif,
+                                        serialize.producer, serialize.view)
+                    for name in module.__all__}
+        self.assertEqual(set(serialize.__all__), expected)
+
+
 class TestMmif(unittest.TestCase):
 
     def setUp(self) -> None:

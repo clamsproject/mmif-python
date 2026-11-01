@@ -16,7 +16,7 @@ import re
 import typing
 import warnings
 from collections.abc import Iterator, MutableMapping
-from typing import Optional, TypeVar, Union
+from typing import TYPE_CHECKING, Any, TypeVar, cast
 from urllib.parse import urlparse
 
 import mmif_docloc_http
@@ -25,6 +25,9 @@ from mmif.vocabulary import DocumentTypesBase, ThingTypesBase
 
 from .. import AnnotationTypes, DocumentTypes
 from .model import PRMTV_TYPES, MmifObject
+
+if TYPE_CHECKING:
+    from .view import View
 
 __all__ = ['Annotation', 'AnnotationProperties', 'Document', 'DocumentProperties', 'Text', 'canonicalize_prop_name']
 
@@ -84,7 +87,7 @@ class Annotation(MmifObject):
     MmifObject that represents an annotation in a MMIF view.
     """
 
-    def __init__(self, anno_obj: Optional[Union[bytes, str, dict]] = None, *_) -> None:
+    def __init__(self, anno_obj: bytes | str | dict | None = None, *_) -> None:
         self._type: ThingTypesBase = ThingTypesBase('')
         # values that are not stored on the annotation itself but cached at
         # load time: properties recorded by capital `Annotation`s (on
@@ -92,8 +95,8 @@ class Annotation(MmifObject):
         self._props_ephemeral: AnnotationProperties = AnnotationProperties(None, self)
         # the view holding this annotation; backs `parent` and the lookup of
         # view-level `contains` defaults
-        self._parent_view = None
-        self._alignments = {}  # to hold alignment information (Alignment anno long_id -> aligned anno long_id)
+        self._parent_view: 'View | None' = None
+        self._alignments: dict = {}  # to hold alignment information (Alignment anno long_id -> aligned anno long_id)
         self.reserved_names.update(('_props_ephemeral', '_parent_view', '_alignments'))
         if not hasattr(self, 'properties'):  # don't overwrite DocumentProperties on super() call
             self.properties: AnnotationProperties = AnnotationProperties(None, self)
@@ -123,7 +126,7 @@ class Annotation(MmifObject):
         """
         self._alignments[alignment_ann] = alignedto_ann
     
-    def aligned_to_by(self, alignment: 'Annotation') -> 'Optional[Annotation]':
+    def aligned_to_by(self, alignment: 'Annotation') -> 'Annotation | None':
         """
         Retrieves the other side of ``Alignment`` annotation that has this annotation on one side. 
         
@@ -175,7 +178,7 @@ class Annotation(MmifObject):
 
         :return: a new dict of canonical property names to values
         """
-        resolved = {}
+        resolved: dict = {}
         if self._parent_view is not None:
             defaults = self._parent_view.metadata.contains.get(self._type)
             if defaults:
@@ -184,7 +187,7 @@ class Annotation(MmifObject):
         resolved.update(self.properties.items())
         return resolved
 
-    def is_type(self, at_type: Union[str, ThingTypesBase]) -> bool:
+    def is_type(self, at_type: str | ThingTypesBase) -> bool:
         """
         Check if the @type of this object matches.
         """
@@ -197,7 +200,7 @@ class Annotation(MmifObject):
         return self._type
 
     @at_type.setter
-    def at_type(self, at_type: Union[str, ThingTypesBase]) -> None:
+    def at_type(self, at_type: str | ThingTypesBase) -> None:
         if isinstance(at_type, str):
             self._type = ThingTypesBase.from_str(at_type)
         elif isinstance(at_type, type) and issubclass(at_type, ThingTypesBase):
@@ -208,8 +211,9 @@ class Annotation(MmifObject):
             # Use ``model_construct()`` to skip Pydantic field validation —
             # direct ``__init__`` rejects types with required fields
             # (e.g., ``Alignment`` requires ``source``/``target``).
-            instance = at_type.model_construct()
-            instance.initialized_from = at_type.uri
+            vocab_type: Any = at_type
+            instance = vocab_type.model_construct()
+            instance.initialized_from = vocab_type.uri
             self._type = instance
         else:
             self._type = at_type
@@ -282,7 +286,7 @@ class Annotation(MmifObject):
     
     @staticmethod
     def check_prop_value_is_simple_enough(
-            value: Union[PRMTV_TYPES, LIST_PRMTV, LIST_LIST_PRMTV, DICT_PRMTV, DICT_LIST_PRMTV]) -> bool:
+            value: PRMTV_TYPES | LIST_PRMTV | LIST_LIST_PRMTV | DICT_PRMTV | DICT_LIST_PRMTV) -> bool:
         
         def json_primitives(x): 
             return isinstance(x, typing.get_args(PRMTV_TYPES))
@@ -299,7 +303,7 @@ class Annotation(MmifObject):
             or (isinstance(value, dict) and all(map(lambda x: isinstance(x[0], str) and (json_primitives(x[1]) or json_primitives_list(x[1])), value.items())))
 
     def add_property(self, name: str,
-                     value: Union[PRMTV_TYPES, LIST_PRMTV, LIST_LIST_PRMTV, DICT_PRMTV, DICT_LIST_PRMTV]) -> None:
+                     value: PRMTV_TYPES | LIST_PRMTV | LIST_LIST_PRMTV | DICT_PRMTV | DICT_LIST_PRMTV) -> None:
         """
         Adds a property to the annotation's properties. A deprecated spelling
         of an aliased property (e.g. ``frameType``) is stored under its
@@ -410,7 +414,7 @@ class Document(Annotation):
     #: the spellings of the ``text`` property in :meth:`add_property`
     _TEXT_PROP_NAMES = frozenset({'text', '@text', '_text'})
 
-    def __init__(self, doc_obj: Optional[Union[bytes, str, dict]] = None, *_) -> None:
+    def __init__(self, doc_obj: bytes | str | dict | None = None, *_) -> None:
         # see https://github.com/clamsproject/mmif-python/issues/226 for discussion
         # around the property stores of a document
         # (names changed since, `existing` >> `ephemeral` and `temporary` >> `pending`)
@@ -424,14 +428,14 @@ class Document(Annotation):
         self._props_pending: AnnotationProperties = AnnotationProperties(None, self)
         self.reserved_names.add('_props_pending')
         
-        self._type: Union[ThingTypesBase, DocumentTypesBase] = ThingTypesBase('')
+        self._type: ThingTypesBase | DocumentTypesBase = ThingTypesBase('')
         self.properties: DocumentProperties = DocumentProperties(None, self)
         self.disallow_additional_properties()
         self._attribute_classes = {'properties': DocumentProperties}
         super().__init__(doc_obj)
     
     def add_property(self, name: str,
-                     value: Union[PRMTV_TYPES, LIST_PRMTV]
+                     value: PRMTV_TYPES | LIST_PRMTV | LIST_LIST_PRMTV | DICT_PRMTV | DICT_LIST_PRMTV
                      ) -> None:
         """
         Adds a property to the document's properties.
@@ -470,7 +474,7 @@ class Document(Annotation):
         # that already existed refuse `add_property`; "already existed" is
         # defined by the producer context
         if name in self._TEXT_PROP_NAMES:
-            text = Text(value)
+            text = Text(cast(str | dict, value))
             current = self.properties.text
             if (self.location is not None or current.value) and text != current:
                 raise self._read_only_error('text')
@@ -481,11 +485,12 @@ class Document(Annotation):
                 raise self._read_only_error(name)
             self.properties.mime = mime
         elif name == "location":
+            location = cast(str, value)
             requested = DocumentProperties()
-            requested.location = value
+            requested.location = location
             if self.location is not None and self.location != requested.location:
                 raise self._read_only_error(name)
-            self.location = value
+            self.location = location
         elif self.check_prop_value_is_simple_enough(value):
             self._props_pending[name] = value
         else:
@@ -603,7 +608,7 @@ class Document(Annotation):
     def text_value(self) -> str:
         if self._type == DocumentTypes.TextDocument:
             if self.location:
-                f = open(self.location_path(nonexist_ok=False), 'r', encoding='utf8')
+                f = open(cast(str, self.location_path(nonexist_ok=False)), 'r', encoding='utf8')
                 textvalue = f.read()
                 f.close()
                 return textvalue
@@ -620,7 +625,7 @@ class Document(Annotation):
             raise ValueError("Only TextDocument can have `text` field.")
 
     @property
-    def location(self) -> Optional[str]:
+    def location(self) -> str | None:
         """
         ``location`` property must be a legitimate URI. That is, should the document be a local file
         then the file:// scheme must be used.
@@ -632,21 +637,21 @@ class Document(Annotation):
     def location(self, location: str) -> None:
         self.properties.location = location
 
-    def location_scheme(self) -> Optional[str]:
+    def location_scheme(self) -> str | None:
         """
         Retrieves URI scheme of the document location.
         Returns None when no location is set.
         """
         return self.properties.location_scheme()
 
-    def location_address(self) -> Optional[str]:
+    def location_address(self) -> str | None:
         """
         Retrieves the full address from the document location URI.
         Returns None when no location is set.
         """
         return self.properties.location_address()
 
-    def location_path(self, nonexist_ok=True) -> Optional[str]:
+    def location_path(self, nonexist_ok=True) -> str | None:
         """
         Retrieves a path that's resolved to a pathname in the local file system.
         To obtain the original value of the "path" part in the location string
@@ -665,6 +670,7 @@ class AnnotationProperties(MmifObject, MutableMapping[str, T]):
 
     :param mmif_obj: the JSON data that defines the properties
     """
+    _unnamed_attributes: dict
 
     def __delitem__(self, key: str) -> None:
         key = self._canonical(key)
@@ -718,8 +724,8 @@ class AnnotationProperties(MmifObject, MutableMapping[str, T]):
                           DeprecationWarning)
         super().__setitem__(canonical, value)
 
-    def __init__(self, mmif_obj: Optional[Union[bytes, str, dict]] = None,
-                 parent: 'Optional[Annotation]' = None, *_) -> None:
+    def __init__(self, mmif_obj: bytes | str | dict | None = None,
+                 parent: 'Annotation | None' = None, *_) -> None:
         self.id: str = ''
         # any individual at_type (subclassing this class) can have its own set of required attributes
         self._required_attributes = ["id"]
@@ -745,7 +751,7 @@ class AnnotationProperties(MmifObject, MutableMapping[str, T]):
         """
         canonical_dict = {}
         # canonical name -> the deprecated spelling it was read from
-        from_alias = {}
+        from_alias: dict = {}
         for key, value in input_dict.items():
             canonical = self._canonical(key)
             if canonical in canonical_dict and (canonical != key or canonical in from_alias):
@@ -769,8 +775,8 @@ class DocumentProperties(AnnotationProperties):
     :param mmif_obj: the JSON data that defines the properties
     """
 
-    def __init__(self, mmif_obj: Optional[Union[bytes, str, dict]] = None,
-                 parent: 'Optional[Annotation]' = None, *_) -> None:
+    def __init__(self, mmif_obj: bytes | str | dict | None = None,
+                 parent: 'Annotation | None' = None, *_) -> None:
         self.mime: str = ''
         # note the trailing underscore here. I wanted to use the name `location`
         # for @property in this class and `Document` class, so had to use a diff
@@ -813,7 +819,7 @@ class DocumentProperties(AnnotationProperties):
         self.text.value = s
 
     @property
-    def location(self) -> Optional[str]:
+    def location(self) -> str | None:
         """
         ``location`` property must be a legitimate URI. That is, should the document be a local file 
         then the file:// scheme must be used. 
@@ -829,7 +835,7 @@ class DocumentProperties(AnnotationProperties):
         else:
             self.location_ = location
 
-    def location_scheme(self) -> Optional[str]:
+    def location_scheme(self) -> str | None:
         """
         Retrieves URI scheme of the document location.
         Returns None when no location is set.
@@ -838,7 +844,7 @@ class DocumentProperties(AnnotationProperties):
             return None
         return urlparse(self.location).scheme
 
-    def location_address(self) -> Optional[str]:
+    def location_address(self) -> str | None:
         """
         Retrieves the full address from the document location URI.
         Returns None when no location is set.
@@ -851,7 +857,7 @@ class DocumentProperties(AnnotationProperties):
         else:
             return "".join((parsed_location.netloc, parsed_location.path))
 
-    def location_path(self) -> Optional[str]:
+    def location_path(self) -> str | None:
         """
         .. deprecated:: 1.0.2
            Will be removed in 2.0.0. Use :meth:`location_path_resolved`
@@ -863,7 +869,7 @@ class DocumentProperties(AnnotationProperties):
                       DeprecationWarning)
         return self.location_path_resolved()
     
-    def location_path_resolved(self, nonexist_ok=True) -> Optional[str]:
+    def location_path_resolved(self, nonexist_ok=True) -> str | None:
         """
         Retrieves only path name of the document location (hostname is ignored), 
         and then try to resolve the path name in the local file system.
@@ -887,7 +893,7 @@ class DocumentProperties(AnnotationProperties):
         else:
             return p
 
-    def location_path_literal(self) -> Optional[str]:
+    def location_path_literal(self) -> str | None:
         """
         Retrieves only path name of the document location (hostname is ignored). 
         Returns None when no location is set.
@@ -899,7 +905,7 @@ class DocumentProperties(AnnotationProperties):
 
 class Text(MmifObject):
 
-    def __init__(self, text_obj: Optional[Union[bytes, str, dict]] = None, *_) -> None:
+    def __init__(self, text_obj: bytes | str | dict | None = None, *_) -> None:
         self._value: str = ''
         self._language: str = ''
         self.disallow_additional_properties()

@@ -101,7 +101,7 @@ class AnnotationsIndex:
 
     def __init__(self, view):
         self.view = view
-        self.idx = {}
+        self.idx: dict = {}
         self.tokens = []
         for annotation in view.annotations:
             shortname = annotation.at_type.shortname

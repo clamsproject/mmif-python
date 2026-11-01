@@ -3,7 +3,7 @@ import json
 import sys
 import textwrap
 from pathlib import Path
-from typing import Union, cast
+from typing import cast
 
 from mmif.utils.cli import open_cli_io_arg, generate_model_summary
 
@@ -17,7 +17,7 @@ from mmif.utils.workflow_helper import (
 )
 
 
-def get_pipeline_specs(mmif_file: Union[str, Path]):
+def get_pipeline_specs(mmif_file: str | Path):
     """
     .. deprecated:: 1.2.1
        Will be removed in 2.0.0. Use :func:`mmif.utils.workflow_helper.describe_single_mmif` instead.
@@ -29,7 +29,7 @@ def get_pipeline_specs(mmif_file: Union[str, Path]):
     return describe_single_mmif(mmif_file)
 
 
-def generate_pipeline_identifier(mmif_file: Union[str, Path]) -> str:
+def generate_pipeline_identifier(mmif_file: str | Path) -> str:
     """
     .. deprecated:: 1.2.1
        Will be removed in 2.0.0. Use :func:`mmif.utils.workflow_helper.generate_workflow_identifier` instead.
@@ -108,6 +108,7 @@ def main(args):
     """
     if hasattr(args, 'help_schema') and args.help_schema is not None:
         schema_name = args.help_schema[0]
+        model_cls: type[SingleMmifDesc] | type[CollectionMmifDesc]
         if schema_name == 'mmif-file':
             model_cls = SingleMmifDesc
         elif schema_name == 'mmif-dir':

@@ -13,6 +13,7 @@ import logging
 import os
 import pathlib
 from collections import defaultdict
+from typing import Any
 
 from mmif.serialize import Mmif
 from mmif.utils.summarizer import config
@@ -109,7 +110,7 @@ class Summary(object):
     def pp(self):
         self.documents.pp()
         self.views.pp()
-        self.transcript.pp()
+        self.transcript.pp()  # type: ignore[attr-defined]
         self.timeframes.pp()
         self.entities.pp()
         print()
@@ -201,7 +202,7 @@ class Views(object):
 
     #@staticmethod
     def get_view_summary(self, view):
-        annotation_types = defaultdict(int)
+        annotation_types: defaultdict[str, int] = defaultdict(int)
         for annotation in view.annotations:
             annotation_types[annotation.at_type.shortname] += 1
         basic_info = {
@@ -349,6 +350,9 @@ class Nodes(object):
     def __len__(self):
         return len(self.nodes)
 
+    def __iter__(self):
+        return iter(self.nodes)
+
     def add(self, node):
         self.nodes.append(node)
 
@@ -445,7 +449,8 @@ class TimeFrameStats(object):
     def _collect_other_morsels(self):
         # First we want everything grouped by app and label
         timeframes = self.timeframes.data
-        grouped_timeframes = defaultdict(lambda: defaultdict(list))
+        grouped_timeframes: defaultdict[str, defaultdict[str, list]] = defaultdict(
+            lambda: defaultdict(list))
         for app in timeframes:
             for tf in timeframes[app]:
                 label = tf.get('label')
@@ -475,7 +480,7 @@ class Entities(Nodes):
     def __init__(self, summary):
         super().__init__(summary)
         self.nodes_idx = {}
-        self.bins = None
+        self.bins: Any = None
         for ent in self.graph.get_nodes(config.NAMED_ENTITY):
             self.add(ent)
         self._create_node_index()
