@@ -25,6 +25,7 @@ import mmif
 from mmif import ThingTypesBase
 from mmif.serialize.annotation import Annotation, Document
 from mmif.serialize.model import DataList, MmifObject, MmifObjectEncoder
+from mmif.serialize.producer import ProducerContext
 from mmif.serialize.view import View
 from mmif.vocabulary import AnnotationTypes, DocumentTypesBase
 
@@ -197,6 +198,9 @@ class Mmif(MmifObject):
         self.metadata: MmifMetadata = MmifMetadata()
         self.documents: DocumentsList = DocumentsList()
         self.views: ViewsList = ViewsList()
+        # the write mode, see `set_producer()`
+        self._producer: Optional[ProducerContext] = None
+        self.reserved_names.add('_producer')
         if validate and mmif_obj is not None:
             self.validate(mmif_obj)
         self.disallow_additional_properties()
@@ -242,7 +246,10 @@ class Mmif(MmifObject):
         The output is built once, and capital ``Annotation`` records,
         factored properties, and sanitization apply to that output only. The
         in-memory ``Mmif`` object itself never change, so calling this 
-        method repeatedly gives the same records.
+        method repeatedly gives the same records. While a producer is set (see
+        :meth:`set_producer`), only the views of its run are finalized, and
+        ``autogenerate_capital_annotations`` and
+        ``factor_out_shared_properties`` have no effect.
 
         :param pretty: If True, returns the string with indentation.
         :param include_context: If False, excludes contextual attributes (e.g.
@@ -264,31 +271,59 @@ class Mmif(MmifObject):
         """
         output = self._serialize(include_context=include_context)
         views_out = output['views']
-        if autogenerate_capital_annotations:
-            self._write_capital_annotations(views_out, include_context)
-        if factor_out_shared_properties:
-            self._factor_out_in_output(views_out)
-        # sanitization should be done after `Annotation` annotations are generated
-        if sanitize:
-            self._prune_contains_in_output(views_out)
+        if self._producer is not None:
+            self._producer._finalize_output(views_out, include_context)
+        else:
+            if autogenerate_capital_annotations:
+                self._write_capital_annotations(
+                    self._plan_capital_annotations(), views_out, include_context)
+            if factor_out_shared_properties:
+                self._factor_out_in_output(views_out)
+            # sanitization should be done after `Annotation` annotations are generated
+            if sanitize:
+                self._prune_contains_in_output(views_out)
         serialized = json.dumps(output, indent=2 if pretty else None,
                                 cls=MmifObjectEncoder)
         if sanitize:
             self.validate(serialized)
         return serialized
 
-    def _write_capital_annotations(self, views_out: list[dict],
+    def set_producer(self, signature: View) -> ProducerContext:
+        """
+        Turns on the write mode of this MMIF, for a producer that adds views
+        to it. Keep the serialization inside the ``with`` block::
+
+            with mmif_obj.set_producer(signature) as producer:
+                view = mmif_obj.new_view()
+                ...
+                output = mmif_obj.serialize()
+
+        Code that only reads, or re-saves without adding views, doesn't need
+        this. See :class:`mmif.serialize.producer.ProducerContext` for what
+        the mode does.
+
+        :param signature: a view whose metadata is signed by the producer,
+            copied to the views the mode writes
+        :return: the producer context; leaving its ``with`` block turns the
+            mode off
+        :raises RuntimeError: if a producer is already set
+        """
+        return ProducerContext(self, signature)
+
+    def _write_capital_annotations(self, plan: list[tuple[View, str, dict, bool]],
+                                   views_out: list[dict],
                                    include_context: bool) -> None:
         """
-        Writes the capital ``Annotation`` records planned by
-        :meth:`_plan_capital_annotations` into the serialized views.
+        Writes capital ``Annotation`` records into the serialized views.
 
+        :param plan: the records, as returned by
+            :meth:`_plan_capital_annotations`
         :param views_out: serialized views, changed in place
         :param include_context: See :meth:`serialize` for details.
         """
         views_by_id = {view_out['id']: view_out for view_out in views_out}
         last_nums = {}
-        for view, doc_id, props, in_place in self._plan_capital_annotations():
+        for view, doc_id, props, in_place in plan:
             view_out = views_by_id[view.id]
             if in_place:
                 doc_out = next(ann_out for ann_out in view_out['annotations']

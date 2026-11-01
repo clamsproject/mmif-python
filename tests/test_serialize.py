@@ -1043,6 +1043,205 @@ class TestMmifObject(unittest.TestCase):
                 metadata.set_additional_property(name, None)
 
 
+class TestProducerContext(unittest.TestCase):
+
+    app = 'http://apps.clams.ai/tester/v1'
+
+    def setUp(self) -> None:
+        self.mmif = Mmif(MMIF_EXAMPLES['everything'])
+        self.earlier = {v.id: json.loads(v.serialize()) for v in self.mmif.views}
+        self.first_doc = self.mmif.documents[0]
+        self.signature = View()
+        self.signature.metadata.app = self.app
+        self.signature.metadata.add_parameter('p', 'v')
+
+    def _new_view(self):
+        view = self.mmif.new_view()
+        view.metadata.app = self.app
+        return view
+
+    def _new_contentful_view(self):
+        view = self._new_view()
+        view.new_annotation(AnnotationTypes.TimeFrame, start=0, end=1)
+        return view
+
+    def _run_views(self, output):
+        return [v for v in json.loads(output)['views']
+                if v['id'] not in self.earlier]
+
+    def _records(self, view_out):
+        return [a['properties'] for a in view_out['annotations']
+                if a['@type'] == str(AnnotationTypes.Annotation)]
+
+    def test_earlier_views_serialize_unchanged(self):
+        # an earlier view with factorable values stays as it is
+        earlier = self._new_view()
+        for start in (0, 5):
+            earlier.new_annotation(AnnotationTypes.TimeFrame, start=start,
+                                   end=start + 1, label='bars')
+        self.earlier[earlier.id] = json.loads(earlier.serialize())
+        with self.mmif.set_producer(self.signature):
+            self._new_contentful_view()
+            output = self.mmif.serialize()
+        views_out = {v['id']: v for v in json.loads(output)['views']}
+        for view_id, view_out in self.earlier.items():
+            self.assertEqual(view_out, views_out[view_id])
+
+    def test_run_views_are_finalized_in_output_only(self):
+        with self.mmif.set_producer(self.signature):
+            view = self._new_view()
+            view.new_contain(AnnotationTypes.Region)
+            for start in (0, 5):
+                view.new_annotation(AnnotationTypes.TimeFrame, start=start,
+                                    end=start + 1, label='bars')
+            output = self.mmif.serialize()
+        contains = self._run_views(output)[0]['metadata']['contains']
+        self.assertEqual('bars', contains[str(AnnotationTypes.TimeFrame)]['label'])
+        self.assertNotIn(str(AnnotationTypes.Region), contains)
+        self.assertEqual(2, len(view.annotations))
+        self.assertEqual('bars', view.annotations[0].properties['label'])
+
+    def test_pending_on_entry_is_not_recorded(self):
+        self.first_doc.add_property('fps', 30)
+        with self.mmif.set_producer(self.signature):
+            self._new_contentful_view()
+            self.first_doc.add_property('fps', 30)
+            self.first_doc.add_property('author', 'me')
+            output = self.mmif.serialize()
+        records = self._records(self._run_views(output)[0])
+        self.assertEqual(1, len(records))
+        self.assertEqual('me', records[0]['author'])
+        self.assertNotIn('fps', records[0])
+
+    def test_recorded_value_is_not_recorded_again(self):
+        with self.mmif.set_producer(self.signature):
+            view = self._new_view()
+            view.new_annotation(AnnotationTypes.Annotation, author='me',
+                                document=self.first_doc.id)
+            self.first_doc.add_property('author', 'me')
+            output = self.mmif.serialize()
+        self.assertEqual(1, len(self._records(self._run_views(output)[0])))
+
+    def test_records_go_to_last_run_view(self):
+        with self.mmif.set_producer(self.signature):
+            first = self._new_contentful_view()
+            last = self._new_contentful_view()
+            self.first_doc.add_property('author', 'me')
+            output = self.mmif.serialize()
+        views_out = {v['id']: v for v in self._run_views(output)}
+        self.assertEqual([], self._records(views_out[first.id]))
+        self.assertEqual(1, len(self._records(views_out[last.id])))
+
+    def test_records_go_to_signed_view_without_run_views(self):
+        with self.mmif.set_producer(self.signature):
+            self.first_doc.add_property('author', 'me')
+            output = self.mmif.serialize(sanitize=True)
+        run_views = self._run_views(output)
+        self.assertEqual(1, len(run_views))
+        self.assertEqual(self.app, run_views[0]['metadata']['app'])
+        self.assertEqual({'p': 'v'}, run_views[0]['metadata']['parameters'])
+        self.assertEqual('me', Mmif(output)[self.first_doc.id].get_property('author'))
+        self.assertEqual(len(self.earlier), len(self.mmif.views))
+
+    def test_records_in_place_for_document_of_the_run(self):
+        with self.mmif.set_producer(self.signature):
+            view = self._new_view()
+            document = view.new_textdocument(text='new text')
+            document.add_property('author', 'me')
+            output = self.mmif.serialize()
+        view_out = self._run_views(output)[0]
+        self.assertEqual([], self._records(view_out))
+        self.assertEqual('me', view_out['annotations'][0]['properties']['author'])
+
+    def test_empty_run_writes_one_warnings_view(self):
+        with self.mmif.set_producer(self.signature):
+            self._new_view()
+            output = self.mmif.serialize(sanitize=True)
+        run_views = self._run_views(output)
+        self.assertEqual(1, len(run_views))
+        self.assertEqual(self.app, run_views[0]['metadata']['app'])
+        self.assertIn('EmptyOutputWarning', run_views[0]['metadata']['warnings'][0])
+
+    def test_empty_views_are_dropped_from_output(self):
+        with self.mmif.set_producer(self.signature):
+            empty = self._new_view()
+            view = self._new_contentful_view()
+            output = self.mmif.serialize()
+        self.assertEqual([view.id], [v['id'] for v in self._run_views(output)])
+        self.assertIn(empty.id, self.mmif.views)
+
+    def test_warnings_go_to_one_signed_view(self):
+        with self.mmif.set_producer(self.signature) as producer:
+            self._new_contentful_view()
+            producer.add_warnings(UserWarning('first'))
+            with warnings.catch_warnings(record=True) as caught:
+                warnings.simplefilter('always')
+                warnings.warn('second', UserWarning)
+            producer.add_warnings(*caught)
+            output = self.mmif.serialize(sanitize=True)
+        run_views = self._run_views(output)
+        self.assertEqual(2, len(run_views))
+        self.assertEqual(['UserWarning: first', 'UserWarning: second'],
+                         run_views[1]['metadata']['warnings'])
+        self.assertEqual(self.app, run_views[1]['metadata']['app'])
+
+    def test_run_views_share_one_run_id(self):
+        with self.mmif.set_producer(self.signature) as producer:
+            first_view = self._new_contentful_view()
+            self._new_contentful_view()
+            producer.add_warnings(UserWarning('w'))
+            first = self.mmif.serialize()
+            self.assertEqual(first, self.mmif.serialize())
+            without_context = self.mmif.serialize(include_context=False)
+        run_views = self._run_views(first)
+        self.assertEqual(3, len(run_views))
+        self.assertEqual(1, len({v['metadata']['timestamp'] for v in run_views}))
+        # the run ID comes from the first view of the run
+        self.assertEqual(json.loads(first_view.serialize())['metadata']['timestamp'],
+                         run_views[0]['metadata']['timestamp'])
+        self.assertNotIn('timestamp', self._run_views(without_context)[0]['metadata'])
+
+    def test_view_metadata_goes_to_every_run_view(self):
+        with self.mmif.set_producer(self.signature) as producer:
+            self._new_contentful_view()
+            producer.add_warnings(UserWarning('w'))
+            producer.set_view_metadata('appProfiling', {'runningTime': '1s'})
+            output = self.mmif.serialize()
+        for view_out in self._run_views(output):
+            self.assertEqual({'runningTime': '1s'}, view_out['metadata']['appProfiling'])
+
+    def test_leaving_the_block_turns_the_mode_off(self):
+        with self.mmif.set_producer(self.signature):
+            empty = self._new_view()
+            self.assertNotIn(empty.id, [v['id'] for v in
+                                        json.loads(self.mmif.serialize())['views']])
+        self.assertIsNone(self.mmif._producer)
+        self.assertIn(empty.id, [v['id'] for v in
+                                 json.loads(self.mmif.serialize())['views']])
+
+    def test_exception_propagates_and_turns_the_mode_off(self):
+        with self.assertRaises(ValueError):
+            with self.mmif.set_producer(self.signature):
+                raise ValueError('boom')
+        self.assertIsNone(self.mmif._producer)
+
+    def test_set_without_with_turns_the_mode_on(self):
+        self.mmif.set_producer(self.signature)
+        self.assertIsNotNone(self.mmif._producer)
+
+    def test_copy_has_no_producer_set(self):
+        with self.mmif.set_producer(self.signature):
+            copied = Mmif(self.mmif.serialize())
+            self.assertIsNone(copied._producer)
+
+    def test_setting_twice_is_refused(self):
+        with self.mmif.set_producer(self.signature):
+            with self.assertRaises(RuntimeError):
+                self.mmif.set_producer(self.signature)
+        with self.mmif.set_producer(self.signature):
+            pass
+
+
 class TestGetItem(unittest.TestCase):
 
     def setUp(self) -> None:
