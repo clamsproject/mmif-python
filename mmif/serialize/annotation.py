@@ -412,9 +412,8 @@ class Document(Annotation):
 
     def __init__(self, doc_obj: Optional[Union[bytes, str, dict]] = None, *_) -> None:
         # see https://github.com/clamsproject/mmif-python/issues/226 for discussion
-        # around the use of these three dictionaries
+        # around the property stores of a document
         # (names changed since, `existing` >> `ephemeral` and `temporary` >> `pending`)
-        self._props_original: DocumentProperties = DocumentProperties(None, self)
         # properties added to a document that are recorded as capital
         # `Annotation`s. This dict is never cleared. `Mmif.serialize()` writes
         # the records into its output only, so repeated serialization gives
@@ -423,10 +422,10 @@ class Document(Annotation):
         # clams-python's `ClamsApp.annotate()`) relies on its duplicate check
         # to skip values already written.
         self._props_pending: AnnotationProperties = AnnotationProperties(None, self)
-        self.reserved_names.update(('_props_original', '_props_pending'))
+        self.reserved_names.add('_props_pending')
         
         self._type: Union[ThingTypesBase, DocumentTypesBase] = ThingTypesBase('')
-        self.properties = self._props_original
+        self.properties: DocumentProperties = DocumentProperties(None, self)
         self.disallow_additional_properties()
         self._attribute_classes = {'properties': DocumentProperties}
         super().__init__(doc_obj)
@@ -437,20 +436,13 @@ class Document(Annotation):
         """
         Adds a property to the document's properties.
 
-        Unlike the parent :class:`Annotation` class, added properties of a
-        ``Document`` object can be lost during serialization unless it belongs
-        to somewhere in a ``Mmif`` object. This is because we want to keep
-        ``Document`` object as "read-only" as possible. Thus, if you want to add
-        a property to a ``Document`` object,
-
-        * add the document to a ``Mmif`` object (either in the documents list or
-          in a view from the views list), or
-        * directly write to ``Document.properties`` instead of using this method
-          (which is not recommended).
-
-        With the former method, the SDK will record the added property as a
-        `Annotation` annotation object, separate from the original `Document`
-        object. See :meth:`mmif.serialize.mmif.Mmif.generate_capital_annotations` for more.
+        ``Document`` objects stay as "read-only" as possible, so a property
+        added here is not written to the document. It is kept aside, and
+        recorded as a separate ``Annotation`` object when the ``Mmif`` object
+        holding the document is serialized (see
+        :meth:`mmif.serialize.mmif.Mmif.set_producer`). A document that is not
+        in a ``Mmif`` object loses it on serialization. Without a producer,
+        recording also needs a view with no error and no warnings.
 
         A few notes to keep in mind:
 
@@ -465,12 +457,12 @@ class Document(Annotation):
            the property, effectively overwriting the previous values.
 
         :param name: the name of the property
-        :param value: the property's desired value (note: Document accepts fewer value types than Annotation)
+        :param value: the property's desired value
         """
-        # we don't checking if this k-v already exists in _original (new props) or _ephemeral (read from existing MMIF)
-        # because it is impossible to keep the _original updated when a new annotation is added (via `new_annotation`)
-        # without look across other views and top-level documents list. Also see 
-        # ``mmif.serialize.mmif.Mmif.generate_capital_annotations`` for where the "de-duplication" happens.
+        # whether this k-v is already recorded can't be told from here, because
+        # records live in other views. De-duplication happens when the records
+        # are planned, in `Mmif._plan_capital_annotations()` and
+        # `ProducerContext._plan_capital_annotations()`
         # TODO: upgrade this set-once check to an ownership-based guardrail:
         # objects the current run created are writable (last write wins,
         # set-once keys excepted); documents that already existed are never
@@ -494,11 +486,10 @@ class Document(Annotation):
             if self.location is not None and self.location != requested.location:
                 raise self._read_only_error(name)
             self.location = value
-        elif name not in self._props_original:
-            if self.check_prop_value_is_simple_enough(value):
-                self._props_pending[name] = value
-            else:
-                super().add_property(name, value)
+        elif self.check_prop_value_is_simple_enough(value):
+            self._props_pending[name] = value
+        else:
+            super().add_property(name, value)
 
     def _read_only_error(self, name: str) -> AttributeError:
         """
@@ -519,9 +510,9 @@ class Document(Annotation):
         #. Special fields (``id``, ``location``)
         #. Pending properties (added via :meth:`add_property` after creation,
            to be serialized as capital ``Annotation`` objects)
-        #. Original properties (in ``document.properties``)
-        #. Ephemeral properties (from existing ``Annotation`` objects or view
-           ``contains`` metadata)
+        #. Stored properties (in ``document.properties``)
+        #. Values recorded by existing ``Annotation`` objects
+        #. View-level defaults (the parent view's ``contains`` metadata)
 
         ``Document`` overrides ``__getitem__`` (not only :meth:`get`) so that
         the ``in`` operator, subscripting, and :meth:`get` all agree.

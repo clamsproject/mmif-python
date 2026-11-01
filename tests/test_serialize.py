@@ -1463,6 +1463,17 @@ class TestView(unittest.TestCase):
         with pytest.raises(ValueError):
             # empty at_type is not allowed
             self.view_obj.new_contain("")
+
+    def test_new_contain_merges_into_existing_type(self):
+        view = View()
+        ann = view.new_annotation(AnnotationTypes.TimeFrame, start=0, end=1)
+        contain = view.new_contain(AnnotationTypes.TimeFrame, document='d1', timeUnit='ms')
+        self.assertEqual('d1', contain['document'])
+        self.assertEqual('d1', ann.get_property('document'))
+        # the last write wins, and spellings are canonicalized
+        view.new_contain(AnnotationTypes.TimeFrame, **{'document': 'd2', 'frameType': 'bars'})
+        merged = view.metadata.contains[AnnotationTypes.TimeFrame]
+        self.assertEqual({'document': 'd2', 'timeUnit': 'ms', 'label': 'bars'}, dict(merged.items()))
         
     def test_add_annotation(self):
         anno_obj = Annotation(self.mmif_examples_json['everything']['views'][6]['annotations'][2])
@@ -2003,6 +2014,17 @@ class TestDocument(unittest.TestCase):
         doc.add_property('text', {'@language': 'en'})
         doc.add_property('text', {'@value': 'hello'})
         self.assertEqual('hello', doc.text_value)
+
+    def test_add_property_on_existing_key_goes_to_pending(self):
+        raw = {'@type': str(DocumentTypes.TextDocument),
+               'properties': {'id': 'd1', 'location': 'file:///a.txt', 'author': 'me'}}
+        in_memory = self._new_document(location='file:///a.txt')
+        in_memory.properties['author'] = 'me'
+        for doc in (Document(raw), in_memory):
+            doc.add_property('author', 'you')
+            self.assertEqual('you', doc._props_pending['author'])
+            self.assertEqual('me', doc.properties['author'])
+            self.assertEqual('you', doc.get_property('author'))
 
     def test_document_pending_property_membership(self):
         # regression for issue #390: a property added via `add_property`

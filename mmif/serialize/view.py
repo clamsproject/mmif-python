@@ -146,13 +146,14 @@ class View(MmifObject):
                                     propv[i] = f"{self.id}{self.id_delimiter}{item}"
                 self.annotations.append(annotation)
 
-    def new_contain(self, at_type: Union[str, ThingTypesBase], **contains_metadata) -> 'Optional[Contain]':
+    def new_contain(self, at_type: Union[str, ThingTypesBase], **contains_metadata) -> 'Contain':
         """
-        Adds a new element to the ``contains`` metadata.
+        Adds a new element to the ``contains`` metadata. For a type that is
+        already there, the metadata is merged into its element.
 
         :param at_type: the ``@type`` of the annotation type being added
         :param contains_metadata: any metadata associated with the annotation type
-        :return: the generated :class:`Contain` object
+        :return: the :class:`Contain` object of the type
         """
         if MmifObject.is_empty(at_type):
             raise ValueError("@type must not be empty.")
@@ -478,21 +479,26 @@ class ViewMetadata(MmifObject):
         else:
             raise KeyError(f"No error found")
             
-    def new_contain(self, at_type: Union[str, ThingTypesBase], **contains_metadata) -> 'Optional[Contain]':
+    def new_contain(self, at_type: Union[str, ThingTypesBase], **contains_metadata) -> 'Contain':
         """
-        Adds a new element to the ``contains`` dictionary.
+        Adds a new element to the ``contains`` dictionary. For a type that is
+        already there, the metadata is merged into its element.
 
         :param at_type: the ``@type`` of the annotation type being added
         :param contains_metadata: any metadata associated with the annotation type
-        :return: the generated :class:`Contain` object
+        :return: the :class:`Contain` object of the type
         """
         if isinstance(at_type, str):
             at_type = ThingTypesBase.from_str(at_type)
             
+        new_contain = Contain._for_type(at_type, contains_metadata)
         if at_type not in self.contains:
-            new_contain = Contain._for_type(at_type, contains_metadata)
             self.add_contain(new_contain, at_type)
             return new_contain
+        existing = self.contains[at_type]
+        for key, value in new_contain.items():
+            existing[key] = value
+        return existing
     
     def add_contain(self, contain: 'Contain', at_type: Union[str, ThingTypesBase]) -> None:
         self.contains[at_type] = contain

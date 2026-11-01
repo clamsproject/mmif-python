@@ -439,19 +439,13 @@ class Mmif(MmifObject):
     def _deserialize(self, input_dict: dict) -> None:
         """
         Deserializes the MMIF JSON string into a Mmif object.
-        After *regular* deserialization, this method will perform the following 
-        *special* handling of Annotation.properties that allows apps to access 
-        Annotation/Document properties that are not encoded in the objects 
-        themselves. This is to allow apps to access in a more intuitive way, 
-        without having too much hassle to iterate views and manually collect the properties.
-        
-        1. This will read in existing *view*-scoped properties from *contains*
-        metadata and attach them to the corresponding ``Annotation`` objects.
+        After *regular* deserialization, this method reads existing
+        ``Annotation`` typed annotations and copies the document-level
+        properties to the ``Document`` objects, in an ephemeral property dict,
+        so that apps don't need to iterate views to collect them.
 
-        1. This will read in existing ``Annotation`` typed annotations and 
-        attach the document-level properties to the ``Document`` objects, 
-        using an ephemeral property dict. 
-        
+        View-scoped properties in *contains* metadata are not copied. They
+        resolve through the parent view when an annotation is read.
         """
         super()._deserialize(input_dict)
         for view in self.views:
