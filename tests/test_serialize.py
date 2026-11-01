@@ -1043,6 +1043,74 @@ class TestMmifObject(unittest.TestCase):
                 metadata.set_additional_property(name, None)
 
 
+class TestDeprecations(unittest.TestCase):
+
+    def setUp(self) -> None:
+        self.mmif = Mmif(MMIF_EXAMPLES['everything'])
+        self.view = self.mmif.new_view()
+        self.view.metadata.app = tester_appname
+        for start in (0, 5):
+            self.view.new_annotation(AnnotationTypes.TimeFrame, start=start,
+                                     end=start + 1, label='bars')
+
+    def _assert_silent(self, func, *args, **kwargs):
+        with warnings.catch_warnings():
+            warnings.simplefilter('error', FutureWarning)
+            warnings.simplefilter('error', DeprecationWarning)
+            return func(*args, **kwargs)
+
+    def test_serialize_warns_when_it_writes_records(self):
+        self.mmif.documents[0].add_property('author', 'me')
+        with self.assertWarnsRegex(FutureWarning, 'set_producer'):
+            self.mmif.serialize()
+
+    def test_serialize_is_silent_without_records(self):
+        self._assert_silent(self.mmif.serialize)
+        self._assert_silent(self.mmif.serialize, sanitize=True)
+
+    def test_internal_paths_are_silent(self):
+        self.mmif.documents[0].add_property('author', 'me')
+        self._assert_silent(str, self.mmif)
+        self._assert_silent(lambda: self.mmif == self.mmif)
+        self.assertFalse(self.mmif == 'not a mmif')
+
+    def test_write_mode_is_silent(self):
+        self.mmif.documents[0].add_property('author', 'me')
+        signature = View()
+        signature.metadata.app = tester_appname
+        with self.mmif.set_producer(signature):
+            self._assert_silent(self.mmif.serialize)
+
+    def test_serialize_keywords_warn(self):
+        for name in ('autogenerate_capital_annotations', 'factor_out_shared_properties'):
+            for value in (True, False):
+                with self.assertWarnsRegex(DeprecationWarning, name):
+                    self.mmif.serialize(**{name: value})
+
+    def test_serialize_keyword_false_is_honored(self):
+        self.mmif.documents[0].add_property('author', 'me')
+        with self.assertWarns(DeprecationWarning):
+            self.assertNotIn('"author"', self.mmif.serialize(
+                autogenerate_capital_annotations=False))
+
+    def test_factor_out_method_warns_and_changes_the_object(self):
+        with self.assertWarnsRegex(DeprecationWarning, 'set_producer'):
+            self.mmif.factor_out_shared_properties()
+        contain = self.view.metadata.contains.get(AnnotationTypes.TimeFrame)
+        self.assertEqual('bars', contain['label'])
+        self.assertNotIn('label', self.view.annotations[0].properties)
+
+    def test_sanitize_method_warns_and_changes_the_object(self):
+        self.view.new_contain(AnnotationTypes.Region)
+        with self.assertWarnsRegex(DeprecationWarning, 'sanitize=True'):
+            self.mmif.sanitize()
+        self.assertNotIn(AnnotationTypes.Region, self.view.metadata.contains)
+
+    def test_generate_capital_annotations_is_silent_for_now(self):
+        self.mmif.documents[0].add_property('author', 'me')
+        self._assert_silent(self.mmif.generate_capital_annotations)
+
+
 class TestProducerContext(unittest.TestCase):
 
     app = 'http://apps.clams.ai/tester/v1'
@@ -1887,6 +1955,49 @@ class TestDocument(unittest.TestCase):
         self.assertEqual(0, len(doc1_mmif_roundtrip._props_pending))
         self.assertEqual('me', doc1_mmif_roundtrip.get_property('author'))
 
+    def _new_document(self, **properties):
+        doc = Document()
+        doc.at_type = DocumentTypes.TextDocument
+        doc.id = 'doc1'
+        for name, value in properties.items():
+            doc.add_property(name, value)
+        return doc
+
+    def test_location_and_mime_are_set_once(self):
+        doc = self._new_document(location='file:///data/doc1.txt', mime='text/plain')
+        for name, value in (('location', 'file:///data/other.txt'), ('mime', 'video/mp4')):
+            with self.assertRaisesRegex(AttributeError, 'read-only'):
+                doc.add_property(name, value)
+        self.assertEqual('file:///data/doc1.txt', doc.location)
+        self.assertEqual('text/plain', doc.properties.mime)
+
+    def test_set_once_allows_same_value(self):
+        doc = self._new_document(location='/data/doc1.txt', mime='text/plain')
+        doc.add_property('location', '/data/doc1.txt')
+        doc.add_property('mime', 'text/plain')
+        inline = self._new_document(text={'@value': 'hello'})
+        inline.add_property('text', {'@value': 'hello'})
+        self.assertEqual('hello', inline.text_value)
+
+    def test_text_is_set_once(self):
+        for name in ('text', '@text', '_text'):
+            doc = self._new_document(text={'@value': 'hello'})
+            with self.assertRaisesRegex(AttributeError, 'read-only'):
+                doc.add_property(name, {'@value': 'changed'})
+            self.assertEqual('hello', doc.text_value)
+
+    def test_text_is_refused_with_location(self):
+        doc = self._new_document(location='file:///data/doc1.txt')
+        with self.assertRaisesRegex(AttributeError, 'read-only'):
+            doc.add_property('text', {'@value': 'hello'})
+
+    def test_text_can_be_built_in_steps_until_it_has_a_value(self):
+        # `app-paddleocr-wrapper` sets `@language` and `@value` in two calls
+        doc = self._new_document()
+        doc.add_property('text', {'@language': 'en'})
+        doc.add_property('text', {'@value': 'hello'})
+        self.assertEqual('hello', doc.text_value)
+
     def test_document_pending_property_membership(self):
         # regression for issue #390: a property added via `add_property`
         # lands in `_props_pending` and must be visible through `get_property`,
@@ -2133,6 +2244,7 @@ class TestDocument(unittest.TestCase):
         m = Mmif(json.dumps(raw), validate=False)
         self.assertTrue(list(m['v1:tf1'].get_all_aligned()))
 
+    @pytest.mark.filterwarnings('ignore::DeprecationWarning')
     def test_factor_out_shared_properties_flag(self):
         # `factor_out_shared_properties` gates factoring independently of
         # `autogenerate_capital_annotations`.

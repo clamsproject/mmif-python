@@ -238,8 +238,8 @@ class Mmif(MmifObject):
                   include_context: bool = True,
                   *,
                   sanitize: bool = False,
-                  autogenerate_capital_annotations: bool = True,
-                  factor_out_shared_properties: bool = True) -> str:
+                  autogenerate_capital_annotations: Optional[bool] = None,
+                  factor_out_shared_properties: Optional[bool] = None) -> str:
         """
         Serializes the MMIF object to a JSON string.
 
@@ -257,10 +257,14 @@ class Mmif(MmifObject):
         :param sanitize: If True, removes ``contains`` entries of types with
             no annotations from the output, and validates the output against
             the MMIF JSON schema.
-        :param autogenerate_capital_annotations: If True, write any "pending"
+        :param autogenerate_capital_annotations: Deprecated and will be
+            removed in 2.0.0. Use :meth:`set_producer` instead. If True (the
+            default), write any "pending"
             properties of `Document` objects as `Annotation` objects in the
             output. See :meth:`generate_capital_annotations` for the rules.
-        :param factor_out_shared_properties: If True, lift properties shared
+        :param factor_out_shared_properties: Deprecated and will be removed
+            in 2.0.0. Use :meth:`set_producer` instead. If True (the default),
+            lift properties shared
             (same value) across all annotations of a type in a view into the
             view's ``contains`` metadata in the output. See
             :meth:`factor_out_shared_properties` for the rules. Independent of
@@ -269,15 +273,29 @@ class Mmif(MmifObject):
             enabled.
         :return: JSON string of the MMIF object.
         """
+        for name, value in (
+                ('autogenerate_capital_annotations', autogenerate_capital_annotations),
+                ('factor_out_shared_properties', factor_out_shared_properties)):
+            if value is not None:
+                warnings.warn(f'The {name} argument of serialize() is '
+                              f'deprecated and will be removed in 2.0.0. '
+                              f'Use set_producer() instead.',
+                              DeprecationWarning, stacklevel=2)
         output = self._serialize(include_context=include_context)
         views_out = output['views']
         if self._producer is not None:
             self._producer._finalize_output(views_out, include_context)
         else:
-            if autogenerate_capital_annotations:
-                self._write_capital_annotations(
-                    self._plan_capital_annotations(), views_out, include_context)
-            if factor_out_shared_properties:
+            if autogenerate_capital_annotations is not False:
+                plan = self._plan_capital_annotations()
+                if plan:
+                    warnings.warn('Writing document properties as Annotation '
+                                  'objects in serialize() without a producer '
+                                  'is deprecated and will be removed in '
+                                  '2.0.0. Use set_producer() instead.',
+                                  FutureWarning, stacklevel=2)
+                self._write_capital_annotations(plan, views_out, include_context)
+            if factor_out_shared_properties is not False:
                 self._factor_out_in_output(views_out)
             # sanitization should be done after `Annotation` annotations are generated
             if sanitize:
@@ -488,7 +506,13 @@ class Mmif(MmifObject):
         
         See https://github.com/clamsproject/mmif-python/issues/226 for rationale
         behind this behavior and discussion.
+
+        .. deprecated:: 1.7.0
+           Will be removed in 2.0.0. Use :meth:`set_producer` instead.
         """
+        warnings.warn('generate_capital_annotations() is deprecated and will '
+                      'be removed in 2.0.0. Use set_producer() instead.',
+                      DeprecationWarning, stacklevel=2)
         for view, doc_id, props, in_place in self._plan_capital_annotations():
             if in_place:
                 view[doc_id].properties.update(props)
@@ -586,7 +610,13 @@ class Mmif(MmifObject):
         ``get_property`` is unchanged, while the view carries the value once,
         in ``contains``. :meth:`serialize` applies the same rules to its
         output without calling this method, and leaves the views unchanged.
+
+        .. deprecated:: 1.7.0
+           Will be removed in 2.0.0. Use :meth:`set_producer` instead.
         """
+        warnings.warn('factor_out_shared_properties() is deprecated and will '
+                      'be removed in 2.0.0. Use set_producer() instead.',
+                      DeprecationWarning, stacklevel=2)
         for view in self.views:
             by_type = defaultdict(list)
             for ann in view.get_annotations():
@@ -622,7 +652,14 @@ class Mmif(MmifObject):
 
         ``serialize(sanitize=True)`` applies the same safeguards to its output
         without calling this method, and leaves the views unchanged.
+
+        .. deprecated:: 1.7.0
+           Will be removed in 2.0.0. Use ``serialize(sanitize=True)``
+           instead.
         """
+        warnings.warn('sanitize() is deprecated and will be removed in '
+                      '2.0.0. Use serialize(sanitize=True) instead.',
+                      DeprecationWarning, stacklevel=2)
         for view in self.views:
             existing_at_types = set(annotation.at_type for annotation in view.annotations)
             to_pop = set()
@@ -631,8 +668,7 @@ class Mmif(MmifObject):
                     to_pop.add(contains_at_type)
             for key in to_pop:
                 view.metadata.contains.pop(key)
-        serialized = self.serialize()
-        self.validate(serialized)
+        self.validate(self.serialize())
 
     def new_view_id(self) -> str:
         """

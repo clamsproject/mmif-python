@@ -405,6 +405,9 @@ class Document(Annotation):
 
     :param document_obj: the JSON data that defines the document
     """
+    #: the spellings of the ``text`` property in :meth:`add_property`
+    _TEXT_PROP_NAMES = frozenset({'text', '@text', '_text'})
+
     def __init__(self, doc_obj: Optional[Union[bytes, str, dict]] = None, *_) -> None:
         # see https://github.com/clamsproject/mmif-python/issues/226 for discussion
         # around the use of these three dictionaries
@@ -449,7 +452,11 @@ class Document(Annotation):
 
         A few notes to keep in mind:
 
-        #. You can't overwrite an existing property of a ``Document`` object.
+        #. ``location``, ``text``, and ``mime`` are set once. A different value
+           raises ``AttributeError`` once the document has one, and ``text``
+           is also refused on a document with a ``location``. Setting the same
+           value again changes nothing. To record a later value of any other
+           property, add it here, and it becomes an ``Annotation`` object.
         #. A MMIF can have multiple ``Annotation`` objects with the same
            property name but different values. When this happens, the SDK will
            only keep the latest value (in order of appearances in views list) of
@@ -462,17 +469,45 @@ class Document(Annotation):
         # because it is impossible to keep the _original updated when a new annotation is added (via `new_annotation`)
         # without look across other views and top-level documents list. Also see 
         # ``mmif.serialize.mmif.Mmif.generate_capital_annotations`` for where the "de-duplication" happens.
-        if name == "text":
-            self.properties.text = Text(value)
+        # TODO: upgrade this set-once check to an ownership-based guardrail:
+        # objects the current run created are writable (last write wins,
+        # set-once keys excepted); documents that already existed are never
+        # changed, and new values become capital `Annotation`s; annotations
+        # that already existed refuse `add_property`; "already existed" is
+        # defined by the producer context
+        if name in self._TEXT_PROP_NAMES:
+            text = Text(value)
+            current = self.properties.text
+            if (self.location is not None or current.value) and text != current:
+                raise self._read_only_error('text')
+            self.properties.text = text
         elif name == "mime":
-            self.properties.mime = str(value)
+            mime = str(value)
+            if self.properties.mime and self.properties.mime != mime:
+                raise self._read_only_error(name)
+            self.properties.mime = mime
         elif name == "location":
+            requested = DocumentProperties()
+            requested.location = value
+            if self.location is not None and self.location != requested.location:
+                raise self._read_only_error(name)
             self.location = value
         elif name not in self._props_original:
             if self.check_prop_value_is_simple_enough(value):
                 self._props_pending[name] = value
             else:
                 super().add_property(name, value)
+
+    def _read_only_error(self, name: str) -> AttributeError:
+        """
+        Builds the error for an attempt to change a set-once property.
+
+        :param name: the name of the property
+        :return: the error to raise
+        """
+        return AttributeError(f'Property "{name}" of document {self.id} is '
+                              f'read-only. Documents keep the source data '
+                              f'they were created with.')
 
     def __getitem__(self, prop_name: str):
         """
