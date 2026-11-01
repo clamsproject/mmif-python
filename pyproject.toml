@@ -45,7 +45,7 @@ docs = ["sphinx>=7.0,<8.0", "furo", "m2r2", "autodoc-pydantic"]
 test = [
     "mmif-python[cv]",
     "mmif-python[seq]",
-    "pytype", "pytest", "pytest-cov",
+    "mypy", "pytest", "pytest-cov",
     "hypothesis", "hypothesis-jsonschema",
     "pyyaml", "bs4", "lxml",
 ]
@@ -57,6 +57,15 @@ include = ["mmif*"]
 
 [tool.setuptools.package-data]
 mmif = ["res/*"]
+
+[tool.mypy]
+files = ["mmif"]
+check_untyped_defs = true
+
+[[tool.mypy.overrides]]
+# dependencies that ship neither inline types nor a py.typed marker
+module = ["clams_vocabulary.*", "jsonschema.*"]
+ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 testpaths = ["mmif", "tests"]
