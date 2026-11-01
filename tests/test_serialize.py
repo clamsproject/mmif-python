@@ -68,12 +68,17 @@ class TestMmif(unittest.TestCase):
             json_mmif_obj = Mmif(json.loads(example))
             self.assertEqual(str_mmif_obj.serialize(pretty=True), json_mmif_obj.serialize(pretty=True), f'Failed on {i}')
 
-    def test_deserialize_large_examples(self):
-        # real files from old SDKs load and validate, including 1.0.x
-        # list-of-ID properties
-        for name, example in LARGE_EXAMPLES.items():
-            mmif_obj = Mmif(example)
-            self.assertTrue(any(v.has_content() for v in mmif_obj.views), name)
+    def test_old_short_ids_in_id_lists_are_prefixed(self):
+        # 1.0.x files reference annotations by short ID, also in lists;
+        # document IDs in those lists are left alone
+        mmif_obj = Mmif(MMIF_EXAMPLES['mmif_old_shortid_idlists'])
+        view = mmif_obj['v1']
+        self.assertEqual(['v1:tp1', 'v1:tp2', 'v1:tp3'],
+                         view['v1:tf1'].get_property('targets'))
+        contain = view.metadata.contains[AnnotationTypes.TimeFrame]
+        self.assertEqual(['v1:tp2'], contain['representatives'])
+        self.assertEqual('m1', contain['document'])
+        self.assertEqual(['v1:tp2'], view['v1:tf1'].get_property('representatives'))
 
     def test_bad_mmif_deserialize_no_metadata(self):
         self.mmif_examples_json['everything'].pop('metadata')
@@ -109,7 +114,7 @@ class TestMmif(unittest.TestCase):
         v.metadata.app = tester_appname
         v.new_contain(AnnotationTypes.TimeFrame)
         self.assertEqual(0, len(Mmif(mmif.serialize(sanitize=True))[v.id].metadata.contains))
-        v.new_annotation(AnnotationTypes.Annotation, fps='30', document=v.id)
+        v.new_annotation(AnnotationTypes.Annotation, fps='30', document='m1')
         # sanitizing applies to the output, the unused entry stays in the object
         self.assertEqual(2, len(Mmif(mmif.serialize())[v.id].metadata.contains))
         self.assertEqual(1, len(Mmif(mmif.serialize(sanitize=True))[v.id].metadata.contains))
@@ -439,6 +444,25 @@ class TestMmif(unittest.TestCase):
         # empty, warnings, and error views appended later are all skipped
         self.assertEqual(states['contentful'].id,
                          mmif_obj.views.get_last_contentful_view().id)
+
+    def test_get_last_contentful_view_is_none_without_content(self):
+        mmif_obj, states = self._mmif_with_view_states()
+        mmif_obj.views.empty()
+        for state in ('empty', 'warnings', 'error'):
+            mmif_obj.add_view(states[state])
+        self.assertIsNone(mmif_obj.views.get_last_contentful_view())
+
+    def test_capital_annotation_for_unknown_document_is_skipped(self):
+        # a record pointing at a missing document, or at a view, is
+        # reported and skipped on load
+        mmif_obj = Mmif(MMIF_EXAMPLES['everything'])
+        view = mmif_obj.new_view()
+        view.metadata.app = tester_appname
+        view.new_annotation(AnnotationTypes.Annotation, fps=30, document='nope')
+        view.new_annotation(AnnotationTypes.Annotation, fps=30, document=view.id)
+        with self.assertWarns(RuntimeWarning):
+            reloaded = Mmif(mmif_obj.serialize())
+        self.assertNotIn('fps', reloaded['m1'])
 
     def test_capital_annotations_go_to_empty_last_view(self):
         # an app that only adds document properties leaves an empty view,
@@ -1226,6 +1250,62 @@ class TestProducerContext(unittest.TestCase):
         view_out = self._run_views(output)[0]
         self.assertEqual([], self._records(view_out))
         self.assertEqual('me', view_out['annotations'][0]['properties']['author'])
+
+    def test_pending_on_document_in_earlier_view(self):
+        view_doc = self.mmif['v4:td1']
+        view_doc.add_property('author', 'me')
+        with self.mmif.set_producer(self.signature):
+            self._new_contentful_view()
+            view_doc.add_property('publisher', 'they')
+            output = self.mmif.serialize(sanitize=True)
+        records = self._records(self._run_views(output)[0])
+        self.assertEqual(1, len(records))
+        self.assertEqual('v4:td1', records[0]['document'])
+        self.assertEqual('they', records[0]['publisher'])
+        self.assertNotIn('author', records[0])
+
+    def test_app_set_error_view_is_kept_and_not_a_record_target(self):
+        with self.mmif.set_producer(self.signature):
+            view = self._new_contentful_view()
+            errored = self._new_view()
+            errored.set_error('boom', 'trace')
+            self.first_doc.add_property('author', 'me')
+            output = self.mmif.serialize(sanitize=True)
+        views_out = {v['id']: v for v in self._run_views(output)}
+        self.assertEqual({view.id, errored.id}, set(views_out))
+        self.assertEqual('boom', views_out[errored.id]['metadata']['error']['message'])
+        self.assertEqual([], views_out[errored.id]['annotations'])
+        self.assertEqual(1, len(self._records(views_out[view.id])))
+
+    def test_records_and_warnings_get_separate_signed_views(self):
+        with self.mmif.set_producer(self.signature) as producer:
+            self.first_doc.add_property('author', 'me')
+            producer.add_warnings(UserWarning('w'))
+            output = self.mmif.serialize(sanitize=True)
+        run_views = self._run_views(output)
+        self.assertEqual(2, len(run_views))
+        self.assertNotEqual(run_views[0]['id'], run_views[1]['id'])
+        self.assertEqual([self.app] * 2, [v['metadata']['app'] for v in run_views])
+        self.assertEqual(1, len(self._records(run_views[0])))
+        self.assertEqual(['UserWarning: w'], run_views[1]['metadata']['warnings'])
+
+    def test_signed_view_id_skips_existing_ids(self):
+        mmif_obj = Mmif(validate=False)
+        doc = Document()
+        doc.at_type = DocumentTypes.TextDocument
+        doc.id = 'd1'
+        doc.location = 'file:///d1.txt'
+        mmif_obj.add_document(doc)
+        for view_id in ('v_0', 'v_2'):
+            view = View()
+            view.id = view_id
+            view.metadata.app = self.app
+            mmif_obj.add_view(view)
+        with mmif_obj.set_producer(self.signature):
+            doc.add_property('author', 'me')
+            output = mmif_obj.serialize(sanitize=True)
+        ids = [v['id'] for v in json.loads(output)['views']]
+        self.assertEqual(['v_0', 'v_2', 'v_3'], ids)
 
     def test_empty_run_writes_one_warnings_view(self):
         with self.mmif.set_producer(self.signature):

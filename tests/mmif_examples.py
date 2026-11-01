@@ -9,7 +9,6 @@ __all__ = [
     'ATTYPE_PREFIX',
     'EVERYTHING_JSON',
     'FRACTIONAL_EXAMPLES',
-    'LARGE_EXAMPLES',
     'MMIF_EXAMPLES',
 ]
 
@@ -27,7 +26,7 @@ _EXAMPLES_DIR = (
 
 EVERYTHING_JSON = (_EXAMPLES_DIR / 'everything' / 'raw.json').read_text()
 OLD_SHORTID_JSON = (_EXAMPLES_DIR / '1.0.5-old-shortid.json').read_text()
-SWT_1_0_JSON = (_EXAMPLES_DIR / 'swt-1.0.mmif').read_text()
+OLD_SHORTID_IDLISTS_JSON = (_EXAMPLES_DIR / '1.0.4-old-shortid-idlists.json').read_text()
 
 # Build ``{TypeName_VER: vN, VERSION: X.Y.Z}`` from the installed
 # ``clams-vocabulary`` package so templated fixtures always exercise the
@@ -43,13 +42,9 @@ MMIF_EXAMPLES = {
     # Historical fixture: 1.0.5-era types, already hardcoded inline.
     # Do NOT run template substitution on this file.
     'mmif_old_shortid': OLD_SHORTID_JSON,
-}
-
-# Real, large files (tens of MB). Kept out of ``MMIF_EXAMPLES`` so that
-# per-test fixtures stay fast; load these only in tests that need them.
-LARGE_EXAMPLES = {
-    # 1.0.x file with list-of-ID properties
-    'mmif_swt_1_0': SWT_1_0_JSON,
+    # Historical fixture: short IDs in list-of-ID properties, at the
+    # annotation level and in ``contains``. Not templated either.
+    'mmif_old_shortid_idlists': OLD_SHORTID_IDLISTS_JSON,
 }
 
 FRACTIONAL_EXAMPLES = {
