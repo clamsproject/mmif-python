@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Union, cast
+from typing import cast
 
 
 UNIT_NORMALIZATION = {
@@ -28,7 +28,7 @@ def _isoformat_to_millisecond(isoformat: str) -> int:
     return int(1000 * (t.hour * 3600 + t.minute * 60 + t.second + t.microsecond / 1000000))
 
 
-def _millisecond_to_isoformat(millisecond: Union[int, float]) -> str:
+def _millisecond_to_isoformat(millisecond: int | float) -> str:
     t = datetime.utcfromtimestamp(millisecond / 1000)
     return t.strftime('%H:%M:%S.%f')[:-3]
 
@@ -38,7 +38,7 @@ def _second_to_isoformat(second: float) -> str:
     return t.strftime('%H:%M:%S.%f')[:-3]  # python strftime will return "microsecond" with 6 digits
 
 
-def convert(t: Union[int, float, str], in_unit: str, out_unit: str, fps: float) -> Union[int, float, str]:
+def convert(t: int | float | str, in_unit: str, out_unit: str, fps: float) -> int | float | str:
     """
     Converts time from one unit to another. Works with ``frames``, ``seconds``, ``milliseconds``.
 
@@ -62,7 +62,7 @@ def convert(t: Union[int, float, str], in_unit: str, out_unit: str, fps: float) 
             in_unit = 'millisecond'
         else:
             raise ValueError(f"Invalid time format: ISO format string expected, but got {t} of type {type(t)}")
-    t = cast(Union[int, float], t)
+    t = cast(int | float, t)
     # s>s, ms>ms, f>f
     if in_unit == out_unit:
         return t

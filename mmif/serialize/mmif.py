@@ -16,7 +16,7 @@ import warnings
 from collections import defaultdict
 from collections.abc import Iterable, Iterator
 from datetime import datetime, timezone
-from typing import Optional, Union, cast
+from typing import cast
 from urllib.parse import urlparse
 
 import jsonschema.validators
@@ -43,7 +43,7 @@ class MmifMetadata(MmifObject):
     :param metadata_obj: the JSON data
     """
 
-    def __init__(self, metadata_obj: Optional[Union[bytes, str, dict]] = None, *_) -> None:
+    def __init__(self, metadata_obj: bytes | str | dict | None = None, *_) -> None:
         # TODO (krim @ 10/7/20): there could be a better name and a better way to give a value to this
         self.mmif: str = f"http://mmif.clams.ai/{mmif.__specver__}"
         self._required_attributes = ["mmif"]
@@ -93,7 +93,7 @@ class ViewsList(DataList[View]):
     """
     _items: dict[str, View]
 
-    def __init__(self, mmif_obj: Optional[Union[bytes, str, list]] = None, parent_mmif=None, *_):
+    def __init__(self, mmif_obj: bytes | str | list | None = None, parent_mmif=None, *_):
         self._parent_mmif = parent_mmif
         self.reserved_names.update(("_parent_mmif", "_id_counts"))
         super().__init__(mmif_obj)
@@ -127,7 +127,7 @@ class ViewsList(DataList[View]):
         """
         super()._append_with_key(value.id, value, overwrite)
 
-    def get_last_contentful_view(self) -> Optional[View]:
+    def get_last_contentful_view(self) -> View | None:
         """
         Returns the last view that is contentful, i.e., has at least one
         annotation (see :meth:`~mmif.serialize.view.View.has_content`).
@@ -139,7 +139,7 @@ class ViewsList(DataList[View]):
                 return view
         return None
     
-    def get_last_view(self) -> Optional[View]:
+    def get_last_view(self) -> View | None:
         """
         Returns the last view appended.
         """
@@ -147,7 +147,7 @@ class ViewsList(DataList[View]):
             return self._items[list(self._items.keys())[-1]]
         return None
 
-    def get_last(self) -> Optional[View]:
+    def get_last(self) -> View | None:
         """
         .. deprecated:: 1.0.18
            Will be removed in 2.0.0. Use :meth:`get_last_contentful_view` instead.
@@ -201,12 +201,12 @@ class Mmif(MmifObject):
         'mime', 'location', 'location_', 'text',
     })
 
-    def __init__(self, mmif_obj: Optional[Union[bytes, str, dict]] = None, *, validate: bool = True) -> None:
+    def __init__(self, mmif_obj: bytes | str | dict | None = None, *, validate: bool = True) -> None:
         self.metadata: MmifMetadata = MmifMetadata()
         self.documents: DocumentsList = DocumentsList()
         self.views: ViewsList = ViewsList()
         # the write mode, see `set_producer()`
-        self._producer: Optional[ProducerContext] = None
+        self._producer: ProducerContext | None = None
         self.reserved_names.add('_producer')
         if validate and mmif_obj is not None:
             self.validate(mmif_obj)
@@ -220,7 +220,7 @@ class Mmif(MmifObject):
         super().__init__(mmif_obj)
 
     @staticmethod
-    def validate(json_str: Union[bytes, str, dict]) -> None:
+    def validate(json_str: bytes | str | dict) -> None:
         """
         Validates a MMIF JSON object against the MMIF Schema.
         Note that this method operates before processing by MmifObject._load_str,
@@ -245,8 +245,8 @@ class Mmif(MmifObject):
                   include_context: bool = True,
                   *,
                   sanitize: bool = False,
-                  autogenerate_capital_annotations: Optional[bool] = None,
-                  factor_out_shared_properties: Optional[bool] = None) -> str:
+                  autogenerate_capital_annotations: bool | None = None,
+                  factor_out_shared_properties: bool | None = None) -> str:
         """
         Serializes the MMIF object to a JSON string.
 
@@ -734,7 +734,7 @@ class Mmif(MmifObject):
             raise KeyError(f"{document.id} already exists in the views list. ")
         self.documents.append(document, overwrite)
 
-    def get_documents_in_view(self, vid: Optional[str] = None) -> list[Document]:
+    def get_documents_in_view(self, vid: str | None = None) -> list[Document]:
         """
         Method to get all documents object queries by a view id.
 
@@ -790,7 +790,7 @@ class Mmif(MmifObject):
         docs.extend([document for document in self.documents if document[prop_key] == prop_value])
         return docs
 
-    def get_documents_locations(self, m_type: Union[DocumentTypesBase, str], path_only=False) -> list[Optional[str]]:
+    def get_documents_locations(self, m_type: DocumentTypesBase | str, path_only=False) -> list[str | None]:
         """
         This method returns the file paths of documents of given type.
         Only top-level documents have locations, so we only check them.
@@ -805,7 +805,7 @@ class Mmif(MmifObject):
         else:
             return [doc.location for doc in docs]
 
-    def get_document_location(self, m_type: Union[DocumentTypesBase, str], path_only=False) -> Optional[str]:
+    def get_document_location(self, m_type: DocumentTypesBase | str, path_only=False) -> str | None:
         """
         Method to get the location of *first* document of given type.
 
@@ -855,7 +855,7 @@ class Mmif(MmifObject):
             raise KeyError(f"View with ID {view_id} not found in the MMIF object.")
         return cast(View, view_found)
 
-    def get_alignments(self, at_type1: Union[str, ThingTypesBase], at_type2: Union[str, ThingTypesBase]) -> dict[str, list[Annotation]]:
+    def get_alignments(self, at_type1: str | ThingTypesBase, at_type2: str | ThingTypesBase) -> dict[str, list[Annotation]]:
         """
         Finds views where alignments between two given annotation types occurred.
 
@@ -914,7 +914,7 @@ class Mmif(MmifObject):
     
     get_views_with_error = get_all_views_with_error
             
-    def get_all_views_contain(self, *at_types: Union[ThingTypesBase, str]) -> list[View]:
+    def get_all_views_contain(self, *at_types: ThingTypesBase | str) -> list[View]:
         """
         Returns the list of all views in the MMIF if given types
         are present in that view's 'contains' metadata.
@@ -927,7 +927,7 @@ class Mmif(MmifObject):
 
     get_views_contain = get_all_views_contain
     
-    def get_view_with_error(self) -> Optional[View]:
+    def get_view_with_error(self) -> View | None:
         """
         Returns the last view appended that contains an error.
         
@@ -938,7 +938,7 @@ class Mmif(MmifObject):
                 return view
         return None
     
-    def get_last_error(self) -> Optional[str]:
+    def get_last_error(self) -> str | None:
         """
         Returns the last error message found in the views.
         
@@ -947,7 +947,7 @@ class Mmif(MmifObject):
         v = self.get_view_with_error()
         return v.get_error() if v is not None else None
 
-    def get_view_contains(self, at_types: Union[ThingTypesBase, str, list[Union[str, ThingTypesBase]]]) -> Optional[View]:
+    def get_view_contains(self, at_types: ThingTypesBase | str | list[str | ThingTypesBase]) -> View | None:
         """
         Returns the last view appended that contains the given
         types in its 'contains' metadata.
@@ -998,7 +998,7 @@ class Mmif(MmifObject):
 
     get_views_by_app = get_all_views_by_app
 
-    def get_view_by_app(self, *app_ids: str) -> Optional[View]:
+    def get_view_by_app(self, *app_ids: str) -> View | None:
         """
         Returns the last view appended that was produced by any of the given
         apps. App IDs are matched as in :meth:`get_all_views_by_app`.
@@ -1023,7 +1023,7 @@ class Mmif(MmifObject):
 
     get_views_by_apptag = get_all_views_by_apptag
 
-    def get_view_by_apptag(self, *tags: str) -> Optional[View]:
+    def get_view_by_apptag(self, *tags: str) -> View | None:
         """
         Returns the last view appended whose ``appTags`` metadata contains
         any of the given tags.
@@ -1035,7 +1035,7 @@ class Mmif(MmifObject):
         return matches[-1] if matches else None
 
     def get_annotations_of_labels(
-            self, at_type: Union[ThingTypesBase, str],
+            self, at_type: ThingTypesBase | str,
             include_labels: Iterable[str] = (),
             exclude_labels: Iterable[str] = ()) -> Iterator[Annotation]:
         """
@@ -1071,7 +1071,7 @@ class Mmif(MmifObject):
                     continue
                 yield ann
 
-    def _is_in_time_range(self, ann: Annotation, range_s: Union[int, float], range_e: Union[int, float]) -> bool:
+    def _is_in_time_range(self, ann: Annotation, range_s: int | float, range_e: int | float) -> bool:
         """
         Checks if the annotation is anchored within the given time range. Any overlap is considered included. 
 
@@ -1084,8 +1084,8 @@ class Mmif(MmifObject):
         ann_s, ann_e = self.get_start(ann), self.get_end(ann)
         return (ann_s < range_s < ann_e) or (ann_s < range_e < ann_e) or (ann_s > range_s and ann_e < range_e)
 
-    def get_annotations_between_time(self, start: Union[int, float], end: Union[int, float], time_unit: str = "ms",
-                                     at_types: list[Union[ThingTypesBase, str]] = []) -> Iterator[Annotation]:
+    def get_annotations_between_time(self, start: int | float, end: int | float, time_unit: str = "ms",
+                                     at_types: list[ThingTypesBase | str] = []) -> Iterator[Annotation]:
         """
         Finds annotations that are anchored between the given time points.
 
@@ -1107,8 +1107,8 @@ class Mmif(MmifObject):
         for view in self.get_all_views_contain(AnnotationTypes.TimeFrame) + self.get_all_views_contain(AnnotationTypes.TimePoint):
             time_unit_in_view = view.metadata.contains.get(AnnotationTypes.TimeFrame)["timeUnit"]
             
-            start_time = cast(Union[int, float], convert(start, time_unit, time_unit_in_view, 1))
-            end_time = cast(Union[int, float], convert(end, time_unit, time_unit_in_view, 1))
+            start_time = cast(int | float, convert(start, time_unit, time_unit_in_view, 1))
+            end_time = cast(int | float, convert(end, time_unit, time_unit_in_view, 1))
             for ann in view.get_annotations():
                 if ann.at_type in (AnnotationTypes.TimeFrame, AnnotationTypes.TimePoint) and self._is_in_time_range(ann, start_time, end_time):
                     time_anchors_in_range.append(ann)
@@ -1120,7 +1120,7 @@ class Mmif(MmifObject):
                 if not uniq_types or aligned.at_type in uniq_types:
                     yield aligned
 
-    def _get_linear_anchor_point(self, ann: Annotation, targets_sorted=False, start: bool = True) -> Union[int, float]:
+    def _get_linear_anchor_point(self, ann: Annotation, targets_sorted=False, start: bool = True) -> int | float:
         # TODO (krim @ 2/5/24): Update the return type once timeunits are unified to `ms` as integers (https://github.com/clamsproject/mmif/issues/192)
         """
         Retrieves the anchor point of the annotation. Currently, this method only supports linear anchors,
@@ -1152,19 +1152,19 @@ class Mmif(MmifObject):
         else:
             raise ValueError(f"{ann.id} ({ann.at_type}) does not have a valid anchor point. Is it a valid 'Region' type?")
     
-    def get_start(self, annotation: Annotation) -> Union[int, float]:
+    def get_start(self, annotation: Annotation) -> int | float:
         """
         An alias to `get_anchor_point` method with `start=True`.
         """
         return self._get_linear_anchor_point(annotation, start=True)
     
-    def get_end(self, annotation: Annotation) -> Union[int, float]:
+    def get_end(self, annotation: Annotation) -> int | float:
         """
         An alias to `get_anchor_point` method with `start=False`.
         """
         return self._get_linear_anchor_point(annotation, start=False)
 
-    def __getitem__(self, item: str) -> Union[Document, View, Annotation, MmifMetadata]:
+    def __getitem__(self, item: str) -> Document | View | Annotation | MmifMetadata:
         """
         High-level string-based access to MMIF objects by their IDs.
 
@@ -1232,7 +1232,7 @@ class Mmif(MmifObject):
         else:
             # search for document first, then views
             # raise KeyError if nothing is found
-            ret: Optional[Union[Document, View]] = self.documents._items.get(item)
+            ret: Document | View | None = self.documents._items.get(item)
             if ret is None:
                 ret = self.views._items.get(item)
                 if ret is None:

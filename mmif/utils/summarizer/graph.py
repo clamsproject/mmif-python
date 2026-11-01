@@ -4,7 +4,6 @@ from operator import itemgetter
 from pathlib import Path
 import argparse
 
-from typing import Union
 from mmif import Mmif
 
 from mmif.utils.summarizer import config
@@ -31,7 +30,7 @@ class Graph(object):
 
     """
 
-    def __init__(self, mmif: Union[Mmif, str]):
+    def __init__(self, mmif: Mmif | str):
         self.mmif = mmif if isinstance(mmif, Mmif) else Mmif(mmif)
         self.documents: list = []
         self.nodes: dict = {}

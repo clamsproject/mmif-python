@@ -6,7 +6,7 @@ import sys
 import warnings
 from collections.abc import Iterable, Iterator
 from collections.abc import Sequence
-from typing import Optional, Union, cast
+from typing import cast
 from contextlib import contextmanager
 from enum import Enum
 from io import StringIO
@@ -459,7 +459,7 @@ def _timeframe_to_timepoint_range_ms(
 
 def _sample_all_timepoint_pairs_ms(
     mmif: Mmif, time_frame: Annotation
-) -> list[tuple[int, Optional[str]]]:
+) -> list[tuple[int, str | None]]:
     """
     Samples all (timepoint_ms, source_id) pairs from a TimeFrame. Uses all
     ``targets`` if present (source is the TP annotation id), otherwise
@@ -508,7 +508,7 @@ def _sample_representatives_timepoint_pairs_ms(
 
 def _sample_single_timepoint_pair_ms(
     mmif: Mmif, time_frame: Annotation
-) -> list[tuple[int, Optional[str]]]:
+) -> list[tuple[int, str | None]]:
     """
     Samples a single (timepoint_ms, source_id) pair from a TimeFrame.
     Uses the middle representative if ``representatives`` is present
@@ -631,9 +631,9 @@ def extract_images_by_count(
 def extract_images_by_mode_with_sources(
     mmif: Mmif,
     time_frame: Annotation,
-    mode: Optional[SamplingMode] = None,
+    mode: SamplingMode | None = None,
     as_PIL: bool = False,
-) -> tuple[list, list[Union[str, int]]]:
+) -> tuple[list, list[str | int]]:
     """
     Extracts images from a TimeFrame using a :py:class:`SamplingMode`,
     alongside the per-image source: a TP annotation id (``str``) when the
@@ -659,7 +659,7 @@ def extract_images_by_mode_with_sources(
     """
     if mode is None:
         mode = _sampling_mode.get()
-    pairs: Sequence[tuple[int, Optional[str]]]
+    pairs: Sequence[tuple[int, str | None]]
     if mode == SamplingMode.ALL:
         pairs = _sample_all_timepoint_pairs_ms(mmif, time_frame)
     elif mode == SamplingMode.REPRESENTATIVES:
@@ -669,7 +669,7 @@ def extract_images_by_mode_with_sources(
     if not pairs:
         return [], []
     timepoints_ms = [ms for ms, _ in pairs]
-    sources: list[Union[str, int]] = [
+    sources: list[str | int] = [
         tp_id if tp_id is not None else ms for ms, tp_id in pairs
     ]
     video_doc = cast(Document, mmif[time_frame.get_property('document')])
@@ -681,7 +681,7 @@ def extract_images_by_mode_with_sources(
 def _to_timepoints(
     output_view: View,
     video_document: Document,
-    sources: list[Union[str, int]],
+    sources: list[str | int],
 ) -> list[str]:
     """
     Turns per-image sources, as returned by
@@ -717,7 +717,7 @@ def iter_timeframe_images(
     output_view: View,
     include_labels: Iterable[str] = (),
     exclude_labels: Iterable[str] = (),
-    mode: Optional[SamplingMode] = None,
+    mode: SamplingMode | None = None,
     as_PIL: bool = False,
 ) -> Iterator[tuple[Annotation, list, list[str]]]:
     """
@@ -770,7 +770,7 @@ def iter_timeframe_images(
 def extract_images_by_mode(
     mmif: Mmif,
     time_frame: Annotation,
-    mode: Optional[SamplingMode] = None,
+    mode: SamplingMode | None = None,
     as_PIL: bool = False,
 ) -> list:
     """
@@ -800,7 +800,7 @@ def extract_images_by_mode(
 def sample_timepoints(
     start_ms: int,
     end_ms: int,
-    step_ms: Union[int, float],
+    step_ms: int | float,
 ) -> list[int]:
     """
     Samples timepoints (in ms) from a half-open time interval
@@ -829,7 +829,7 @@ def sample_timepoints(
     return timepoints
 
 
-def convert_timepoint(mmif: Mmif, timepoint: Annotation, out_unit: str) -> Union[int, float, str]:
+def convert_timepoint(mmif: Mmif, timepoint: Annotation, out_unit: str) -> int | float | str:
     """
     Converts a time point included in an annotation to a different time unit.
     The input annotation must have ``timePoint`` property.
@@ -844,7 +844,7 @@ def convert_timepoint(mmif: Mmif, timepoint: Annotation, out_unit: str) -> Union
     return convert(timepoint.get_property('timePoint'), in_unit, out_unit, get_framerate(vd))
 
 
-def convert_timeframe(mmif: Mmif, time_frame: Annotation, out_unit: str) -> tuple[Union[int, float, str], Union[int, float, str]]:
+def convert_timeframe(mmif: Mmif, time_frame: Annotation, out_unit: str) -> tuple[int | float | str, int | float | str]:
     """
     Converts start and end points in a ``TimeFrame`` annotation a different time unit.
 
