@@ -1071,54 +1071,99 @@ class Mmif(MmifObject):
                     continue
                 yield ann
 
+    def _get_ms_anchor(self, ann: Annotation) -> tuple[int, int]:
+        """
+        Start and end of a ``TimeFrame`` or ``TimePoint`` in integer
+        milliseconds. A missing ``timeUnit`` means milliseconds.
+
+        :raises ValueError: if the time unit is not milliseconds, or a time
+            point is not an integer
+        """
+        from mmif.utils.timeunit_helper import UNIT_NORMALIZATION
+
+        declared = ann.get_property('timeUnit')
+        unit = 'millisecond' if declared is None \
+            else UNIT_NORMALIZATION.get(str(declared).lower(), declared)
+        if unit != 'millisecond':
+            raise ValueError(f"{ann.id} declares timeUnit={declared!r}; "
+                             f"time anchors must be integer milliseconds")
+        points = []
+        for point in (self.get_start(ann), self.get_end(ann)):
+            # integral floats (1500.0) are accepted, as some writers emit them
+            if isinstance(point, bool) or not isinstance(point, (int, float)) \
+                    or (isinstance(point, float) and not point.is_integer()):
+                raise ValueError(f"{ann.id} has the time point {point!r}, "
+                                 f"which is not an integer number of milliseconds")
+            points.append(int(point))
+        return points[0], points[1]
+
     def _is_in_time_range(self, ann: Annotation, range_s: int | float, range_e: int | float) -> bool:
         """
-        Checks if the annotation is anchored within the given time range. Any overlap is considered included. 
-
-        :param ann: the Annotation object to check, must be time-based itself or anchored to time-based annotations
-        :param range_s: the start time point of the range (in milliseconds)
-        :param range_e: the end time point of the range (in milliseconds)
-
-        :return: True if the annotation is anchored within the time range, False otherwise
+        True if the annotation overlaps ``[range_s, range_e)``, all in integer
+        milliseconds. A zero-length annotation counts when it falls inside, so
+        ranges that meet end to end share no annotation.
         """
-        ann_s, ann_e = self.get_start(ann), self.get_end(ann)
-        return (ann_s < range_s < ann_e) or (ann_s < range_e < ann_e) or (ann_s > range_s and ann_e < range_e)
+        ann_s, ann_e = self._get_ms_anchor(ann)
+        if ann_s == ann_e:
+            return range_s <= ann_s < range_e
+        return ann_s < range_e and ann_e > range_s
 
     def get_annotations_between_time(self, start: int | float, end: int | float, time_unit: str = "ms",
                                      at_types: list[ThingTypesBase | str] = []) -> Iterator[Annotation]:
         """
-        Finds annotations that are anchored between the given time points.
+        Finds the ``TimeFrame`` and ``TimePoint`` annotations that overlap the
+        time range, in time order, each followed by the annotations aligned to
+        it. Each annotation is returned once. All time anchors in the MMIF
+        must be in integer milliseconds.
 
-        :param start: the start time point
-        :param end: the end time point
-        :param time_unit: the unit of the input time points. Default is `ms`.
+        :param start: the start time point, in milliseconds
+        :param end: the end time point, in milliseconds
+        :param time_unit: the unit of ``start`` and ``end``. Default is `ms`.
+            (deprecated since 1.8.0, will be removed in 2.0.0)
         :param at_types: a list of annotation types to filter with. Any type in this list will be included in the return.
         :return: an iterator of Annotation objects that are anchored between the given time points
+        :raises ValueError: if a time anchor in the MMIF is not in integer milliseconds
         """
+        from mmif.utils.timeunit_helper import UNIT_NORMALIZATION, convert
+
+        unit = UNIT_NORMALIZATION.get(str(time_unit).lower())
+        if unit is None:
+            raise ValueError(f"Not supported time unit: {time_unit}")
+        if unit == 'frame':
+            raise ValueError("time points in frames cannot be converted to "
+                             "milliseconds without a frame rate")
+        if unit != 'millisecond':
+            warnings.warn('The time_unit argument of '
+                          'get_annotations_between_time() is deprecated and '
+                          'will be removed in 2.0.0. Use integer milliseconds '
+                          'instead.',
+                          DeprecationWarning, stacklevel=2)
+            start = round(cast(int | float, convert(start, time_unit, 'milliseconds', 1)))
+            end = round(cast(int | float, convert(end, time_unit, 'milliseconds', 1)))
         assert start < end, f"Start time point must be smaller than the end time point, given {start} and {end}"
         assert start >= 0, f"Start time point must be non-negative, given {start}"
         assert end >= 0, f"End time point must be non-negative, given {end}"
-        
-        from mmif.utils.timeunit_helper import convert
 
         time_anchors_in_range = []
         uniq_types = set(ThingTypesBase.from_str(t) if isinstance(t, str) else t for t in at_types)
 
-        for view in self.get_all_views_contain(AnnotationTypes.TimeFrame) + self.get_all_views_contain(AnnotationTypes.TimePoint):
-            time_unit_in_view = view.metadata.contains.get(AnnotationTypes.TimeFrame)["timeUnit"]
-            
-            start_time = cast(int | float, convert(start, time_unit, time_unit_in_view, 1))
-            end_time = cast(int | float, convert(end, time_unit, time_unit_in_view, 1))
+        anchor_types = (AnnotationTypes.TimeFrame, AnnotationTypes.TimePoint)
+        # a view that contains both anchor types is visited once
+        views = {view.id: view for anchor_type in anchor_types
+                 for view in self.get_all_views_contain(anchor_type)}
+        for view in views.values():
             for ann in view.get_annotations():
-                if ann.at_type in (AnnotationTypes.TimeFrame, AnnotationTypes.TimePoint) and self._is_in_time_range(ann, start_time, end_time):
+                if ann.at_type in anchor_types and self._is_in_time_range(ann, start, end):
                     time_anchors_in_range.append(ann)
         time_anchors_in_range.sort(key=lambda x: self.get_start(x))
+        yielded = set()
         for time_anchor in time_anchors_in_range:
-            if not uniq_types or time_anchor.at_type in uniq_types:
-                yield time_anchor
-            for aligned in time_anchor.get_all_aligned():
-                if not uniq_types or aligned.at_type in uniq_types:
-                    yield aligned
+            for ann in (time_anchor, *time_anchor.get_all_aligned()):
+                if ann.id in yielded:
+                    continue
+                if not uniq_types or ann.at_type in uniq_types:
+                    yielded.add(ann.id)
+                    yield ann
 
     def _get_linear_anchor_point(self, ann: Annotation, targets_sorted=False, start: bool = True) -> int | float:
         # TODO (krim @ 2/5/24): Update the return type once timeunits are unified to `ms` as integers (https://github.com/clamsproject/mmif/issues/192)

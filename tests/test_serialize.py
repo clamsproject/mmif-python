@@ -774,15 +774,19 @@ class TestMmif(unittest.TestCase):
         for i, ann in enumerate(selected_token_anns):
             self.assertEqual(tokens_in_order[i], ann.get_property("word"))
 
-        # Test case 2: No token annotation are selected
-        selected_token_anns = list(mmif_obj.get_annotations_between_time(0, 5, time_unit="seconds"))
-        self.assertEqual(4, len(list(selected_token_anns))) 
+        # Test case 2: No token annotation are selected; v1:s1 starts at 0,
+        # the range start, so it is among the five
+        # (query times in seconds are deprecated, so they warn)
+        with self.assertWarns(DeprecationWarning):
+            selected_token_anns = list(mmif_obj.get_annotations_between_time(0, 5, time_unit="seconds"))
+        self.assertEqual(5, len(list(selected_token_anns)))
         for ann in selected_token_anns:
             self.assertFalse(ann.is_type(token_type))
 
         # Test case 3(a): Partial tokens are selected (involve partial overlap)
-        selected_token_anns = mmif_obj.get_annotations_between_time(7, 10, time_unit="seconds", 
-                                                                    at_types=['http://vocab.lappsgrid.org/Token'])
+        with self.assertWarns(DeprecationWarning):
+            selected_token_anns = list(mmif_obj.get_annotations_between_time(7, 10, time_unit="seconds",
+                                                                             at_types=['http://vocab.lappsgrid.org/Token']))
         self.assertEqual(tokens_in_order[3:9], [ann.get_property("word") for ann in selected_token_anns])
 
         # Test case 3(b): Partial tokens are selected (only full overlap)
