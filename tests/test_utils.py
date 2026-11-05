@@ -1053,6 +1053,148 @@ class TestTextDocHelper(unittest.TestCase):
             full_sliced_text)
 
 
+class TestTokensBetweenTime(unittest.TestCase):
+    """Transcript text of a time range, through
+    ``Mmif.get_annotations_between_time``, one text per document."""
+    # (word, start, end) in milliseconds; "delta" is zero-length at 900
+    WORDS = [('alpha', 0, 300), ('beta', 300, 600), ('gamma', 600, 900),
+             ('delta', 900, 900), ('epsilon', 900, 1200)]
+
+    def setUp(self):
+        mmif_obj = Mmif(validate=False)
+        video = Document()
+        video.at_type = DocumentTypes.VideoDocument
+        video.id = 'd1'
+        video.location = 'file:///video.mp4'
+        mmif_obj.add_document(video)
+        self.mmif_obj = mmif_obj
+        self.td_id, self.asr_tfs = self.add_asr('test-asr', self.WORDS)
+        # a view of TimePoints only, as a frame classifier produces
+        points = mmif_obj.new_view()
+        points.metadata.app = 'http://apps.clams.ai/test-points/v1'
+        points.new_contain(AnnotationTypes.TimePoint,
+                           timeUnit='milliseconds', document='d1')
+        points.new_annotation(AnnotationTypes.TimePoint, timePoint=450)
+        self.segments = mmif_obj.new_view()
+        self.segments.metadata.app = 'http://apps.clams.ai/test-seg/v1'
+        self.segments.new_contain(AnnotationTypes.TimeFrame,
+                                  timeUnit='milliseconds', document='d1')
+
+    def add_asr(self, app_name, words):
+        """A whisper-shaped view: one Token per word, aligned to a word-level
+        TimeFrame. Returns the TextDocument id and the TimeFrames."""
+        asr = self.mmif_obj.new_view()
+        asr.metadata.app = f'http://apps.clams.ai/{app_name}/v1'
+        td = asr.new_textdocument(' '.join(w for w, _, _ in words))
+        asr.new_contain(AnnotationTypes.TimeFrame, timeUnit='milliseconds',
+                        document='d1')
+        tfs = []
+        for word, start, end in words:
+            tok = asr.new_annotation(AnnotationTypes.Token, text=word,
+                                     document=td.id)
+            tf = asr.new_annotation(AnnotationTypes.TimeFrame,
+                                    start=start, end=end)
+            asr.new_annotation(AnnotationTypes.Alignment,
+                               source=tf.id, target=tok.id)
+            tfs.append(tf)
+        return td.id, tfs
+
+    def segment(self, start, end, **props):
+        return self.segments.new_annotation(AnnotationTypes.TimeFrame,
+                                            start=start, end=end, **props)
+
+    def texts(self, start, end):
+        texts = {}
+        for token in self.mmif_obj.get_annotations_between_time(
+                start, end, at_types=[AnnotationTypes.Token]):
+            texts.setdefault(token.get_property('document'), []).append(
+                token.get_property('text'))
+        return {doc: ' '.join(words) for doc, words in texts.items()}
+
+    def test_tokens_on_range_boundaries_are_included(self):
+        self.assertEqual({self.td_id: 'alpha beta gamma'},
+                         self.texts(0, 900))
+
+    def test_adjacent_ranges_share_no_token(self):
+        self.assertEqual({self.td_id: 'alpha beta'}, self.texts(0, 600))
+        self.assertEqual({self.td_id: 'gamma'}, self.texts(600, 900))
+
+    def test_zero_length_token_belongs_to_the_range_it_starts(self):
+        self.assertEqual({self.td_id: 'delta epsilon'},
+                         self.texts(900, 1200))
+
+    def test_partial_overlap_is_included(self):
+        self.assertEqual({self.td_id: 'alpha beta'}, self.texts(100, 400))
+
+    def test_no_token_in_range(self):
+        self.assertEqual({}, self.texts(2000, 3000))
+
+    def test_transcripts_are_kept_per_document(self):
+        other_id, _ = self.add_asr(
+            'other-asr', [('uno', 0, 450), ('dos', 450, 900)])
+        self.assertEqual({self.td_id: 'alpha beta gamma',
+                          other_id: 'uno dos'},
+                         self.texts(0, 900))
+
+    def test_token_aligned_twice_is_returned_once(self):
+        # a second view (as a forced aligner makes) aligns "beta" again
+        aligner = self.mmif_obj.new_view()
+        aligner.metadata.app = 'http://apps.clams.ai/test-aligner/v1'
+        aligner.new_contain(AnnotationTypes.TimeFrame,
+                            timeUnit='milliseconds', document='d1')
+        tf = aligner.new_annotation(AnnotationTypes.TimeFrame,
+                                    start=320, end=580)
+        beta = self.asr_tfs[1].get_all_aligned()
+        token = next(a for a in beta if a.is_type(AnnotationTypes.Token))
+        aligner.new_annotation(AnnotationTypes.Alignment,
+                               source=tf.id, target=token.id)
+        self.assertEqual({self.td_id: 'alpha beta'}, self.texts(0, 600))
+
+    def test_integral_float_anchor_times_are_accepted(self):
+        self.segment(0.0, 600.0)
+        self.assertEqual({self.td_id: 'alpha beta'}, self.texts(0, 600))
+
+    def test_non_integer_anchor_time_raises(self):
+        self.segment(0.5, 600)
+        with self.assertRaises(ValueError):
+            self.texts(0, 600)
+
+    def test_non_millisecond_unit_on_an_anchor_raises(self):
+        self.segment(0, 1, timeUnit='seconds')
+        with self.assertRaises(ValueError):
+            self.texts(0, 600)
+
+    def test_non_millisecond_view_anywhere_raises(self):
+        legacy = self.mmif_obj.new_view()
+        legacy.metadata.app = 'http://apps.clams.ai/test-legacy/v1'
+        legacy.new_contain(AnnotationTypes.TimeFrame, timeUnit='frames',
+                           document='d1')
+        legacy.new_annotation(AnnotationTypes.TimeFrame, start=0, end=30)
+        with self.assertRaises(ValueError):
+            self.texts(0, 600)
+
+    def test_query_in_seconds_is_converted_with_warning(self):
+        with self.assertWarns(DeprecationWarning):
+            tokens = list(self.mmif_obj.get_annotations_between_time(
+                0, 0.6, time_unit='seconds',
+                at_types=[AnnotationTypes.Token]))
+        self.assertEqual(['alpha', 'beta'],
+                         [t.get_property('text') for t in tokens])
+
+    def test_query_in_frames_raises(self):
+        with self.assertRaises(ValueError):
+            list(self.mmif_obj.get_annotations_between_time(
+                0, 10, time_unit='frames'))
+
+    def test_slice_text_is_deprecated(self):
+        other_id, _ = self.add_asr(
+            'other-asr', [('uno', 0, 450), ('dos', 450, 900)])
+        with self.assertWarns(DeprecationWarning):
+            text = tdh.slice_text(self.mmif_obj, 0, 900)
+        # it joins every document
+        self.assertEqual('alpha uno beta dos gamma', text)
+
+
 class TestWorkflowHelper(unittest.TestCase):
 
     def setUp(self) -> None:
