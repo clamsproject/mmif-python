@@ -1,3 +1,4 @@
+from collections.abc import Iterator
 from datetime import datetime
 from typing import cast
 
@@ -21,6 +22,54 @@ UNIT_NORMALIZATION = {
     'iso': 'isoformat',
     'isoformat': 'isoformat',
 }
+
+
+def iter_windows(
+    start_ms: int,
+    end_ms: int | None,
+    window_ms: int,
+    stride_ms: int | None = None,
+) -> Iterator[tuple[int, int]]:
+    """
+    Iterates over time windows within a half-open interval.
+
+    The final window is clipped to ``end_ms``. A stride smaller than the
+    window creates overlapping windows; a larger stride leaves gaps. With
+    ``end_ms`` of ``None`` the windows do not end, for callers that find the
+    end of the interval while consuming them.
+
+    :param start_ms: inclusive start of the interval
+    :param end_ms: exclusive end of the interval, or ``None``
+    :param window_ms: window length in milliseconds; must be positive
+    :param stride_ms: distance between window starts; defaults to
+        ``window_ms`` and must be positive
+    :returns: integer-millisecond start/end pairs
+    :raises ValueError: if the interval is reversed or a size is not positive
+    """
+    if end_ms is not None and end_ms < start_ms:
+        raise ValueError("end_ms must be greater than or equal to start_ms")
+    if window_ms <= 0:
+        raise ValueError("window_ms must be positive")
+    if stride_ms is None:
+        stride_ms = window_ms
+    elif stride_ms <= 0:
+        raise ValueError("stride_ms must be positive")
+    return _iter_windows(start_ms, end_ms, window_ms, stride_ms)
+
+
+def _iter_windows(
+    start_ms: int,
+    end_ms: int | None,
+    window_ms: int,
+    stride_ms: int,
+) -> Iterator[tuple[int, int]]:
+    window_start_ms = start_ms
+    while end_ms is None or window_start_ms < end_ms:
+        window_end_ms = window_start_ms + window_ms
+        if end_ms is not None:
+            window_end_ms = min(window_end_ms, end_ms)
+        yield window_start_ms, window_end_ms
+        window_start_ms += stride_ms
 
 
 def _isoformat_to_millisecond(isoformat: str) -> int:
@@ -90,4 +139,3 @@ def convert(t: int | float | str, in_unit: str, out_unit: str, fps: float) -> in
         # f>i
         else:
             return _second_to_isoformat(t / fps)
-
