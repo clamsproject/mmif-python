@@ -17,12 +17,24 @@ from mmif import (
     DocumentTypes,
     Mmif
 )
+from mmif.utils import audio_document_helper as adh
+from mmif.utils import av_helper as avh
 from mmif.utils import sequence_helper as sqh
 from mmif.utils import text_document_helper as tdh
 from mmif.utils import timeunit_helper as tuh
 from mmif.utils import video_document_helper as vdh
 from mmif.utils import workflow_helper as wfh
-from tests import mmif_examples 
+from tests import mmif_examples
+
+FIXTURES_DIR = pathlib.Path(__file__).parent
+
+
+def media_document(path, at_type=DocumentTypes.VideoDocument, aid='d1'):
+    return Document({
+        "@type": at_type,
+        "properties": {"mime": str(at_type).rsplit('/', 2)[-2].lower(),
+                       "id": aid, "location": f"file://{path}"}
+    })
 
 
 class TestTimeunitHelper(unittest.TestCase):
@@ -45,6 +57,24 @@ class TestTimeunitHelper(unittest.TestCase):
                 converted_back = tuh.convert(converted, tu2, tu1, self.FPS)
                 out_t = tuh.convert(converted_back, tu1, 'm', self.FPS)
                 self.assertAlmostEqual(value, out_t, delta=1000/self.FPS)  # up to 1 frame error
+
+    def test_iter_time_windows(self):
+        # the last window is clipped to the end of the interval
+        self.assertEqual([(0, 100), (100, 200), (200, 250)],
+                         list(tuh.iter_time_windows(0, 250, 100)))
+        # a short stride overlaps, a long one leaves gaps
+        self.assertEqual([(0, 100), (50, 150), (100, 150)],
+                         list(tuh.iter_time_windows(0, 150, 100, 50)))
+        self.assertEqual([(0, 100), (300, 400)],
+                         list(tuh.iter_time_windows(0, 400, 100, 300)))
+        self.assertEqual([], list(tuh.iter_time_windows(5, 5, 100)))
+        unbounded = tuh.iter_time_windows(10, None, 100)
+        self.assertEqual([(10, 110), (110, 210)],
+                         [next(unbounded) for _ in range(2)])
+        # arguments are checked when called, not on the first `next()`
+        for args in ((10, 0, 100), (0, 100, 0), (0, 100, 100, 0)):
+            with self.subTest(args=args), pytest.raises(ValueError):
+                tuh.iter_time_windows(*args)
 
 
 @pytest.mark.filterwarnings('ignore::DeprecationWarning')
@@ -223,12 +253,14 @@ class TestVideoDocumentHelper(unittest.TestCase):
                     c.close()
 
     def test_open_container_rejects_non_video(self):
-        for bad_doc in (None, Document({
-                "@type": "http://mmif.clams.ai/vocabulary/TextDocument/v1",
-                "properties": {"mime": "text", "id": "t1"}})):
-            with self.subTest(doc=bad_doc):
-                with pytest.raises(ValueError):
-                    vdh.open_container(bad_doc)
+        with pytest.raises(FileNotFoundError):
+            vdh.open_container(None)
+        text_doc = media_document('/nonexistent.txt', DocumentTypes.TextDocument)
+        with pytest.raises(ValueError, match='must be one of'):
+            vdh.open_container(text_doc)
+        # get_framerate checks the document the same way
+        with pytest.raises(ValueError, match='must be one of'):
+            vdh.get_framerate(text_doc)
 
     def test_open_container_missing_file(self):
         # a missing file is not a broken file, and must stay distinguishable
@@ -655,13 +687,7 @@ class TestBrokenVideoDocument(unittest.TestCase):
         cls.tiny = cls._truncate(faststart, tmp / 'tiny.mp4', 200)
         cls.healthy = healthy_mp4
 
-    @staticmethod
-    def _doc(path, aid='d1'):
-        return Document({
-            "@type": DocumentTypes.VideoDocument,
-            "properties": {"mime": "video", "id": aid,
-                           "location": f"file://{path}"}
-        })
+    _doc = staticmethod(media_document)
 
     @staticmethod
     def _remux_faststart(src, dst):
@@ -780,7 +806,7 @@ class TestBrokenVideoDocument(unittest.TestCase):
                 # within the tolerance, the last frame itself is reused
                 self.assertEqual(images[1].tobytes(), images[2].tobytes())
                 self.assertEqual(1, len(messages))
-                self.assertIn(vdh._media_check_hint(str(path)), messages[0])
+                self.assertIn(avh._media_check_hint(str(path), 'video'), messages[0])
                 self.assertEqual(
                     expect_decode_error,
                     av.error.InvalidDataError.__name__ in messages[0])
@@ -796,7 +822,7 @@ class TestBrokenVideoDocument(unittest.TestCase):
         images, messages = self._extract(doc, [duration + 10000])
         self.assertEqual([None], images)
         self.assertEqual(1, len(messages))
-        self.assertNotIn(vdh._media_check_hint(str(path)), messages[0])
+        self.assertNotIn(avh._media_check_hint(str(path), 'video'), messages[0])
 
     def test_missing_before_and_past_duration_is_flagged(self):
         # the earliest missing timepoint decides, and both are listed
@@ -809,7 +835,7 @@ class TestBrokenVideoDocument(unittest.TestCase):
         images, messages = self._extract(doc, timepoints)
         self.assertEqual([None, None], images)
         self.assertEqual(1, len(messages))
-        self.assertIn(vdh._media_check_hint(str(path)), messages[0])
+        self.assertIn(avh._media_check_hint(str(path), 'video'), messages[0])
         self.assertIn(f'{timepoints[0]}ms, {timepoints[1]}ms', messages[0])
 
     def test_repeated_missing_timepoint_counts_positions(self):
@@ -858,7 +884,7 @@ class TestBrokenVideoDocument(unittest.TestCase):
             with self.subTest(case=label):
                 with pytest.raises(RuntimeError) as excinfo:
                     vdh.open_container(self._doc(path))
-                self.assertIn(vdh._media_check_hint(str(path)),
+                self.assertIn(avh._media_check_hint(str(path), 'video'),
                               str(excinfo.value))
         # get_framerate goes through open_container, so it reports the same way
         with pytest.raises(RuntimeError):
@@ -889,7 +915,7 @@ class TestBrokenVideoDocument(unittest.TestCase):
         with mock.patch.object(vdh, 'open_container', wrapped):
             with pytest.raises(RuntimeError) as excinfo:
                 vdh.extract_images_from_timepoints(doc, [1000])
-        self.assertIn(vdh._media_check_hint(str(path)), str(excinfo.value))
+        self.assertIn(avh._media_check_hint(str(path), 'video'), str(excinfo.value))
         self.assertIn('seek failed', str(excinfo.value))
 
     def test_empty_request_never_opens_the_file(self):
@@ -965,6 +991,247 @@ class TestBrokenVideoDocument(unittest.TestCase):
         self.assertEqual([tp_ids[0]], origins)
         self.assertEqual(1, len(images))
         self.assertIsNotNone(images[0])
+
+
+class TestAudioDocumentHelper(unittest.TestCase):
+    """
+    The fixtures hold a ramp (sample ``i`` has value ``i``), so a window's
+    first value tells where in the stream it was cut.
+    """
+
+    RATE = 8000
+    SAMPLES = RATE * 3 + 123  # three full seconds and a 123 ms tail
+    FULL = 1 / 32768  # int16 to float32 scale
+
+    @classmethod
+    def setUpClass(cls):
+        import numpy as np
+        cls.tmpdir = tempfile.TemporaryDirectory()
+        cls.addClassCleanup(cls.tmpdir.cleanup)
+        tmp = pathlib.Path(cls.tmpdir.name)
+        ramp = np.arange(cls.SAMPLES, dtype='int16')[None, :]
+        cls.mono = cls._write_pcm(tmp / 'mono.wav', [(ramp, 0)])
+        cls.stereo = cls._write_pcm(tmp / 'stereo.wav',
+                                    [(np.repeat(ramp, 2, axis=0), 0)])
+        # the audio track of a video, starting one second into the timeline
+        cls.offset = cls._write_pcm(tmp / 'offset.mkv', [(ramp, cls.RATE)],
+                                    video=FIXTURES_DIR / 'black-2997fps.mp4')
+        # one second missing between two packets
+        cls.gap = cls._write_pcm(
+            tmp / 'gap.mkv',
+            [(ramp[:, :cls.RATE], 0), (ramp[:, :cls.RATE], 2 * cls.RATE)])
+        # 250 ms missing between two 500 ms packets, shorter than one
+        # output frame of the resampler
+        half = cls.RATE // 2
+        cls.short_gap = cls._write_pcm(
+            tmp / 'short_gap.mkv',
+            [(ramp[:, :half], 0), (ramp[:, :half], half + cls.RATE // 4)])
+        cls.video_only = FIXTURES_DIR / 'black-2997fps.mp4'
+        # copies cut in half: Matroska ends cleanly at the cut, the mp4
+        # (index at the front) fails to decode the partial packet
+        packets = [(np.ascontiguousarray(ramp[:, i:i + cls.RATE // 4]), i)
+                   for i in range(0, cls.SAMPLES, cls.RATE // 4)]
+        cls.cut_mkv = cls._cut(cls._write_pcm(tmp / 'whole.mkv', packets),
+                               tmp / 'cut.mkv')
+        cls.cut_mp4 = cls._cut(cls._write_aac_mp4(tmp / 'whole.mp4'),
+                               tmp / 'cut.mp4')
+
+    @classmethod
+    def _write_pcm(cls, dst, frames, video=None):
+        """``frames`` are ``(int16 array of shape (channels, n), pts)`` pairs."""
+        import av
+        from fractions import Fraction
+        with av.open(str(dst), 'w') as out:
+            if video is not None:
+                src = av.open(str(video))
+                video_in = src.streams.video[0]
+                video_out = out.add_stream_from_template(video_in)
+            channels = frames[0][0].shape[0]
+            layout = 'mono' if channels == 1 else 'stereo'
+            audio_out = out.add_stream('pcm_s16le', rate=cls.RATE, layout=layout)
+            for samples, pts in frames:
+                frame = av.AudioFrame.from_ndarray(
+                    samples, format='s16' if channels == 1 else 's16p', layout=layout)
+                frame.sample_rate = cls.RATE
+                frame.pts = pts
+                frame.time_base = Fraction(1, cls.RATE)
+                out.mux(audio_out.encode(frame))
+            out.mux(audio_out.encode(None))
+            if video is not None:
+                for packet in src.demux(video_in):
+                    if packet.dts is not None:
+                        packet.stream = video_out
+                        out.mux(packet)
+                src.close()
+        return dst
+
+    @staticmethod
+    def _cut(src, dst):
+        data = pathlib.Path(src).read_bytes()
+        dst.write_bytes(data[:len(data) // 2])
+        return dst
+
+    @classmethod
+    def _write_aac_mp4(cls, dst, seconds=3):
+        import av
+        import numpy as np
+        from fractions import Fraction
+        with av.open(str(dst), 'w', options={'movflags': 'faststart'}) as out:
+            stream = out.add_stream('aac', rate=cls.RATE, layout='mono')
+            t = np.arange(cls.RATE * seconds) / cls.RATE
+            tone = (np.sin(2 * np.pi * 440 * t) * 0.3).astype('float32')
+            frame = av.AudioFrame.from_ndarray(tone[None, :], format='fltp',
+                                               layout='mono')
+            frame.sample_rate = cls.RATE
+            frame.pts = 0
+            frame.time_base = Fraction(1, cls.RATE)
+            out.mux(stream.encode(frame))
+            out.mux(stream.encode(None))
+        return dst
+
+    def _windows(self, path, at_type=DocumentTypes.AudioDocument, **kwargs):
+        kwargs.setdefault('sample_rate', self.RATE)
+        return list(adh.iter_audio_windows(media_document(path, at_type), **kwargs))
+
+    def _first_sample(self, samples):
+        return round(float(samples[0]) / self.FULL)
+
+    def test_windows_cover_the_stream(self):
+        windows = self._windows(self.mono, window_ms=1000)
+        self.assertEqual([(0, 1000), (1000, 2000), (2000, 3000), (3000, 3015)],
+                         [(s, e) for _, s, e in windows])
+        self.assertTrue(all(isinstance(t, int) for _, s, e in windows for t in (s, e)))
+        self.assertEqual([self.RATE] * 3 + [123], [len(w) for w, _, _ in windows])
+        for samples, start_ms, _ in windows:
+            self.assertEqual(start_ms * self.RATE // 1000, self._first_sample(samples))
+            self.assertEqual('float32', samples.dtype.name)
+            self.assertEqual(1, samples.ndim)
+
+    def test_stride_and_last_window(self):
+        # overlapping windows, then one tail from the next window start
+        windows = self._windows(self.mono, window_ms=1000, stride_ms=500)
+        self.assertEqual([(0, 1000), (500, 1500), (1000, 2000), (1500, 2500),
+                          (2000, 3000), (2500, 3015)],
+                         [(s, e) for _, s, e in windows])
+        self.assertEqual(4123, len(windows[-1][0]))
+        # a tail shorter than the minimum is dropped
+        windows = self._windows(self.mono, window_ms=1000, stride_ms=500,
+                                min_last_window_ms=600)
+        self.assertEqual((2000, 3000), windows[-1][1:])
+        # a stride longer than the window skips samples between windows
+        windows = self._windows(self.mono, window_ms=1000, stride_ms=2000)
+        self.assertEqual([(0, 1000), (2000, 3000)], [(s, e) for _, s, e in windows])
+        self.assertEqual(2 * self.RATE, self._first_sample(windows[1][0]))
+
+    def test_resampling_and_downmix(self):
+        windows = self._windows(self.stereo, window_ms=1000, sample_rate=16000)
+        self.assertEqual(4, len(windows))
+        self.assertEqual([16000] * 3, [len(w) for w, _, _ in windows[:3]])
+        # both channels carry the ramp, so the mono mix is the ramp at twice
+        # the sample count; the mean of each full window places it
+        for samples, start_ms, _ in windows[:3]:
+            expected = (start_ms + 500) * self.RATE / 1000 * self.FULL
+            self.assertAlmostEqual(expected, float(samples.mean()), delta=self.FULL * 10)
+
+    def test_stream_start_offset(self):
+        windows = self._windows(self.offset, DocumentTypes.VideoDocument, window_ms=1000)
+        self.assertEqual([(1000, 2000), (2000, 3000), (3000, 4000), (4000, 4015)],
+                         [(s, e) for _, s, e in windows])
+        self.assertEqual(0, self._first_sample(windows[0][0]))
+
+    def test_gap_is_filled_with_silence(self):
+        windows = self._windows(self.gap, window_ms=1000)
+        self.assertEqual([(0, 1000), (1000, 2000), (2000, 3000)],
+                         [(s, e) for _, s, e in windows])
+        self.assertFalse(windows[1][0].any())
+        self.assertEqual([0, 1], [round(float(v) / self.FULL) for v in windows[2][0][:2]])
+
+    def test_short_gap_while_resampling(self):
+        # 8 kHz to 16 kHz: the gap falls inside one output frame of the
+        # resampler, and must still be placed at 500-750 ms
+        [(samples, start_ms, end_ms)] = self._windows(
+            self.short_gap, window_ms=2000, sample_rate=16000)
+        self.assertEqual((0, 1250), (start_ms, end_ms))
+        self.assertEqual(20000, len(samples))
+
+        def at(ms):
+            return float(samples[ms * 16]) / self.FULL
+
+        # away from the edges, where the resampling filter rings
+        self.assertAlmostEqual(400 * 8, at(400), delta=2)
+        self.assertLess(max(abs(at(ms)) for ms in range(550, 700, 10)), 1)
+        self.assertAlmostEqual(50 * 8, at(800), delta=2)
+
+    def test_rejects_bad_arguments_before_decoding(self):
+        doc = media_document(self.mono, DocumentTypes.AudioDocument)
+        for kwargs in (dict(window_ms=0), dict(window_ms=100, stride_ms=0),
+                       dict(window_ms=100, sample_rate=0),
+                       dict(window_ms=100, min_last_window_ms=101)):
+            with self.subTest(kwargs=kwargs), pytest.raises(ValueError):
+                adh.iter_audio_windows(doc, **kwargs)
+        with pytest.raises(FileNotFoundError):
+            adh.iter_audio_windows(None, window_ms=100)
+        with pytest.raises(ValueError, match='must be one of'):
+            adh.iter_audio_windows(
+                media_document('/nonexistent.txt', DocumentTypes.TextDocument), window_ms=100)
+        with pytest.raises(FileNotFoundError):
+            self._windows('/nonexistent.wav', window_ms=100)
+
+    def test_truncated_file_warns_with_hint(self):
+        # a WAV file cut short states its shorter length, so only a format
+        # that keeps the full duration in its header can be checked
+        with pytest.warns(UserWarning, match='before the end') as w:
+            windows = self._windows(self.cut_mkv, window_ms=1000)
+        # the windows stop where the decodable audio stops
+        self.assertLess(windows[-1][2], 2000)
+        self.assertIn(avh._media_check_hint(str(self.cut_mkv), 'audio'),
+                      str(w[0].message))
+
+    def test_truncated_mp4_raises_with_hint(self):
+        with pytest.raises(RuntimeError) as excinfo:
+            self._windows(self.cut_mp4, window_ms=1000)
+        self.assertIn(avh._media_check_hint(str(self.cut_mp4), 'audio'),
+                      str(excinfo.value))
+
+    def test_whole_files_do_not_warn_of_truncation(self):
+        cases = [(self.mono, DocumentTypes.AudioDocument),
+                 (self.stereo, DocumentTypes.AudioDocument),
+                 (self.gap, DocumentTypes.AudioDocument),
+                 # an audio track inside a longer video
+                 (self.offset, DocumentTypes.VideoDocument)]
+        for path, at_type in cases:
+            with self.subTest(fixture=path.name):
+                with warnings.catch_warnings(record=True) as caught:
+                    warnings.simplefilter('always')
+                    self._windows(path, at_type, window_ms=1000)
+                self.assertEqual([], [str(w.message) for w in caught
+                                      if 'before the end' in str(w.message)])
+
+    def test_missing_audio_stream_raises_with_hint(self):
+        with pytest.raises(RuntimeError) as excinfo:
+            self._windows(self.video_only, DocumentTypes.VideoDocument, window_ms=1000)
+        self.assertIn(avh._media_check_hint(str(self.video_only), 'audio'), str(excinfo.value))
+        self.assertIn('-map 0:a:0', str(excinfo.value))
+
+    def test_decode_error_raises_with_hint(self):
+        import av
+
+        class _DecodeFails:
+            def __init__(self, container):
+                self._container = container
+
+            def __getattr__(self, name):
+                return getattr(self._container, name)
+
+            def decode(self, *args, **kwargs):
+                raise av.error.InvalidDataError(1094995529, 'decode failed')
+
+        real_open = av.open
+        with mock.patch.object(av, 'open', lambda path: _DecodeFails(real_open(path))):
+            with pytest.raises(RuntimeError) as excinfo:
+                self._windows(self.mono, window_ms=1000)
+        self.assertIn('decode failed', str(excinfo.value))
+        self.assertIn(avh._media_check_hint(str(self.mono), 'audio'), str(excinfo.value))
 
 
 class TestSequenceHelper(unittest.TestCase):
