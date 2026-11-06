@@ -1033,8 +1033,11 @@ class TestAudioDocumentHelper(unittest.TestCase):
                    for i in range(0, cls.SAMPLES, cls.RATE // 4)]
         cls.cut_mkv = cls._cut(cls._write_pcm(tmp / 'whole.mkv', packets),
                                tmp / 'cut.mkv')
-        cls.cut_mp4 = cls._cut(cls._write_aac_mp4(tmp / 'whole.mp4'),
+        cls.cut_mp4 = cls._cut(cls._write_aac(tmp / 'whole.mp4'),
                                tmp / 'cut.mp4')
+        # at 48 kHz an AAC frame lasts 21.33 ms, which Matroska stores in
+        # whole ms (at 8 kHz it would be exactly 128 ms)
+        cls.aac_mkv = cls._write_aac(tmp / 'tone.mkv', rate=48000)
 
     @classmethod
     def _write_pcm(cls, dst, frames, video=None):
@@ -1072,19 +1075,22 @@ class TestAudioDocumentHelper(unittest.TestCase):
         return dst
 
     @classmethod
-    def _write_aac_mp4(cls, dst, seconds=3):
+    def _write_aac(cls, dst, seconds=3, rate=None):
         import av
         import numpy as np
         from fractions import Fraction
-        with av.open(str(dst), 'w', options={'movflags': 'faststart'}) as out:
-            stream = out.add_stream('aac', rate=cls.RATE, layout='mono')
-            t = np.arange(cls.RATE * seconds) / cls.RATE
+        rate = rate or cls.RATE
+        # the mp4 index goes to the front, so a cut copy still opens
+        options = {'movflags': 'faststart'} if dst.suffix == '.mp4' else {}
+        with av.open(str(dst), 'w', options=options) as out:
+            stream = out.add_stream('aac', rate=rate, layout='mono')
+            t = np.arange(rate * seconds) / rate
             tone = (np.sin(2 * np.pi * 440 * t) * 0.3).astype('float32')
             frame = av.AudioFrame.from_ndarray(tone[None, :], format='fltp',
                                                layout='mono')
-            frame.sample_rate = cls.RATE
+            frame.sample_rate = rate
             frame.pts = 0
-            frame.time_base = Fraction(1, cls.RATE)
+            frame.time_base = Fraction(1, rate)
             out.mux(stream.encode(frame))
             out.mux(stream.encode(None))
         return dst
@@ -1139,28 +1145,31 @@ class TestAudioDocumentHelper(unittest.TestCase):
                          [(s, e) for _, s, e in windows])
         self.assertEqual(0, self._first_sample(windows[0][0]))
 
-    def test_gap_is_filled_with_silence(self):
+    def test_samples_are_counted_across_a_gap(self):
+        # 1 s missing between two packets: as with FFmpeg, the second packet
+        # follows the first directly
         windows = self._windows(self.gap, window_ms=1000)
-        self.assertEqual([(0, 1000), (1000, 2000), (2000, 3000)],
-                         [(s, e) for _, s, e in windows])
-        self.assertFalse(windows[1][0].any())
-        self.assertEqual([0, 1], [round(float(v) / self.FULL) for v in windows[2][0][:2]])
+        self.assertEqual([(0, 1000), (1000, 2000)], [(s, e) for _, s, e in windows])
+        self.assertEqual([0, 1], [round(float(v) / self.FULL) for v in windows[1][0][:2]])
 
     def test_short_gap_while_resampling(self):
-        # 8 kHz to 16 kHz: the gap falls inside one output frame of the
-        # resampler, and must still be placed at 500-750 ms
+        # 8 kHz to 16 kHz with 250 ms missing: nothing is filled
         [(samples, start_ms, end_ms)] = self._windows(
             self.short_gap, window_ms=2000, sample_rate=16000)
-        self.assertEqual((0, 1250), (start_ms, end_ms))
-        self.assertEqual(20000, len(samples))
+        self.assertEqual((0, 1000), (start_ms, end_ms))
+        self.assertEqual(16000, len(samples))
 
-        def at(ms):
-            return float(samples[ms * 16]) / self.FULL
-
-        # away from the edges, where the resampling filter rings
-        self.assertAlmostEqual(400 * 8, at(400), delta=2)
-        self.assertLess(max(abs(at(ms)) for ms in range(550, 700, 10)), 1)
-        self.assertAlmostEqual(50 * 8, at(800), delta=2)
+    def test_millisecond_time_base_keeps_audio(self):
+        # timestamps rounded to whole ms do not change the samples: the
+        # tone has no runs of inserted zeros
+        import numpy as np
+        windows = self._windows(self.aac_mkv, window_ms=1000, sample_rate=16000)
+        samples = np.concatenate([w for w, _, _ in windows])
+        # skip the encoder's start-up and closing samples, which are quiet
+        body = samples[2000:-2000]
+        zero = np.flatnonzero(body == 0)
+        longest = max((len(r) for r in np.split(zero, np.flatnonzero(np.diff(zero) != 1) + 1) if len(r)), default=0)
+        self.assertLess(longest, 3)
 
     def test_rejects_bad_arguments_before_decoding(self):
         doc = media_document(self.mono, DocumentTypes.AudioDocument)
@@ -1196,7 +1205,6 @@ class TestAudioDocumentHelper(unittest.TestCase):
     def test_whole_files_do_not_warn_of_truncation(self):
         cases = [(self.mono, DocumentTypes.AudioDocument),
                  (self.stereo, DocumentTypes.AudioDocument),
-                 (self.gap, DocumentTypes.AudioDocument),
                  # an audio track inside a longer video
                  (self.offset, DocumentTypes.VideoDocument)]
         for path, at_type in cases:
