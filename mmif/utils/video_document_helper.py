@@ -1,22 +1,26 @@
 import contextvars
 import importlib
 import math
-import shlex
 import sys
 import warnings
-from collections.abc import Iterable, Iterator
-from collections.abc import Sequence
-from typing import cast
-from contextlib import contextmanager
+from collections.abc import Iterable, Iterator, Sequence
 from enum import Enum
 from io import StringIO
+from typing import cast
 
 import mmif
 from mmif import Annotation, Document, Mmif, View
+from mmif.utils.av_helper import (
+    _check_av_dep,
+    _check_document,
+    _ffmpeg_op,
+    _media_check_hint,
+    _open_container_and_stream,
+)
 from mmif.utils.timeunit_helper import convert
 from mmif.vocabulary import AnnotationTypes, DocumentTypes
 
-_CV_DEPS = ('av', 'cv2', 'PIL', 'wurlitzer')
+_CV_DEPS = ('cv2', 'PIL', 'wurlitzer')
 _cv_import_warning = (
     'Optional package "{}" is not found. '
     'You might want to install Computer-Vision dependencies '
@@ -28,24 +32,6 @@ _PTS_BUG_NOTICE = (
     'so the returned frame can be misaligned by however many frames that '
     'offset spans (see issue #379).'
 )
-
-_MEDIA_CHECK_HINT = (
-    'The file may be truncated or corrupted; container metadata does not '
-    'reveal this, so to verify the file run '
-    '`ffmpeg -v error -i {path} -map 0:v:0 -f null -` and treat any stderr '
-    'output as a problem (ffmpeg exits with 0 either way).'
-)
-
-
-def _media_check_hint(path: str) -> str:
-    """
-    Formats the "verify this file" hint for a resolved document path.
-
-    :param path: resolved local path of the video document
-    :returns: hint text, with the path quoted for shell use
-    :rtype: str
-    """
-    return _MEDIA_CHECK_HINT.format(path=shlex.quote(path))
 
 
 def _stream_rate(stream):
@@ -63,35 +49,6 @@ def _stream_rate(stream):
     :returns: frame rate, or a falsy value when the stream reports none
     """
     return stream.guessed_rate or stream.average_rate or stream.base_rate
-
-
-@contextmanager
-def _ffmpeg_op(action: str, video_document: Document, path: str):
-    """
-    Turns a failed FFmpeg operation into an actionable ``RuntimeError``.
-
-    Any :py:class:`av.error.FFmpegError` (and the ``IndexError`` of a file
-    that opens but holds no video stream) is re-raised as a ``RuntimeError``
-    naming the document, the media check hint, and the original message. The
-    original message is repeated in the new one on purpose, because
-    downstream error reporting (e.g. ``clams-python``'s error view) records
-    only the outermost exception, so a chained cause would be dropped.
-
-    :param action: what was attempted, as a verb phrase (e.g. ``'open'``)
-    :param video_document: :py:class:`~mmif.serialize.annotation.Document`
-        holding the video document being read
-    :param path: resolved local path of the video document
-    :raises RuntimeError: if the wrapped operation fails
-    """
-    av = _check_cv_dep('av')
-    try:
-        yield
-    except (av.error.FFmpegError, IndexError) as e:
-        raise RuntimeError(
-            f'Cannot {action} video {video_document.id} ({path}). '
-            f'{_media_check_hint(path)} '
-            f'(original error: {type(e).__name__}: {e})'
-        ) from e
 
 
 def _check_cv_dep(dep):
@@ -158,22 +115,9 @@ def open_container(video_document: Document):
         for instance an mp4 whose ``moov`` atom is cut off, or a prefix too
         short to hold a video stream
     """
-    av = _check_cv_dep('av')
-    if video_document is None or video_document.at_type != DocumentTypes.VideoDocument:
-        raise ValueError(f'The document does not exist.')
-
-    path = cast(str, video_document.location_path(nonexist_ok=False))
-    container = None
-    with _ffmpeg_op('open', video_document, path):
-        try:
-            container = av.open(path)
-            stream = container.streams.video[0]
-        except BaseException:
-            # a file can open and still hold no video stream, in which case
-            # the container must not be left dangling
-            if container is not None:
-                container.close()
-            raise
+    av = _check_av_dep()
+    container, stream, _ = _open_container_and_stream(
+        video_document, 'video', (DocumentTypes.VideoDocument,))
     time_base = float(stream.time_base)
     rate = _stream_rate(stream)
     fps = round(float(rate), 2) if rate else 0.0
@@ -217,8 +161,7 @@ def get_framerate(video_document: Document) -> float:
     :param video_document: :py:class:`~mmif.serialize.annotation.Document` instance that holds a video document (``"@type": ".../VideoDocument/..."``)
     :return: frames per second as a float, rounded to 2 decimal places
     """
-    if video_document is None or video_document.at_type != DocumentTypes.VideoDocument:
-        raise ValueError(f'The document does not exist.')
+    _check_document(video_document, (DocumentTypes.VideoDocument,))
 
     framerate_keys = (FPS_DOCPROP_KEY,
                       'framerate', 'frameRate', 'frame_rate', 'frame-rate',
@@ -248,7 +191,7 @@ def _decode_frames(container, stream, decode_errors: list[str]):
     :param decode_errors: list that collects decoding error texts
     :returns: generator of :py:class:`av.video.frame.VideoFrame`
     """
-    av = _check_cv_dep('av')
+    av = _check_av_dep()
     try:
         for frame in container.decode(stream):
             yield frame
@@ -299,7 +242,7 @@ def _warn_missing_images(
     # a zero duration means the container reports none at all, so the
     # out-of-range test cannot be applied and the file stays suspect
     if decode_errors or not duration_ms or missing_ms[0] < duration_ms:
-        msg += f' {_media_check_hint(path)}'
+        msg += f' {_media_check_hint(path, "video")}'
         if decode_errors:
             msg += f' (first decoding error: {decode_errors[0]})'
     # helper -> public extraction function -> the caller to be pointed at
@@ -366,7 +309,7 @@ def extract_images_from_timepoints(
                         for t_ms in unique_sorted_ms]
 
         # seek to the nearest keyframe at or before the earliest target
-        with _ffmpeg_op('seek in', video_document, path):
+        with _ffmpeg_op('seek in', video_document, path, media_type='video'):
             container.seek(target_ticks[0], backward=True, any_frame=False,
                            stream=stream)
 
@@ -875,8 +818,7 @@ def capture(video_document: Document):
                   f'{_PTS_BUG_NOTICE}',
                   DeprecationWarning, stacklevel=2)
     cv2 = _check_cv_dep('cv2')
-    if video_document is None or video_document.at_type != DocumentTypes.VideoDocument:
-        raise ValueError(f'The document does not exist.')
+    _check_document(video_document, (DocumentTypes.VideoDocument,))
 
     v = cv2.VideoCapture(video_document.location_path(nonexist_ok=False))
     fps = round(v.get(cv2.CAP_PROP_FPS), 2)
