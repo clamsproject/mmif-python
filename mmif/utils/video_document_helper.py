@@ -3,20 +3,18 @@ import importlib
 import math
 import sys
 import warnings
-from collections.abc import Iterable, Iterator
-from collections.abc import Sequence
-from contextlib import AbstractContextManager
-from typing import cast
+from collections.abc import Iterable, Iterator, Sequence
 from enum import Enum
 from io import StringIO
+from typing import cast
 
 import mmif
 from mmif import Annotation, Document, Mmif, View
 from mmif.utils.av_helper import (
     _check_av_dep,
     _check_document,
-    _ffmpeg_op as _shared_ffmpeg_op,
-    _media_check_hint as _shared_media_check_hint,
+    _ffmpeg_op,
+    _media_check_hint,
     _open_container_and_stream,
 )
 from mmif.utils.timeunit_helper import convert
@@ -35,16 +33,6 @@ _PTS_BUG_NOTICE = (
     'offset spans (see issue #379).'
 )
 
-def _media_check_hint(path: str) -> str:
-    """
-    Formats the "verify this file" hint for a resolved document path.
-
-    :param path: resolved local path of the video document
-    :returns: hint text, with the path quoted for shell use
-    :rtype: str
-    """
-    return _shared_media_check_hint(path, 'video')
-
 
 def _stream_rate(stream):
     """
@@ -61,30 +49,6 @@ def _stream_rate(stream):
     :returns: frame rate, or a falsy value when the stream reports none
     """
     return stream.guessed_rate or stream.average_rate or stream.base_rate
-
-
-def _ffmpeg_op(
-    action: str,
-    video_document: Document,
-    path: str,
-) -> AbstractContextManager[None]:
-    """
-    Turns a failed FFmpeg operation into an actionable ``RuntimeError``.
-
-    Any :py:class:`av.error.FFmpegError` (and the ``IndexError`` of a file
-    that opens but holds no video stream) is re-raised as a ``RuntimeError``
-    naming the document, the media check hint, and the original message. The
-    original message is repeated in the new one on purpose, because
-    downstream error reporting (e.g. ``clams-python``'s error view) records
-    only the outermost exception, so a chained cause would be dropped.
-
-    :param action: what was attempted, as a verb phrase (e.g. ``'open'``)
-    :param video_document: :py:class:`~mmif.serialize.annotation.Document`
-        holding the video document being read
-    :param path: resolved local path of the video document
-    :raises RuntimeError: if the wrapped operation fails
-    """
-    return _shared_ffmpeg_op(action, video_document, path, 'video')
 
 
 def _check_cv_dep(dep):
@@ -278,7 +242,7 @@ def _warn_missing_images(
     # a zero duration means the container reports none at all, so the
     # out-of-range test cannot be applied and the file stays suspect
     if decode_errors or not duration_ms or missing_ms[0] < duration_ms:
-        msg += f' {_media_check_hint(path)}'
+        msg += f' {_media_check_hint(path, "video")}'
         if decode_errors:
             msg += f' (first decoding error: {decode_errors[0]})'
     # helper -> public extraction function -> the caller to be pointed at
@@ -345,7 +309,7 @@ def extract_images_from_timepoints(
                         for t_ms in unique_sorted_ms]
 
         # seek to the nearest keyframe at or before the earliest target
-        with _ffmpeg_op('seek in', video_document, path):
+        with _ffmpeg_op('seek in', video_document, path, media_type='video'):
             container.seek(target_ticks[0], backward=True, any_frame=False,
                            stream=stream)
 

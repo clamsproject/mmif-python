@@ -24,7 +24,7 @@ UNIT_NORMALIZATION = {
 }
 
 
-def iter_windows(
+def iter_time_windows(
     start_ms: int,
     end_ms: int | None,
     window_ms: int,
@@ -54,10 +54,10 @@ def iter_windows(
         stride_ms = window_ms
     elif stride_ms <= 0:
         raise ValueError("stride_ms must be positive")
-    return _iter_windows(start_ms, end_ms, window_ms, stride_ms)
+    return _iter_time_windows(start_ms, end_ms, window_ms, stride_ms)
 
 
-def _iter_windows(
+def _iter_time_windows(
     start_ms: int,
     end_ms: int | None,
     window_ms: int,

@@ -1,3 +1,4 @@
+import warnings
 from collections.abc import Iterator
 from typing import TYPE_CHECKING
 
@@ -6,15 +7,19 @@ from mmif.utils.av_helper import (
     _check_av_dep,
     _check_document,
     _ffmpeg_op,
+    _media_check_hint,
     _open_container_and_stream,
 )
-from mmif.utils.timeunit_helper import iter_windows
+from mmif.utils.timeunit_helper import iter_time_windows
 from mmif.vocabulary import DocumentTypes
 
 if TYPE_CHECKING:
     import numpy
 
 AUDIO_DOCUMENT_TYPES = (DocumentTypes.AudioDocument, DocumentTypes.VideoDocument)
+# encoder padding can leave the decoded audio a few tens of ms short of the
+# stated duration; anything shorter than this is not reported as truncation
+TRUNCATION_TOLERANCE_MS = 100
 
 
 def iter_audio_windows(
@@ -29,7 +34,7 @@ def iter_audio_windows(
 
     Samples are resampled to mono ``float32`` at ``sample_rate`` and decoded
     incrementally, so memory use is bounded by one window plus its overlap.
-    The windows are those of :func:`~mmif.utils.timeunit_helper.iter_windows`
+    The windows are those of :func:`~mmif.utils.timeunit_helper.iter_time_windows`
     from the start of the audio stream, which can be later than zero. After
     the last full window, one window runs from the next window start to the
     end of the stream, unless it is shorter than ``min_last_window_ms``.
@@ -45,6 +50,8 @@ def iter_audio_windows(
     :raises FileNotFoundError: if there is no document or no file
     :raises RuntimeError: if the file cannot be opened, has no audio stream,
         or fails to decode
+    :warns UserWarning: if the decoded audio ends more than
+        ``TRUNCATION_TOLERANCE_MS`` before the duration the file states
     """
     if window_ms <= 0:
         raise ValueError('window_ms must be positive')
@@ -132,6 +139,17 @@ def _iter_audio_windows(document, window_ms, stride_ms, sample_rate, min_last_wi
         if resampler is not None:
             yield from resampler.resample(None)
 
+    # contiguous resampled frames wait here, so that numpy runs once per
+    # second of audio and not once per (often 1024-sample) frame
+    fifo = av.AudioFifo()
+
+    def flush():
+        if fifo.samples:
+            append(fifo.read().to_ndarray().mean(axis=0, dtype=numpy.float32))
+            yield from emit()
+
+    stated_end_s = _stated_end_s(av, container, stream, stream_start_s)
+
     try:
         with _ffmpeg_op('decode', document, path, 'audio'):
             for frame in resampled_frames():
@@ -141,22 +159,59 @@ def _iter_audio_windows(document, window_ms, stride_ms, sample_rate, min_last_wi
                 if origin_ms is None:
                     origin_s = frame_s if frame_s is not None else stream_start_s
                     origin_ms = round(origin_s * 1000)
-                    windows = iter_windows(origin_ms, None, window_ms, stride_ms)
-                samples = frame.to_ndarray().mean(axis=0, dtype=numpy.float32)
+                    windows = iter_time_windows(origin_ms, None, window_ms, stride_ms)
                 if frame_s is not None:
                     # a timestamp jump is a gap (filled with silence) or an
                     # overlap (dropped) on the sample timeline
                     frame_start = round((frame_s - origin_s) * sample_rate)
-                    gap = frame_start - decoded_end
+                    gap = frame_start - decoded_end - fifo.samples
+                    if gap:
+                        yield from flush()
                     while gap > 0:
                         append(numpy.zeros(min(gap, window_samples), numpy.float32))
                         yield from emit()
                         gap = frame_start - decoded_end
                     if gap < 0:
-                        samples = samples[-gap:]
-                append(samples)
-                yield from emit()
+                        samples = frame.to_ndarray().mean(axis=0, dtype=numpy.float32)
+                        append(samples[-gap:])
+                        yield from emit()
+                        continue
+                # the fifo checks pts against its own count from zero
+                frame.pts = None
+                fifo.write(frame)
+                if fifo.samples >= sample_rate:
+                    yield from flush()
+            yield from flush()
             if origin_ms is not None:
                 yield from emit(final=True)
     finally:
         container.close()
+    # a cut that ends on a packet boundary decodes cleanly, so only the
+    # duration the file states shows that audio is missing
+    decoded_end_ms = to_ms(decoded_end) if origin_ms is not None else round(stream_start_s * 1000)
+    if stated_end_s is not None:
+        stated_end_ms = round(stated_end_s * 1000)
+        if stated_end_ms - decoded_end_ms > TRUNCATION_TOLERANCE_MS:
+            warnings.warn(
+                f'The audio of {document.id} ends at {decoded_end_ms} ms, '
+                f'{stated_end_ms - decoded_end_ms} ms before the end its file '
+                f'states ({stated_end_ms} ms); the windows stop there. '
+                f'{_media_check_hint(path, "audio")}',
+                stacklevel=2)
+
+
+def _stated_end_s(av, container, stream, stream_start_s):
+    """
+    The end of the audio stream according to the file's metadata, in
+    seconds, or ``None`` when the file does not state it. A container's own
+    duration counts only when it holds no other stream, since it covers the
+    longest stream (a video's audio can end before its picture). A WAV file
+    cut short states its shorter length, since FFmpeg takes it from the file
+    size, so its truncation cannot be seen here.
+    """
+    if stream.duration is not None and stream.time_base is not None:
+        return stream_start_s + float(stream.duration * stream.time_base)
+    if container.duration and len(container.streams) == 1:
+        start_s = (container.start_time or 0) / av.time_base
+        return start_s + container.duration / av.time_base
+    return None
