@@ -1,4 +1,28 @@
 
+## releasing 1.8.0 (2026-11-06)
+### Overview
+
+This release adds text and audio document helpers `utils` package. 
+
+### Additions
+
+* `audio_document_helper` (https://github.com/clamsproject/mmif-python/issues/416)
+    * `mmif.utils.audio_document_helper.iter_audio_windows()`: decodes an `AudioDocument`, or the audio track of a `VideoDocument`, into fixed-length windows of mono `float32` samples with millisecond start and end times. 
+    * `mmif.utils.timeunit_helper.iter_time_windows()`: windows over a time interval in integer milliseconds, with a stride for overlapping windows or gaps 
+    * `mmif-python[av]` extra: PyAV and NumPy only, for apps that read audio without needing OpenCV or Pillow. `mmif-python[cv]` now builds on top of `av` extras
+    * PyAV operations are shared with `video_document_helper` through the new `mmif.utils.av_helper` (with this, `open_container()`, `get_framerate()` and `capture()` now raise `FileNotFoundError` instead of `ValueError` when no document is given)
+
+### Changes
+
+* `Mmif.get_annotations_between_time()` (https://github.com/clamsproject/mmif-python/issues/417, also partially addresses https://github.com/clamsproject/mmif-python/issues/330)
+    * fixed a bug where views that contain only `TimePoint`s raised a `TypeError`
+    * an annotation now counts when it overlaps the range at all; annotations that only touch the range at one end are not included, and an annotation aligned to more than one time anchor is returned once
+    * every `TimeFrame` and `TimePoint` in the MMIF must now be in integer milliseconds, otherwise a `ValueError` is raised. *Note: this also applies to MMIF files produced by years-older apps that wrote seconds or frames.*
+    * the `time_unit` argument is deprecated and will be removed in 2.0.0. Give `start` and `end` in milliseconds
+* `text_document_helper.slice_text()` is deprecated, to be removed in 2.0.0. Use `Mmif.get_annotations_between_time(start, end, at_types=[AnnotationTypes.Token])` instead (https://github.com/clamsproject/mmif-python/issues/417)
+
+
+
 ## releasing 1.7.0 (2026-11-01)
 ### Overview
 
