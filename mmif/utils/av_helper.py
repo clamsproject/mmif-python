@@ -40,13 +40,12 @@ def _ffmpeg_op(
     media_type: str,
 ) -> Iterator[None]:
     """
-    Turns failed PyAV operations into actionable ``RuntimeError`` exceptions.
+    Turns a PyAV error in the block (or an ``IndexError`` for a missing
+    stream) into a ``RuntimeError`` that names the document and the file and
+    gives the FFmpeg check command.
 
-    :param action: operation attempted, as a verb phrase
-    :param document: MMIF document being read
-    :param path: resolved local path of the media document
-    :param media_type: stream type being read, ``"audio"`` or ``"video"``
-    :raises RuntimeError: if the operation fails
+    :param action: verb for the message, such as ``'decode'``
+    :param media_type: ``"audio"`` or ``"video"``
     """
     av = _check_av_dep()
     try:
@@ -61,8 +60,11 @@ def _ffmpeg_op(
 
 def _check_document(document: Document, document_types: tuple[object, ...]) -> None:
     """
+    Checks that there is a document and that it has one of
+    ``document_types``.
+
     :raises FileNotFoundError: if there is no document
-    :raises ValueError: if the document has an unsupported type
+    :raises ValueError: if the document has another type
     """
     if document is None:
         raise FileNotFoundError('The document does not exist.')
@@ -77,12 +79,12 @@ def _open_container_and_stream(
     document_types: tuple[object, ...],
 ) -> tuple[Any, Any, str]:
     """
-    Opens a media container and selects its first stream of the requested type.
+    Opens the media file of a document. The caller must close the container.
 
-    :param document: MMIF document holding the media file
-    :param media_type: stream type to select, ``"audio"`` or ``"video"``
-    :param document_types: accepted MMIF document types
-    :returns: open PyAV container, selected stream, and resolved local path
+    :param media_type: ``"audio"`` or ``"video"``; the first stream of this
+        type is returned
+    :param document_types: document types to accept
+    :returns: PyAV container, stream, and local path of the file
     :raises FileNotFoundError: if there is no document or no file
     :raises ValueError: if the document has an unsupported type
     :raises RuntimeError: if the container or requested stream cannot be read

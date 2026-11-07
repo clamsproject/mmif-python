@@ -30,28 +30,31 @@ def iter_audio_windows(
     min_last_window_ms: int = 0,
 ) -> Iterator[tuple["numpy.ndarray", int, int]]:
     """
-    Decodes an audio document, or the audio track of a video, into windows.
+    Reads the audio of an audio or video document as windows of samples.
 
-    Samples are resampled to mono ``float32`` at ``sample_rate`` and decoded
-    incrementally, so memory use is bounded by one window plus its overlap.
-    The windows are those of :func:`~mmif.utils.timeunit_helper.iter_time_windows`
-    from the start of the audio stream, which can be later than zero. After
-    the last full window, one window runs from the next window start to the
-    end of the stream, unless it is shorter than ``min_last_window_ms``.
+    The audio is mixed down to mono and resampled to ``sample_rate``. The
+    file is decoded while the windows are read, so a long file is never held
+    in memory. Times are in ms on the media timeline: the first window
+    starts where the audio stream starts, which in a video can be later than
+    0. The last window ends at the end of the audio and can be shorter than
+    ``window_ms``.
 
     :param document: audio or video document with an audio stream
-    :param window_ms: window length in milliseconds
-    :param stride_ms: distance between window starts; defaults to ``window_ms``
+    :param window_ms: window length in ms
+    :param stride_ms: distance between window starts in ms; defaults to
+        ``window_ms``, which gives back-to-back windows
     :param sample_rate: output sample rate in Hz
-    :param min_last_window_ms: shortest final window to keep
-    :returns: ``(samples, start_ms, end_ms)`` triples
+    :param min_last_window_ms: a last window shorter than this is left out
+    :returns: ``(samples, start_ms, end_ms)`` per window, with ``samples`` a
+        1-D ``float32`` array
     :raises ValueError: if a size is not positive, ``min_last_window_ms`` is
         outside ``[0, window_ms]``, or the document has an unsupported type
     :raises FileNotFoundError: if there is no document or no file
     :raises RuntimeError: if the file cannot be opened, has no audio stream,
         or fails to decode
-    :warns UserWarning: if the decoded audio ends more than
-        ``TRUNCATION_TOLERANCE_MS`` before the duration the file states
+    :warns UserWarning: if the audio ends more than
+        ``TRUNCATION_TOLERANCE_MS`` before the length the file states, which
+        usually means the file is truncated
     """
     if window_ms <= 0:
         raise ValueError('window_ms must be positive')
@@ -87,7 +90,6 @@ def _iter_audio_windows(document, window_ms, stride_ms, sample_rate, min_last_wi
     chunks = []  # decoded samples from `buffer_start` on, in arrival order
     buffer_start = 0
     decoded_end = 0
-    window_samples = round(window_ms * sample_rate / 1000)
     min_last_samples = max(1, round(min_last_window_ms * sample_rate / 1000))
 
     def to_sample(ms):
@@ -160,22 +162,6 @@ def _iter_audio_windows(document, window_ms, stride_ms, sample_rate, min_last_wi
                     origin_s = frame_s if frame_s is not None else stream_start_s
                     origin_ms = round(origin_s * 1000)
                     windows = iter_time_windows(origin_ms, None, window_ms, stride_ms)
-                if frame_s is not None:
-                    # a timestamp jump is a gap (filled with silence) or an
-                    # overlap (dropped) on the sample timeline
-                    frame_start = round((frame_s - origin_s) * sample_rate)
-                    gap = frame_start - decoded_end - fifo.samples
-                    if gap:
-                        yield from flush()
-                    while gap > 0:
-                        append(numpy.zeros(min(gap, window_samples), numpy.float32))
-                        yield from emit()
-                        gap = frame_start - decoded_end
-                    if gap < 0:
-                        samples = frame.to_ndarray().mean(axis=0, dtype=numpy.float32)
-                        append(samples[-gap:])
-                        yield from emit()
-                        continue
                 # the fifo checks pts against its own count from zero
                 frame.pts = None
                 fifo.write(frame)
@@ -202,12 +188,10 @@ def _iter_audio_windows(document, window_ms, stride_ms, sample_rate, min_last_wi
 
 def _stated_end_s(av, container, stream, stream_start_s):
     """
-    The end of the audio stream according to the file's metadata, in
-    seconds, or ``None`` when the file does not state it. A container's own
-    duration counts only when it holds no other stream, since it covers the
-    longest stream (a video's audio can end before its picture). A WAV file
-    cut short states its shorter length, since FFmpeg takes it from the file
-    size, so its truncation cannot be seen here.
+    End of the audio stream in seconds as the file metadata states it, or
+    ``None``. The container duration is used only when the file has no other
+    stream, because it is the length of the longest stream. A truncated WAV
+    file states its truncated length, so it is not detected.
     """
     if stream.duration is not None and stream.time_base is not None:
         return stream_start_s + float(stream.duration * stream.time_base)
