@@ -1,4 +1,13 @@
 
+## releasing 1.8.1 (2026-11-07)
+### Overview
+This patch removes unnecessary (and buggy) code in ADH that should just fall back to ffmpeg behavior.
+
+### Changes
+* more stable handing of mkv-contained audio streams by ADH 
+
+
+
 ## releasing 1.8.0 (2026-11-06)
 ### Overview
 
